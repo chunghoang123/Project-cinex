@@ -1,0 +1,900 @@
+                                       
+
+                                       
+                                       
+                     TÀI LIỆU ĐẶC TẢ NGHIỆP VỤ
+                  Website đặt vé xem phim  --  Rạp Cinex
+            DỰ ÁN : Website đặt vé xem phim  --  Rạp Cinex
+                                       
+                                       
+   Người thực hiện : Hoàng Văn Chung, Đỗ Minh Tuyến, Vũ Nguyễn Hoàng Dương
+   Ngày ban hành   : 27/10/2026
+   Mã tài liệu           : SRS-CINEX-001
+   Phiên bản            : 1.0 (DRAFT)
+
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+
+Trạng thái tài liệu
+DRAFT  --  CHỜ REVIEW
+Người viết
+Hoàng Văn Chung, Đỗ Minh Tuyến, Vũ Nguyễn Hoàng Dương
+Người review
+
+Người phê duyệt
+
+QA
+
+Phiên bản
+1.1
+Ngày phát hành
+27/10/2026
+
+KIỂM SOÁT TÀI LIỆU
+	Thông tin kiểm soát
+
+                                     Ngày
+                                Người lập
+                              Người kiểm tra
+                                 / Kết quả
+                             Người phê duyệt
+                                 / Kết quả
+27/10/2026
+Hoàng Văn Chung, Đỗ Minh Tuyến, Vũ Nguyễn Hoàng Dương
+Bản 1.1: hoàn thiện yêu cầu, use case và bổ sung 13 sơ đồ luồng.
+
+
+Thông tin lịch sử
+                                     Ngày
+                            Người thực hiện
+                                 Phiên bản
+                                  Nội dung
+27/10/2026
+Hoàng Văn Chung, Đỗ Minh Tuyến, Vũ Nguyễn Hoàng Dương
+1.1
+Cập nhật theo tài liệu dự án; bổ sung yêu cầu phi chức năng, tiêu chí nghiệm thu và sơ đồ UC-01 đến UC-13.
+
+Tài liệu liên quan, tham khảo
+                                     Ngày
+                               Tên tài liệu
+                                    Nguồn
+
+(Để trống  --  cập nhật khi có tài liệu tham khảo)
+
+
+
+
+
+
+
+--------------------------------------------------------------------------------
+MỤC LỤC
+                                        
+--------------------------------------------------------------------------------
+MỤC LỤC	4
+--------------------------------------------------------------------------------
+PHẦN 1: GIỚI THIỆU	5
+--------------------------------------------------------------------------------
+ 1.1 MỤC ĐÍCH TÀI LIỆU	5
+--------------------------------------------------------------------------------
+ 1.2 PHẠM VI TÀI LIỆU	5
+--------------------------------------------------------------------------------
+ 1.3	TỔNG QUAN ỨNG DỤNG	5
+--------------------------------------------------------------------------------
+ 1.4 THUẬT NGỮ VIẾT TẮT	5
+--------------------------------------------------------------------------------
+PHẦN 2: YÊU CẦU TỔNG THỂ	6
+--------------------------------------------------------------------------------
+ 2.1 SƠ ĐỒ QUAN HỆ ĐỐI TƯỢNG	6
+--------------------------------------------------------------------------------
+ 2.2 SƠ ĐỒ USE CASE	6
+--------------------------------------------------------------------------------
+ 2.3 SƠ ĐỒ LUỒNG	6
+--------------------------------------------------------------------------------
+ 2.4. SƠ ĐỒ CHUYỂN TRẠNG THÁI	6
+--------------------------------------------------------------------------------
+ 2.5. PHÂN QUYỀN	6
+--------------------------------------------------------------------------------
+  2.5.1. PHÂN QUYỀN CHỨC NĂNG	6
+--------------------------------------------------------------------------------
+  2.5.2. PHÂN QUYỀN DỮ LIỆU	6
+--------------------------------------------------------------------------------
+ 2.6. SITE MAP	6
+--------------------------------------------------------------------------------
+PHẦN 3: CHỨC NĂNG	7
+--------------------------------------------------------------------------------
+ 3.1. <TÊN CHỨC NĂNG>	7
+--------------------------------------------------------------------------------
+  3.1.1. ĐẶC TẢ USE CASE	7
+--------------------------------------------------------------------------------
+  3.1.2. SƠ ĐỒ LUỒNG CHI TIẾT	8
+--------------------------------------------------------------------------------
+  3.1.3. GIAO DIỆN	8
+--------------------------------------------------------------------------------
+  3.1.4. MÔ TẢ CHI TIẾT	8
+--------------------------------------------------------------------------------
+PHẦN 4: CÁC COMPONENT, THÔNG BÁO, CẢNH BÁO	9
+--------------------------------------------------------------------------------
+PHẦN 5: LINK ISSUE	10
+
+
+PHẦN 1: GIỚI THIỆU
+
+1.1 Mục đích tài liệu
+Tài liệu xác định yêu cầu cho website đặt vé Cinex, làm cơ sở thiết kế, phát triển và nghiệm thu. Repository hiện có tài liệu và cấu hình nhưng chưa có mã nguồn nghiệp vụ frontend/backend; SRS mô tả mục tiêu, không xác nhận chức năng đã hoàn thành.
+  
+  
+Hệ thống hướng tới một hoặc nhiều chi nhánh. Baseline đề xuất: tra cứu phim/lịch chiếu, tài khoản, chọn ghế, booking, giữ ghế 10 phút, thanh toán mô phỏng và QR. POS, soát vé, báo cáo, chatbot là phần mở rộng theo giai đoạn.
+1.2 Phạm vi hệ thống
+
+CUSTOMER tra cứu và đặt vé của mình; STAFF bán vé, tra cứu và soát vé trong phạm vi rạp được cấp; ADMIN quản lý toàn hệ thống. Backend phải kiểm tra quyền.
+
+0.3 Tổng quan ứng dụng
+Hệ thống kết nối đa kênh giữa khách hàng mua online và khách hàng mua tại quầy POS, sử dụng chung một cơ sở dữ liệu ghế tập trung nhằm chống nghẽn và xung đột giữ chỗ (race condition).
+
+
+
+1.3 Thuật ngữ viết tắt
+Khách hàng (User) <--> Đơn đặt vé (Booking) <--> Suất chiếu (Showtime) <--> Ghế (Seat). Nhân viên (User) <--> Rạp (Cinema) được phân công. Admin (User) <--> toàn bộ dữ liệu hệ thống.
+                                      STT
+                               Từ viết tắt
+                                 Diễn giải
+1
+OTA
+Online Travel Agency
+2
+PMS
+Property Management System
+3
+ID
+Mã định danh
+4
+UUID
+Universally Unique Identifier
+5
+POS
+Point of Sale  --  bán vé tại quầy
+6
+JWT
+JSON Web Token
+7
+MVP
+Minimum Viable Product
+8
+API
+Application Programming Interface
+9
+CRUD
+Create, Read, Update, Delete
+10
+QR
+Quick Response  --  mã vé điện tử
+11
+STT
+Số thứ tự
+12
+UC
+Use Case  --  trường hợp sử dụng
+
+Ưu tiên đề xuất: P1 UC-01 - UC-06; P2 UC-07 - UC-12; P3 UC-13. Nhóm cần xác nhận ưu tiên trước khi chốt phát hành.
+PHẦN 2: YÊU CẦU TỔNG THỂ
+Chọn phim --> suất --> ghế --> xác nhận --> giữ ghế 10 phút --> thanh toán mô phỏng. Thành công xác nhận đơn và phát hành QR; thất bại/hết hạn hủy đơn và trả ghế. Thanh toán thật, đổi/hủy và hoàn tiền chưa được xác định.
+2.1 Sơ đồ quan hệ đối tượng
+
+2.2 Sơ đồ Use Case
+
+2.3 Sơ đồ luồng
+Nhân viên chỉ thao tác được trong phạm vi rạp được phân công. Admin có quyền trên toàn bộ dữ liệu. Khách hàng chỉ xem/thao tác dữ liệu của chính mình.
+
+2.4. Sơ đồ chuyển trạng thái
+
+2.5 Phân quyền
+2.5.1 Phân quyền Chức năng
+Chức năng
+CUSTOMER
+STAFF (POS)
+ADMIN
+Xem danh sách phim, suất chiếu
+✅
+✅
+✅
+Đặt vé & Thanh toán Online
+✅
+❌
+❌
+Xem lịch sử đặt vé cá nhân
+✅
+❌
+✅ (Xem tất cả)
+Bán vé tại quầy (POS)
+❌
+✅
+✅
+Tra cứu đơn hàng
+❌
+✅ (Rạp được phân công)
+✅ (Toàn hệ thống)
+Quét QR Soát vé
+❌
+✅
+✅
+Quản lý danh mục Phim / Rạp / Phòng / Suất
+❌
+❌
+✅
+Quản lý Tài khoản & Phân quyền
+❌
+❌
+✅
+Báo cáo doanh thu
+❌
+✅ (Rạp hiện tại)
+✅ (Toàn bộ chi nhánh)
+Chatbot AI hỗ trợ
+✅
+✅
+✅
+2.5.2 Phân quyền Dữ liệu
+CUSTOMER: Chỉ truy vấn và thao tác trên dữ liệu tài khoản và các đơn hàng do chính mình tạo.
+STAFF: Chỉ được truy vấn và thao tác trong phạm vi Rạp chiếu phim (cinema_id) mà nhân viên đó được phân công làm việc.
+ADMIN: Quyền truy cập toàn cục trên toàn bộ Cơ sở dữ liệu.
+
+2.6. Site Map
+
+
+PHẦN 3: CHỨC NĂNG
+3.1 Mở trang phim (UC-01)
+3.1.1 Đặc tả Use Case
+Use Case ID
+UC-01
+Tên chức năng
+Mở trang phim
+Phân hệ
+Phim
+Tác nhân (Actor(s))
+CUSTOMER, STAFF, ADMIN
+Mô tả
+Tra cứu và xem chi tiết phim.
+Sự ưu tiên (Priority)
+P1
+Trigger
+Mở trang Phim
+Điều kiện cần (Pre-Condition)
+Không
+Điều kiện sau (Post-Condition(s))
+Danh sách/chi tiết phim
+Luồng cơ bản (Basic Flow)
+Hiển thị phim công khai; tìm/lọc; mở chi tiết.
+Luồng thay thế (Alternative Flow)
+Không kết quả: trạng thái rỗng.
+Luồng ngoại lệ (Exception Flow)
+Lỗi tải: cho phép thử lại.
+Ràng buộc (Business Rules)
+Chỉ phim công khai; thông tin gồm tên/mô tả/thời lượng/ảnh và độ tuổi nếu có.
+Yêu cầu phi chức năng (NFR)
+NFR-01, NFR-03, NFR-06
+
+3.1.2 Sơ đồ luồng chi tiết
+3.1.3 Giao diện
+                                       
+                     Hình 3.1  --  Sơ đồ luồng UC-01
+Thiết kế giao diện chi tiết chưa có trong repository; giao diện cần đáp ứng các bước và thông tin của Use Case.
+3.1.4 Mô tả chi tiết
+Các trường bắt buộc và quy tắc kiểm tra được nêu trong bảng Use Case; UI/API chi tiết cần chốt khi thiết kế.
+3.2 Chọn phim (UC-02)
+3.2.1 Đặc tả Use Case
+Use Case ID
+UC-02
+Tên chức năng
+Chọn phim
+Phân hệ
+Lịch chiếu
+Tác nhân (Actor(s))
+CUSTOMER, STAFF, ADMIN
+Mô tả
+Tìm suất theo phim, rạp, ngày.
+Sự ưu tiên (Priority)
+P1
+Trigger
+Chọn phim/rạp/ngày
+Điều kiện cần (Pre-Condition)
+Dữ liệu phim/rạp hợp lệ
+Điều kiện sau (Post-Condition(s))
+Suất phù hợp hiển thị
+Luồng cơ bản (Basic Flow)
+Trả suất ACTIVE, giờ và giá; người dùng chọn suất.
+Luồng thay thế (Alternative Flow)
+Thiếu tiêu chí/không kết quả: hướng dẫn.
+Luồng ngoại lệ (Exception Flow)
+Suất sai/đã hủy bị từ chối.
+Ràng buộc (Business Rules)
+Không đặt suất đã bắt đầu; giá lấy từ hệ thống.
+Yêu cầu phi chức năng (NFR)
+NFR-01, NFR-03, NFR-06
+
+3.2.2 Sơ đồ luồng chi tiết
+Sơ đồ luồng nghiệp vụ của Use Case được trình bày ngay dưới đây; luồng lỗi được nêu trong bảng đặc tả.
+                                       
+                     Hình 3.2  --  Sơ đồ luồng UC-02
+3.2.3 Giao diện
+Thiết kế giao diện chi tiết chưa có trong repository; giao diện cần đáp ứng các bước và thông tin của Use Case.
+3.2.4 Mô tả chi tiết
+Các trường bắt buộc và quy tắc kiểm tra được nêu trong bảng Use Case; UI/API chi tiết cần chốt khi thiết kế.
+3.3 Mở sơ đồ ghế (UC-03)
+3.3.1 Đặc tả Use Case
+Use Case ID
+UC-03
+Tên chức năng
+Mở sơ đồ ghế
+Phân hệ
+Sơ đồ ghế
+Tác nhân (Actor(s))
+CUSTOMER, STAFF
+Mô tả
+Xem và chọn ghế trống.
+Sự ưu tiên (Priority)
+P1
+Trigger
+Chọn suất
+Điều kiện cần (Pre-Condition)
+Suất ACTIVE
+Điều kiện sau (Post-Condition(s))
+Ghế được chọn
+Luồng cơ bản (Basic Flow)
+Tải sơ đồ; chọn AVAILABLE; hiển thị tổng tạm tính.
+Luồng thay thế (Alternative Flow)
+Ghế vừa bị giữ: tải lại trạng thái.
+Luồng ngoại lệ (Exception Flow)
+Lỗi sơ đồ: báo và cho thử lại.
+Ràng buộc (Business Rules)
+Backend kiểm tra lại; phân biệt AVAILABLE/HELD/BOOKED.
+Yêu cầu phi chức năng (NFR)
+NFR-01, NFR-03, NFR-06
+
+3.3.2 Sơ đồ luồng chi tiết
+Sơ đồ luồng nghiệp vụ của Use Case được trình bày ngay dưới đây; luồng lỗi được nêu trong bảng đặc tả.
+                                       
+                     Hình 3.3  --  Sơ đồ luồng UC-03
+3.3.3 Giao diện
+Thiết kế giao diện chi tiết chưa có trong repository; giao diện cần đáp ứng các bước và thông tin của Use Case.
+3.3.4 Mô tả chi tiết
+Các trường bắt buộc và quy tắc kiểm tra được nêu trong bảng Use Case; UI/API chi tiết cần chốt khi thiết kế.
+3.4 Xác nhận ghế (UC-04)
+3.4.1 Đặc tả Use Case
+Use Case ID
+UC-04
+Tên chức năng
+Xác nhận ghế
+Phân hệ
+Booking, Payment
+Tác nhân (Actor(s))
+CUSTOMER
+Mô tả
+Tạo đơn và thanh toán mô phỏng.
+Sự ưu tiên (Priority)
+P1
+Trigger
+Khách xác nhận
+Điều kiện cần (Pre-Condition)
+Đăng nhập; ghế trống
+Điều kiện sau (Post-Condition(s))
+CONFIRMED hoặc FAILED/EXPIRED
+Luồng cơ bản (Basic Flow)
+Kiểm tra ghế; tạo PENDING; giữ 10 phút; mock SUCCESS xác nhận, FAILED trả ghế.
+Luồng thay thế (Alternative Flow)
+Cho thử lại trong thời hạn nếu hỗ trợ.
+Luồng ngoại lệ (Exception Flow)
+Xung đột từ chối; hết hạn thành EXPIRED.
+Ràng buộc (Business Rules)
+Không bán trùng; MVP không gọi cổng thật; backend xác nhận.
+Yêu cầu phi chức năng (NFR)
+NFR-01, NFR-03, NFR-06
+
+3.4.2 Sơ đồ luồng chi tiết
+Sơ đồ luồng nghiệp vụ của Use Case được trình bày ngay dưới đây; luồng lỗi được nêu trong bảng đặc tả.
+                                       
+                     Hình 3.4  --  Sơ đồ luồng UC-04
+3.4.3 Giao diện
+Thiết kế giao diện chi tiết chưa có trong repository; giao diện cần đáp ứng các bước và thông tin của Use Case.
+3.4.4 Mô tả chi tiết
+Các trường bắt buộc và quy tắc kiểm tra được nêu trong bảng Use Case; UI/API chi tiết cần chốt khi thiết kế.
+3.5 Mở chi tiết đơn (UC-05)
+3.5.1 Đặc tả Use Case
+Use Case ID
+UC-05
+Tên chức năng
+Mở chi tiết đơn
+Phân hệ
+Ticket
+Tác nhân (Actor(s))
+CUSTOMER
+Mô tả
+Xem vé sau xác nhận.
+Sự ưu tiên (Priority)
+P1
+Trigger
+Mở chi tiết đơn
+Điều kiện cần (Pre-Condition)
+Đơn CONFIRMED thuộc khách
+Điều kiện sau (Post-Condition(s))
+Vé và QR hiển thị
+Luồng cơ bản (Basic Flow)
+Kiểm tra chủ sở hữu; hiển thị mã/QR/phim/rạp/phòng/giờ/ghế.
+Luồng thay thế (Alternative Flow)
+Vé đang tạo: trạng thái chờ.
+Luồng ngoại lệ (Exception Flow)
+Không có quyền: từ chối.
+Ràng buộc (Business Rules)
+Chỉ đơn xác nhận tạo vé dùng được.
+Yêu cầu phi chức năng (NFR)
+NFR-01, NFR-03, NFR-06
+
+3.5.2 Sơ đồ luồng chi tiết
+Sơ đồ luồng nghiệp vụ của Use Case được trình bày ngay dưới đây; luồng lỗi được nêu trong bảng đặc tả.
+                                       
+                     Hình 3.5  --  Sơ đồ luồng UC-05
+3.5.3 Giao diện
+Thiết kế giao diện chi tiết chưa có trong repository; giao diện cần đáp ứng các bước và thông tin của Use Case.
+3.5.4 Mô tả chi tiết
+Các trường bắt buộc và quy tắc kiểm tra được nêu trong bảng Use Case; UI/API chi tiết cần chốt khi thiết kế.
+3.6 Mở lịch sử (UC-06)
+3.6.1 Đặc tả Use Case
+Use Case ID
+UC-06
+Tên chức năng
+Mở lịch sử
+Phân hệ
+Booking
+Tác nhân (Actor(s))
+CUSTOMER, ADMIN
+Mô tả
+Xem lịch sử theo quyền.
+Sự ưu tiên (Priority)
+P1
+Trigger
+Mở lịch sử
+Điều kiện cần (Pre-Condition)
+Đăng nhập
+Điều kiện sau (Post-Condition(s))
+Danh sách/chi tiết
+Luồng cơ bản (Basic Flow)
+Lọc theo quyền; hiển thị mã/ngày/suất/tiền/trạng thái.
+Luồng thay thế (Alternative Flow)
+Không đơn: trạng thái rỗng.
+Luồng ngoại lệ (Exception Flow)
+Truy cập trái quyền: từ chối.
+Ràng buộc (Business Rules)
+Khách chỉ xem đơn mình.
+Yêu cầu phi chức năng (NFR)
+NFR-01, NFR-03, NFR-06
+
+3.6.2 Sơ đồ luồng chi tiết
+Sơ đồ luồng nghiệp vụ của Use Case được trình bày ngay dưới đây; luồng lỗi được nêu trong bảng đặc tả.
+                                       
+                     Hình 3.6  --  Sơ đồ luồng UC-06
+3.6.3 Giao diện
+Thiết kế giao diện chi tiết chưa có trong repository; giao diện cần đáp ứng các bước và thông tin của Use Case.
+3.6.4 Mô tả chi tiết
+Các trường bắt buộc và quy tắc kiểm tra được nêu trong bảng Use Case; UI/API chi tiết cần chốt khi thiết kế.
+3.7 STAFF chọn suất (UC-07)
+3.7.1 Đặc tả Use Case
+Use Case ID
+UC-07
+Tên chức năng
+STAFF chọn suất
+Phân hệ
+POS, Booking
+Tác nhân (Actor(s))
+STAFF, ADMIN
+Mô tả
+Bán vé dùng chung tồn ghế online.
+Sự ưu tiên (Priority)
+P2
+Trigger
+Bắt đầu tại quầy
+Điều kiện cần (Pre-Condition)
+STAFF thuộc rạp; suất hợp lệ
+Điều kiện sau (Post-Condition(s))
+Đơn và vé được ghi
+Luồng cơ bản (Basic Flow)
+Chọn suất/ghế; kiểm trạng thái; ghi phương thức; phát hành vé.
+Luồng thay thế (Alternative Flow)
+Đổi ghế trước xác nhận.
+Luồng ngoại lệ (Exception Flow)
+Ghế xung đột: từ chối và tải lại.
+Ràng buộc (Business Rules)
+Ghi nhân viên/rạp/giờ/phương thức; dùng chung ghế.
+Yêu cầu phi chức năng (NFR)
+NFR-01, NFR-03, NFR-06
+
+3.7.2 Sơ đồ luồng chi tiết
+Sơ đồ luồng nghiệp vụ của Use Case được trình bày ngay dưới đây; luồng lỗi được nêu trong bảng đặc tả.
+                                       
+                     Hình 3.7  --  Sơ đồ luồng UC-07
+3.7.3 Giao diện
+Thiết kế giao diện chi tiết chưa có trong repository; giao diện cần đáp ứng các bước và thông tin của Use Case.
+3.7.4 Mô tả chi tiết
+Các trường bắt buộc và quy tắc kiểm tra được nêu trong bảng Use Case; UI/API chi tiết cần chốt khi thiết kế.
+3.8 Nhập mã đơn/vé (UC-08)
+3.8.1 Đặc tả Use Case
+Use Case ID
+UC-08
+Tên chức năng
+Nhập mã đơn/vé
+Phân hệ
+Booking
+Tác nhân (Actor(s))
+STAFF, ADMIN
+Mô tả
+Tra cứu đơn hỗ trợ khách.
+Sự ưu tiên (Priority)
+P2
+Trigger
+Nhập mã
+Điều kiện cần (Pre-Condition)
+Đăng nhập, đúng rạp
+Điều kiện sau (Post-Condition(s))
+Thông tin được phép
+Luồng cơ bản (Basic Flow)
+Kiểm tra quyền/rạp rồi trả thông tin tối thiểu.
+Luồng thay thế (Alternative Flow)
+Không kết quả: kiểm tra mã.
+Luồng ngoại lệ (Exception Flow)
+Ngoài phạm vi: từ chối, không lộ dữ liệu.
+Ràng buộc (Business Rules)
+Giới hạn dữ liệu cá nhân.
+Yêu cầu phi chức năng (NFR)
+NFR-01, NFR-03, NFR-06
+
+3.8.2 Sơ đồ luồng chi tiết
+Sơ đồ luồng nghiệp vụ của Use Case được trình bày ngay dưới đây; luồng lỗi được nêu trong bảng đặc tả.
+                                       
+                     Hình 3.8  --  Sơ đồ luồng UC-08
+3.8.3 Giao diện
+Thiết kế giao diện chi tiết chưa có trong repository; giao diện cần đáp ứng các bước và thông tin của Use Case.
+3.8.4 Mô tả chi tiết
+Các trường bắt buộc và quy tắc kiểm tra được nêu trong bảng Use Case; UI/API chi tiết cần chốt khi thiết kế.
+3.9 Quét QR (UC-09)
+3.9.1 Đặc tả Use Case
+Use Case ID
+UC-09
+Tên chức năng
+Quét QR
+Phân hệ
+Ticket
+Tác nhân (Actor(s))
+STAFF, ADMIN
+Mô tả
+Xác minh và đánh dấu vé đã dùng.
+Sự ưu tiên (Priority)
+P2
+Trigger
+Quét QR
+Điều kiện cần (Pre-Condition)
+STAFF đăng nhập; vé hợp lệ
+Điều kiện sau (Post-Condition(s))
+Vé SCANNED
+Luồng cơ bản (Basic Flow)
+Kiểm mã/trạng thái/suất/giờ rồi đánh dấu.
+Luồng thay thế (Alternative Flow)
+QR lỗi: nhập mã nếu hỗ trợ.
+Luồng ngoại lệ (Exception Flow)
+Sai/đã dùng/đã hủy: từ chối.
+Ràng buộc (Business Rules)
+Cập nhật nguyên tử để chống quét đồng thời.
+Yêu cầu phi chức năng (NFR)
+NFR-01, NFR-03, NFR-06
+
+3.9.2 Sơ đồ luồng chi tiết
+Sơ đồ luồng nghiệp vụ của Use Case được trình bày ngay dưới đây; luồng lỗi được nêu trong bảng đặc tả.
+                                       
+                     Hình 3.9  --  Sơ đồ luồng UC-09
+3.9.3 Giao diện
+Thiết kế giao diện chi tiết chưa có trong repository; giao diện cần đáp ứng các bước và thông tin của Use Case.
+3.9.4 Mô tả chi tiết
+Các trường bắt buộc và quy tắc kiểm tra được nêu trong bảng Use Case; UI/API chi tiết cần chốt khi thiết kế.
+3.10 ADMIN chọn dữ liệu (UC-10)
+3.10.1 Đặc tả Use Case
+Use Case ID
+UC-10
+Tên chức năng
+ADMIN chọn dữ liệu
+Phân hệ
+Administration
+Tác nhân (Actor(s))
+ADMIN
+Mô tả
+Quản lý phim/rạp/phòng/ghế/suất/giá.
+Sự ưu tiên (Priority)
+P2
+Trigger
+Mở quản trị
+Điều kiện cần (Pre-Condition)
+Đăng nhập ADMIN
+Điều kiện sau (Post-Condition(s))
+Dữ liệu được lưu
+Luồng cơ bản (Basic Flow)
+Tạo/sửa/ngừng; kiểm trường bắt buộc và liên kết; lưu.
+Luồng thay thế (Alternative Flow)
+Hủy: không lưu.
+Luồng ngoại lệ (Exception Flow)
+Dữ liệu sai/trùng: từ chối và nêu lỗi.
+Ràng buộc (Business Rules)
+Không xóa mất lịch sử; chỉ ADMIN được ghi.
+Yêu cầu phi chức năng (NFR)
+NFR-01, NFR-03, NFR-06
+
+3.10.2 Sơ đồ luồng chi tiết
+Sơ đồ luồng nghiệp vụ của Use Case được trình bày ngay dưới đây; luồng lỗi được nêu trong bảng đặc tả.
+                                       
+                    Hình 3.10  --  Sơ đồ luồng UC-10
+3.10.3 Giao diện
+Thiết kế giao diện chi tiết chưa có trong repository; giao diện cần đáp ứng các bước và thông tin của Use Case.
+3.10.4 Mô tả chi tiết
+Các trường bắt buộc và quy tắc kiểm tra được nêu trong bảng Use Case; UI/API chi tiết cần chốt khi thiết kế.
+3.11 Tìm tài khoản (UC-11)
+3.11.1 Đặc tả Use Case
+Use Case ID
+UC-11
+Tên chức năng
+Tìm tài khoản
+Phân hệ
+Identity
+Tác nhân (Actor(s))
+ADMIN
+Mô tả
+Quản lý tài khoản và vai trò.
+Sự ưu tiên (Priority)
+P2
+Trigger
+Mở quản lý tài khoản
+Điều kiện cần (Pre-Condition)
+Đăng nhập ADMIN
+Điều kiện sau (Post-Condition(s))
+Tài khoản cập nhật
+Luồng cơ bản (Basic Flow)
+Tìm/tạo/sửa/vô hiệu hóa/gán role; kiểm và lưu.
+Luồng thay thế (Alternative Flow)
+Hủy: không thay đổi.
+Luồng ngoại lệ (Exception Flow)
+Không cấp quyền trái thẩm quyền.
+Ràng buộc (Business Rules)
+Không lưu mật khẩu dạng rõ; quyền tối thiểu.
+Yêu cầu phi chức năng (NFR)
+NFR-01, NFR-03, NFR-06
+
+3.11.2 Sơ đồ luồng chi tiết
+Sơ đồ luồng nghiệp vụ của Use Case được trình bày ngay dưới đây; luồng lỗi được nêu trong bảng đặc tả.
+                                       
+                    Hình 3.11  --  Sơ đồ luồng UC-11
+3.11.3 Giao diện
+Thiết kế giao diện chi tiết chưa có trong repository; giao diện cần đáp ứng các bước và thông tin của Use Case.
+3.11.4 Mô tả chi tiết
+Các trường bắt buộc và quy tắc kiểm tra được nêu trong bảng Use Case; UI/API chi tiết cần chốt khi thiết kế.
+3.12 Chọn thời gian (UC-12)
+3.12.1 Đặc tả Use Case
+Use Case ID
+UC-12
+Tên chức năng
+Chọn thời gian
+Phân hệ
+Reporting
+Tác nhân (Actor(s))
+ADMIN; STAFF theo quyền
+Mô tả
+Tổng hợp vé/đơn/doanh thu.
+Sự ưu tiên (Priority)
+P2
+Trigger
+Chọn kỳ
+Điều kiện cần (Pre-Condition)
+Đăng nhập, đúng phạm vi
+Điều kiện sau (Post-Condition(s))
+Báo cáo hiển thị
+Luồng cơ bản (Basic Flow)
+Chọn kỳ/phạm vi; kiểm tra; tổng hợp và hiển thị.
+Luồng thay thế (Alternative Flow)
+Không dữ liệu: hiển thị rỗng/0.
+Luồng ngoại lệ (Exception Flow)
+Khoảng ngày sai: yêu cầu nhập lại.
+Ràng buộc (Business Rules)
+Chỉ tính giao dịch xác nhận; quy tắc hoàn tiền cần chốt.
+Yêu cầu phi chức năng (NFR)
+NFR-01, NFR-03, NFR-06
+
+3.12.2 Sơ đồ luồng chi tiết
+Sơ đồ luồng nghiệp vụ của Use Case được trình bày ngay dưới đây; luồng lỗi được nêu trong bảng đặc tả.
+                                       
+                    Hình 3.12  --  Sơ đồ luồng UC-12
+3.12.3 Giao diện
+Thiết kế giao diện chi tiết chưa có trong repository; giao diện cần đáp ứng các bước và thông tin của Use Case.
+3.12.4 Mô tả chi tiết
+Các trường bắt buộc và quy tắc kiểm tra được nêu trong bảng Use Case; UI/API chi tiết cần chốt khi thiết kế.
+3.13 Nhận câu hỏi (UC-13)
+3.13.1 Đặc tả Use Case
+Use Case ID
+UC-13
+Tên chức năng
+Nhận câu hỏi
+Phân hệ
+Chatbot
+Tác nhân (Actor(s))
+CUSTOMER
+Mô tả
+Hỗ trợ tra cứu và điều hướng đặt vé.
+Sự ưu tiên (Priority)
+P3
+Trigger
+Gửi tin nhắn
+Điều kiện cần (Pre-Condition)
+Tra cứu công khai; đặt vé cần xác nhận
+Điều kiện sau (Post-Condition(s))
+Trả lời từ dữ liệu backend
+Luồng cơ bản (Basic Flow)
+Truy vấn backend; trả lời/hỏi rõ; chuyển sang luồng đặt chuẩn.
+Luồng thay thế (Alternative Flow)
+Không hiểu: hỏi lại.
+Luồng ngoại lệ (Exception Flow)
+AI lỗi: hướng dẫn dùng website.
+Ràng buộc (Business Rules)
+Không bịa dữ liệu; không tự xác nhận booking.
+Yêu cầu phi chức năng (NFR)
+NFR-01, NFR-03, NFR-06
+
+3.13.2 Sơ đồ luồng chi tiết
+Sơ đồ luồng nghiệp vụ của Use Case được trình bày ngay dưới đây; luồng lỗi được nêu trong bảng đặc tả.
+                                       
+                    Hình 3.13  --  Sơ đồ luồng UC-13
+3.13.3 Giao diện
+Thiết kế giao diện chi tiết chưa có trong repository; giao diện cần đáp ứng các bước và thông tin của Use Case.
+3.13.4 Mô tả chi tiết
+Các trường bắt buộc và quy tắc kiểm tra được nêu trong bảng Use Case; UI/API chi tiết cần chốt khi thiết kế.
+
+                                       
+Mã
+Tên chức năng
+Phân hệ
+Tác nhân (Actor)
+1
+UC-01
+Xem danh sách & chi tiết phim
+Phim
+Khách hàng, Nhân viên, Admin
+2
+UC-02
+Tìm suất chiếu theo phim/rạp/ngày
+Lịch chiếu
+Khách hàng, Nhân viên, Admin
+3
+UC-03
+Chọn ghế & xem trạng thái ghế
+Ghế
+Khách hàng, Nhân viên
+4
+UC-04
+Đặt vé & thanh toán online (giữ ghế tạm)
+Đặt vé, Thanh toán
+Khách hàng
+5
+UC-05
+Nhận & xem vé điện tử QR
+Vé
+Khách hàng
+6
+UC-06
+Xem lịch sử đặt vé
+Đặt vé
+Khách hàng, Admin
+7
+UC-07
+Bán vé tại quầy (nhân viên)
+Nhân viên
+Nhân viên, Admin
+8
+UC-08
+Tra cứu đơn (nhân viên)
+Nhân viên
+Nhân viên, Admin
+9
+UC-09
+Soát vé QR (nhân viên)
+Nhân viên
+Nhân viên, Admin
+10
+UC-10
+Quản trị phim/rạp/phòng/ghế/suất chiếu (admin)
+Admin
+Admin
+11
+UC-11
+Quản lý tài khoản & phân quyền (admin)
+Admin
+Admin
+12
+UC-12
+Xem báo cáo doanh thu (admin)
+Admin
+Admin
+13
+UC-13
+Chatbot AI hỗ trợ đặt vé
+Chatbot
+Khách hàng, Nhân viên, Admin
+--------------------------------------------------------------------------------
+
+
+3.14 Yêu cầu phi chức năng
+
+
+--------------------------------------------------------------------------------
+
+PHẦN 4: CÁC COMPONENT, THÔNG BÁO, CẢNH BÁO
+Thành phần dự kiến: nút, hộp thoại, thông báo, bảng, biểu mẫu, chỉ báo tải và sơ đồ ghế. Đây là yêu cầu giao diện, không xác nhận đã xây dựng.
+Thông báo & cảnh báo:
+Loại
+Nội dung mẫu
+Thành công
+"Đặt vé thành công!", "Thanh toán thành công!"
+Lỗi
+"Ghế đã được đặt, vui lòng chọn ghế khác", "Thanh toán thất bại", "Phiên đăng nhập hết hạn"
+Cảnh báo
+"Ghế sẽ được giữ trong 10 phút", "Vé đã được soát, không thể dùng lại"
+Thông tin
+"Đang tải dữ liệu...", "Đang xử lý thanh toán..."
+Thông báo cần nêu kết quả và bước tiếp theo; lỗi đặt ghế yêu cầu chọn lại; lỗi thanh toán không được báo thành công.
+
+PHẦN 5: LINK ISSUE 
+(Đính kèm các mã yêu cầu trên Jira  --  để trống, cập nhật khi có)
+Repository chưa chỉ định hệ thống theo dõi issue. Mỗi yêu cầu được tham chiếu bằng mã UC hoặc NFR trong tài liệu.
+
+PHỤ LỤC: CÁC BẢNG CSDL CHÍNH
+Bảng
+Mô tả
+users
+Tài khoản người dùng
+roles
+Vai trò (ADMIN, STAFF, CUSTOMER)
+user_roles
+Liên kết user <--> role
+cinemas
+Rạp / chi nhánh
+auditoriums
+Phòng chiếu
+seats
+Sơ đồ ghế cố định
+movies
+Thông tin phim
+showtimes
+Suất chiếu
+showtime_seats
+Trạng thái ghế theo suất
+bookings
+Đơn đặt vé
+booking_seats
+Chi tiết ghế trong đơn
+payments
+Giao dịch thanh toán
+tickets
+Vé điện tử & mã QR
+promotions
+Khuyến mãi (mở rộng sau)
+
+NFR-01 Khả dụng: Giao diện tiếng Việt, dùng được trên điện thoại và máy tính; lỗi nêu bước tiếp theo.
+NFR-02 Hiệu năng: Mục tiêu đo: 95% tra cứu dưới 3 giây ở 100 người dùng đồng thời; cần đo trong nghiệm thu.
+NFR-03 Nhất quán: Một ghế/suất chỉ có tối đa một lượt giữ/đơn hiệu lực; backend kiểm tra lúc ghi.
+NFR-04 Tin cậy: Thanh toán lỗi/hết hạn không xác nhận đơn/phát hành vé; thao tác lặp không làm sai trạng thái.
+NFR-05 Hết hạn: Giữ ghế 10 phút; hết hạn PENDING thành EXPIRED và ghế được trả.
+NFR-06 Bảo mật: Kiểm quyền ở backend; khách xem đơn mình; STAFF đúng rạp; không trả bí mật.
+NFR-07 Chatbot: Dùng dữ liệu backend; không tự khẳng định booking/thanh toán thành công.
+NFR-08 Bảo trì: Lỗi API nhất quán; bí mật được cấu hình theo môi trường.
+Các điểm cần chốt trước khi ký duyệt
+Chốt giá theo loại ghế/ngày, số ghế tối đa, đổi/hủy/hoàn vé, phân công STAFF, thời hạn soát vé và lưu dữ liệu.
+Rà soát repository ngày 27/10/2026 chưa thấy mã nguồn nghiệp vụ trong backend/src hoặc frontend/src; chức năng là yêu cầu mục tiêu.
+Thanh toán mock thuộc baseline; POS, báo cáo, chatbot, khuyến mãi và cổng thanh toán thật theo giai đoạn.
+Tiêu chí nghiệm thu tổng quát
+Không đăng nhập thì không đặt vé; khách không xem đơn người khác; STAFF không vượt phạm vi rạp.
+Hai yêu cầu đồng thời giữ cùng ghế chỉ có tối đa một yêu cầu thành công.
+Mock SUCCESS mới xác nhận đơn; FAILED/EXPIRED trả ghế và không tạo vé dùng được.
+QR hợp lệ chỉ soát một lần; mã sai/đã dùng/đã hủy bị từ chối.
+Quản trị kiểm quyền, dữ liệu bắt buộc và liên kết ở backend.
