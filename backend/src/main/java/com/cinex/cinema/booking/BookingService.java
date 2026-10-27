@@ -1,6 +1,8 @@
 package com.cinex.cinema.booking;
 
 import com.cinex.cinema.common.SeatPricing;
+import com.cinex.cinema.payment.PayOSService;
+import com.cinex.cinema.payment.Payment;
 import com.cinex.cinema.payment.PaymentService;
 import com.cinex.cinema.payment.PaymentStatus;
 import com.cinex.cinema.showtime.SeatStatus;
@@ -11,6 +13,7 @@ import com.cinex.cinema.showtime.ShowtimeSeatRepository;
 import com.cinex.cinema.ticket.TicketService;
 import com.cinex.cinema.user.User;
 import com.cinex.cinema.user.UserRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -44,8 +47,10 @@ public class BookingService {
 
     public BookingService(BookingRepository bookingRepository, BookingSeatRepository bookingSeatRepository,
                           ShowtimeSeatRepository showtimeSeatRepository, ShowtimeRepository showtimeRepository,
-                          UserRepository userRepository, PaymentService paymentService,
-                          TicketService ticketService) {
+                          UserRepository userRepository,
+                          @org.springframework.context.annotation.Lazy PaymentService paymentService,
+                          @org.springframework.context.annotation.Lazy TicketService ticketService,
+                          PayOSService payOSService) {
         this.bookingRepository = bookingRepository;
         this.bookingSeatRepository = bookingSeatRepository;
         this.showtimeSeatRepository = showtimeSeatRepository;
@@ -120,8 +125,9 @@ public class BookingService {
         return bookingRepository.findByUserIdOrderByCreatedAtDesc(userId);
     }
 
-    public Booking confirmBooking(String bookingCode) {
-        return confirmBooking(bookingCode, "ONLINE");
+    public Booking findByBookingCode(String bookingCode) {
+        return bookingRepository.findByBookingCode(bookingCode)
+            .orElseThrow(() -> new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Đơn không tồn tại"));
     }
 
     /**
@@ -130,7 +136,6 @@ public class BookingService {
      */
     public PayosPaymentResponse createPayosPayment(String bookingCode) {
         Booking booking = findByBookingCode(bookingCode);
-
         if (booking.getStatus() == BookingStatus.CONFIRMED) {
             paymentService.recordSuccess(booking, paymentMethod, booking.getTotalAmount(), "PAY-" + bookingCode);
             ticketService.issue(booking);
@@ -144,28 +149,162 @@ public class BookingService {
             booking.setStatus(BookingStatus.EXPIRED);
             releaseSeats(booking.getBookingCode());
             bookingRepository.save(booking);
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn đã hết hạn");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn đã hết hạn thanh toán");
         }
+        ensureSeatsFree(booking);
+
+        // Tái sử dụng link còn hiệu lực để tránh tạo trùng orderCode bên PayOS
+        Payment existing = paymentService.findByBookingId(booking.getId()).orElse(null);
+        if (existing != null && existing.getStatus() == PaymentStatus.PROCESSING
+            && existing.getTransactionId() != null) {
+            PayOSService.PayOSLink current = payOSService.getPaymentLink(existing.getTransactionId());
+            if (current != null) {
+                return toPayosResponse(booking, current);
+            }
+        }
+
+        PayOSService.PayOSLink link = payOSService.createPaymentLink(
+            PayOSService.generateOrderCode(),
+            booking.getTotalAmount().longValue(),
+            "Cinex " + booking.getBookingCode(),
+            withBookingCode(payosReturnUrl, booking.getBookingCode()),
+            withBookingCode(payosCancelUrl, booking.getBookingCode())
+        );
+        paymentService.recordProcessing(booking, "PAYOS", booking.getTotalAmount(), link.paymentLinkId);
+        return toPayosResponse(booking, link);
+    }
+
+    /** Gắn mã đơn vào URL return/cancel để trang kết quả biết đơn nào kể cả khi mở tab mới. */
+    private String withBookingCode(String url, String bookingCode) {
+        if (url == null || url.isBlank()) {
+            return url;
+        }
+        return url + (url.contains("?") ? "&" : "?") + "code=" + bookingCode;
+    }
+
+    private PayosPaymentResponse toPayosResponse(Booking booking, PayOSService.PayOSLink link) {
+        return PayosPaymentResponse.builder()
+            .bookingCode(booking.getBookingCode())
+            .checkoutUrl(link.checkoutUrl)
+            .qrCode(link.qrCode)
+            .paymentLinkId(link.paymentLinkId)
+            .amount(booking.getTotalAmount())
+            .expiresAt(booking.getExpiresAt())
+            .build();
+    }
+
+    /**
+     * Xử lý webhook PayOS: xác minh chữ ký, xác nhận đơn và phát hành vé.
+     */
+    @SuppressWarnings("unchecked")
+    public void handlePayOSWebhook(Map<String, Object> body) {
+        if (!payOSService.verifyWebhookSignature(body)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chữ ký webhook PayOS không hợp lệ");
+        }
+        if (!"00".equals(String.valueOf(body.get("code")))) {
+            return;
+        }
+        Object dataObj = body.get("data");
+        if (!(dataObj instanceof Map)) {
+            return;
+        }
+        Map<String, Object> data = (Map<String, Object>) dataObj;
+
+        // Ưu tiên tra theo paymentLinkId (không phụ thuộc orderCode do PayOS sinh)
+        Object linkIdObj = data.get("paymentLinkId");
+        String paymentLinkId = linkIdObj == null ? null : String.valueOf(linkIdObj);
+        if (paymentLinkId != null) {
+            Payment payment = paymentService.findByTransactionId(paymentLinkId).orElse(null);
+            if (payment != null && payment.getBooking() != null) {
+                confirmPayosBooking(payment.getBooking().getId(), paymentLinkId);
+                return;
+            }
+        }
+
+        // Dự phòng cho các link cũ dùng orderCode = booking.id
+        long orderCode;
+        try {
+            orderCode = Long.parseLong(String.valueOf(data.get("orderCode")));
+        } catch (NumberFormatException e) {
+            return;
+        }
+        confirmPayosBooking(orderCode, paymentLinkId);
+    }
+
+    /**
+     * Chốt đơn sau khi PayOS xác nhận đã nhận tiền (idempotent).
+     * Ghế chỉ chuyển BOOKED ở bước này; nếu ghế đã bị đơn khác mua trước thì huỷ đơn
+     * và ghi nhận thanh toán để hoàn tiền thủ công.
+     */
+    public void confirmPayosBooking(Long bookingId, String paymentLinkId) {
+        Booking booking = bookingRepository.findById(bookingId).orElse(null);
+        if (booking == null) {
+            return;
+        }
+        if (booking.getStatus() == BookingStatus.CONFIRMED) {
+            paymentService.markSuccess(booking, "PAYOS", paymentLinkId);
+            return;
+        }
+        if (booking.getStatus() != BookingStatus.PENDING && booking.getStatus() != BookingStatus.EXPIRED) {
+            return;
+        }
+
+        List<Long> seatIds = bookingSeatRepository.findByBookingId(booking.getId()).stream()
+            .map(bookingSeat -> bookingSeat.getShowtimeSeat().getId())
+            .toList();
+        // Khoá ghi để hai đơn trả tiền cùng lúc không thể cùng chiếm một ghế
+        List<ShowtimeSeat> seats = seatIds.isEmpty()
+            ? List.of()
+            : showtimeSeatRepository.findAllByIdForUpdate(seatIds);
+        LocalDateTime now = LocalDateTime.now();
+        boolean seatsAvailable = !seats.isEmpty() && seats.stream().allMatch(seat ->
+            seat.getStatus() == SeatStatus.AVAILABLE
+                || (seat.getStatus() == SeatStatus.HELD
+                    && seat.getHeldUntil() != null && seat.getHeldUntil().isAfter(now)
+                    && booking.getBookingCode().equals(seat.getHoldByBookingId()))
+                || (seat.getStatus() == SeatStatus.BOOKED
+                    && booking.getBookingCode().equals(seat.getHoldByBookingId())));
+        if (!seatsAvailable) {
+            // Đã nhận tiền nhưng ghế không còn trống: huỷ đơn, cần hoàn tiền thủ công
+            paymentService.markSuccess(booking, "PAYOS", paymentLinkId);
+            booking.setStatus(BookingStatus.CANCELLED);
+            booking.setExpiresAt(null);
+            bookingRepository.save(booking);
+            return;
+        }
+
+        for (ShowtimeSeat seat : seats) {
+            seat.setStatus(SeatStatus.BOOKED);
+            seat.setHeldUntil(null);
+            seat.setHoldByBookingId(booking.getBookingCode());
+        }
+        showtimeSeatRepository.saveAll(seats);
 
         booking.setStatus(BookingStatus.CONFIRMED);
         booking.setExpiresAt(null);
-        markSeatsBooked(booking.getBookingCode());
-        booking = bookingRepository.save(booking);
+        bookingRepository.save(booking);
 
         paymentService.markSuccess(booking, "PAYOS", paymentLinkId);
         ticketService.issue(booking);
     }
 
-    public Booking payBooking(String bookingCode, String paymentMethod) {
+    /**
+     * Đồng bộ trạng thái thanh toán trực tiếp từ PayOS.
+     * Dùng khi webhook chưa tới (ví dụ môi trường local không có URL public).
+     */
+    public Booking syncPayosPayment(String bookingCode) {
         Booking booking = findByBookingCode(bookingCode);
         if (booking.getStatus() == BookingStatus.CONFIRMED) {
             return booking;
         }
-        if (booking.getStatus() != BookingStatus.CONFIRMED) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn không thể thanh toán");
+        Payment payment = paymentService.findByBookingId(booking.getId()).orElse(null);
+        if (payment == null || payment.getTransactionId() == null) {
+            return booking;
         }
-        paymentService.recordSuccess(booking, paymentMethod, booking.getTotalAmount(), "PAY-" + bookingCode);
-        ticketService.issue(booking);
+        if ("PAID".equals(payOSService.getPaymentStatus(payment.getTransactionId()))) {
+            confirmPayosBooking(booking.getId(), payment.getTransactionId());
+            return findByBookingCode(bookingCode);
+        }
         return booking;
     }
 
@@ -223,15 +362,6 @@ public class BookingService {
         return seats.stream()
             .map(seat -> SeatPricing.priceFor(showtime.getBasePrice(), seat.getSeat().getSeatType()))
             .reduce(BigDecimal.ZERO, BigDecimal::add);
-    }
-
-    private void markSeatsBooked(String bookingCode) {
-        List<ShowtimeSeat> seats = showtimeSeatRepository.findByHoldByBookingId(bookingCode);
-        for (ShowtimeSeat seat : seats) {
-            seat.setStatus(SeatStatus.BOOKED);
-            seat.setHeldUntil(null);
-        }
-        showtimeSeatRepository.saveAll(seats);
     }
 
     private void releaseSeats(String bookingCode) {

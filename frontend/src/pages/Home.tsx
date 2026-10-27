@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMovies } from '../hooks/useMovies'
-import { cinemas, demoUser, quickGenres } from '../data/mockData'
+import { cinemas, quickGenres } from '../data/mockData'
+import { authService } from '../services/authService'
 import { formatDuration } from '../utils/format'
 import { Avatar } from '../components/ui/Avatar'
 import { Icon } from '../components/ui/Icon'
@@ -28,7 +29,7 @@ export function Home() {
     <div className="container">
       <div className="greeting">
         <div className="greeting__left">
-          <Avatar src={demoUser.avatar} alt={demoUser.name} />
+          <Avatar alt={greetingName} />
           <div>
             <div className="greeting__hello">Chào buổi tối,</div>
             <div className="greeting__name">{demoUser.name}</div>

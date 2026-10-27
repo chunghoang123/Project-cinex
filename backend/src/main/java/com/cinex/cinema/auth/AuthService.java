@@ -14,10 +14,19 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
+import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
+import com.google.api.client.json.gson.GsonFactory;
+
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 public class AuthService {
 
@@ -70,15 +79,21 @@ public class AuthService {
     }
 
     public AuthResponse login(LoginRequest request) {
+        User user = userRepository.findByUsername(request.getUsername())
+            .or(() -> userRepository.findByEmail(request.getUsername()))
+            .orElseThrow(() -> new ResponseStatusException(
+                HttpStatus.UNAUTHORIZED, "Tên đăng nhập hoặc email không tồn tại"));
+
         authenticationManager.authenticate(
-            new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
+            new UsernamePasswordAuthenticationToken(user.getUsername(), request.getPassword())
         );
 
         String token = jwtService.generateToken(user);
         Set<String> roleNames = user.getRoles().stream()
             .map(r -> r.getName().name()).collect(Collectors.toSet());
 
-        return new AuthResponse(token, user.getUsername(), user.getEmail(), user.getFullName(), roleNames);
+        return new AuthResponse(token, user.getUsername(), user.getEmail(), user.getFullName(),
+            user.getAvatarUrl(), roleNames);
     }
 
     public UserResponse me(User user) {

@@ -1,3 +1,5 @@
+﻿import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import type { FormEvent } from 'react'
 import { authService } from '../../services/authService'
@@ -9,7 +11,6 @@ const navItems = [
   { to: '/', label: 'Trang chủ', end: true },
   { to: '/movies', label: 'Phim' },
   { to: '/showtimes', label: 'Lịch chiếu' },
-  { to: '/ai-chat', label: 'AI Chat' },
 ]
 
 export function Header() {

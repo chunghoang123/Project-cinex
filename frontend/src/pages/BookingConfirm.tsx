@@ -19,7 +19,11 @@ function readDraft(): SeatDraft | null {
 
 export function BookingConfirm() {
   const navigate = useNavigate()
-  const [selectedSnacks, setSelectedSnacks] = useState<string[]>(['duo'])
+  const draft = useMemo(readDraft, [])
+  const [showtime, setShowtime] = useState<Showtime | null>(null)
+  const [selectedSnacks, setSelectedSnacks] = useState<string[]>([])
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
 
   const selectedSeats: string[] = JSON.parse(sessionStorage.getItem('selectedSeatLabels') || '[]')
   const seatIds: string[] = JSON.parse(sessionStorage.getItem('selectedSeats') || '[]')
@@ -36,8 +40,8 @@ export function BookingConfirm() {
     () => snacks.filter((snack) => selectedSnacks.includes(snack.id)).reduce((sum, snack) => sum + snack.price, 0),
     [selectedSnacks],
   )
-  const serviceFee = 15000
-  const grandTotal = ticketTotal + snackTotal + serviceFee
+  const seatAmount = draft?.seatAmount ?? 0
+  const grandTotal = seatAmount + snackTotal
 
   const toggleSnack = (id: string) => {
     setSelectedSnacks((current) =>
@@ -45,13 +49,30 @@ export function BookingConfirm() {
     )
   }
 
-  const handleContinue = () => {
-    sessionStorage.setItem('finalTotal', String(grandTotal))
-    sessionStorage.setItem('snackTotal', String(snackTotal))
-    navigate('/booking/payment')
+  const handleContinue = async () => {
+    if (!draft) return
+    setSubmitting(true)
+    setError('')
+    try {
+      const booking = await bookingService.createHold({
+        showtimeId: draft.showtimeId,
+        seatIds: draft.seatIds,
+        snackAmount: snackTotal,
+        snackNote: selectedSnacks.length > 0
+          ? snacks.filter((snack) => selectedSnacks.includes(snack.id)).map((snack) => snack.name).join(', ')
+          : undefined,
+      })
+      sessionStorage.setItem('pendingBookingCode', booking.bookingCode)
+      sessionStorage.removeItem('seatHoldDraft')
+      navigate('/booking/payment')
+    } catch (err) {
+      setError(errorMessage(err, 'Không giữ được ghế, vui lòng chọn lại'))
+    } finally {
+      setSubmitting(false)
+    }
   }
 
-  if (seatIds.length === 0) {
+  if (!draft) {
     return (
       <div className="container">
         <PageBar title="Xác nhận đặt vé" backTo="/movies" />
@@ -73,19 +94,21 @@ export function BookingConfirm() {
 
       <div className="checkout-layout">
         <div className="stack gap-16">
-          <div className="movie-mini">
-            <img src={movie.posterUrl} alt={movie.title} />
-            <div>
-              <span className="eyebrow">Đang chiếu</span>
-              <div className="movie-mini__title">{movie.title}</div>
-              <div className="meta-row" style={{ marginTop: 5 }}>
-                <span>{cinema.name}</span>
-                <span className="meta-dot" />
-                <span>{showtime.hall}</span>
-              </div>
-              <div className="meta-row" style={{ marginTop: 3 }}>
-                <Icon name="calendar" size={12} />
-                Hôm nay · {showtime.time}
+          {showtime && (
+            <div className="movie-mini">
+              <img src={showtime.posterUrl} alt={showtime.movieTitle} />
+              <div>
+                <span className="eyebrow">Đang chiếu</span>
+                <div className="movie-mini__title">{showtime.movieTitle}</div>
+                <div className="meta-row" style={{ marginTop: 5 }}>
+                  <span>{showtime.cinemaName}</span>
+                  <span className="meta-dot" />
+                  <span>{showtime.auditoriumName}</span>
+                </div>
+                <div className="meta-row" style={{ marginTop: 3 }}>
+                  <Icon name="calendar" size={12} />
+                  {formatDateLong(showtime.startTime)} · {formatTime(showtime.startTime)}
+                </div>
               </div>
             </div>
           )}
@@ -100,7 +123,7 @@ export function BookingConfirm() {
                 <strong style={{ fontSize: 14 }}>{selectedSeats.join(', ')}</strong>
               </div>
             </div>
-            <span className="badge badge-success">{selectedSeats.length} vé</span>
+            <span className="badge badge-success">{draft.seatCodes.length} vé</span>
           </div>
 
           <section>
@@ -145,10 +168,6 @@ export function BookingConfirm() {
               <span>Bắp nước &amp; đồ uống</span>
               <strong>{formatVnd(snackTotal)}</strong>
             </div>
-            <div className="summary-line">
-              <span>Phí dịch vụ</span>
-              <strong>{formatVnd(serviceFee)}</strong>
-            </div>
             <div className="summary-line is-total">
               <span>Tổng cộng</span>
               <strong>{formatVnd(grandTotal)}</strong>
@@ -171,7 +190,7 @@ export function BookingConfirm() {
             </div>
             <div className="summary-line">
               <span>Rạp</span>
-              <strong>{cinema.name}</strong>
+              <strong>{showtime?.cinemaName ?? '—'}</strong>
             </div>
             <div className="summary-line">
               <span>Ghế</span>

@@ -5,22 +5,76 @@ import { formatVnd } from '../utils/format'
 import { errorMessage, formatTime } from '../utils/consoleFormat'
 import { Icon } from '../components/ui/Icon'
 import { PageBar } from '../components/ui/PageBar'
+import { openChat } from '../components/chat/ChatWidget'
 
 const tabs = [
   { value: 'UPCOMING', label: 'Sắp chiếu' },
   { value: 'COMPLETED', label: 'Đã xem' },
 ] as const
 
+const STATUS_LABEL: Record<string, string> = {
+  PENDING: 'Chờ thanh toán',
+  CONFIRMED: 'Đã thanh toán',
+  CANCELLED: 'Đã hủy',
+  EXPIRED: 'Hết hạn',
+}
+
 export function BookingHistory() {
   const [tab, setTab] = useState<'UPCOMING' | 'COMPLETED'>('UPCOMING')
   const [items, setItems] = useState(bookings)
   const visible = items.filter((booking) => booking.status === tab)
 
-  const handleCancel = (id: number) => {
-    if (!window.confirm('Bạn có chắc muốn hủy vé này? Tiền sẽ được hoàn về phương thức thanh toán ban đầu.')) {
+  useEffect(() => {
+    if (!authenticated) {
+      setLoading(false)
       return
     }
-    setItems((current) => current.filter((booking) => booking.id !== id))
+    let cancelled = false
+    bookingService
+      .getMyBookings()
+      .then((data) => {
+        if (!cancelled) setItems(data)
+      })
+      .catch((err) => {
+        if (!cancelled) setError(errorMessage(err, 'Không tải được danh sách vé'))
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [authenticated])
+
+  const { upcoming, completed } = useMemo(() => {
+    const now = Date.now()
+    const upcomingItems = items.filter(
+      (booking) =>
+        booking.status === 'PENDING' ||
+        (booking.status === 'CONFIRMED' && new Date(booking.showtime.startTime).getTime() >= now),
+    )
+    return {
+      upcoming: upcomingItems,
+      completed: items.filter((booking) => !upcomingItems.includes(booking)),
+    }
+  }, [items])
+
+  const visible = tab === 'UPCOMING' ? upcoming : completed
+
+  if (!authenticated) {
+    return (
+      <div className="container">
+        <PageBar title="Vé của tôi" backTo="/" />
+        <div className="empty-state">
+          <Icon name="ticket" size={40} />
+          <strong>Đăng nhập để xem vé</strong>
+          <p>Bạn cần đăng nhập để xem lịch sử và vé điện tử đã đặt.</p>
+          <Link to="/login" state={{ from: '/history' }} className="btn btn-primary btn-sm">
+            Đăng nhập
+          </Link>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -42,7 +96,18 @@ export function BookingHistory() {
             ))}
           </div>
 
-          {visible.length === 0 ? (
+          {loading ? (
+            <div className="loading-screen">
+              <span className="spinner" />
+              Đang tải vé...
+            </div>
+          ) : error ? (
+            <div className="empty-state">
+              <Icon name="alert" size={40} />
+              <strong>Không tải được vé</strong>
+              <p>{error}</p>
+            </div>
+          ) : visible.length === 0 ? (
             <div className="empty-state">
               <Icon name="ticket" size={40} />
               <strong>Chưa có vé nào</strong>
@@ -129,7 +194,7 @@ export function BookingHistory() {
             <p className="muted" style={{ fontSize: 13, marginBottom: 12 }}>
               Liên hệ Cinex qua hotline 1900 1234 hoặc chat với trợ lý AI.
             </p>
-            <Link to="/ai-chat" className="btn btn-ghost btn-block btn-sm">
+            <button type="button" className="btn btn-ghost btn-block btn-sm" onClick={openChat}>
               <Icon name="chat" size={15} />
               Chat với Cinex AI
             </Link>

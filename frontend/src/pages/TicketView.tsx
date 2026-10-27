@@ -3,6 +3,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { bookingService } from '../services/bookingService'
 import type { Booking } from '../types/Admin'
 import { formatVnd } from '../utils/format'
+import { errorMessage, formatDateLong, formatTime } from '../utils/consoleFormat'
 import { Icon } from '../components/ui/Icon'
 import { PageBar } from '../components/ui/PageBar'
 import { QrCode } from '../components/ui/QrCode'
@@ -134,10 +135,10 @@ export function TicketView() {
                   Cine<em>x</em>
                 </span>
               </span>
-              <span className="badge badge-success">Đã thanh toán</span>
+              <span className={`badge ${isPaid ? 'badge-success' : 'badge-warning'}`}>{statusLabel}</span>
             </div>
-            <span className="eyebrow">E-Ticket · {code}</span>
-            <h1 className="eticket__title">{title}</h1>
+            <span className="eyebrow">E-Ticket · {booking.bookingCode}</span>
+            <h1 className="eticket__title">{showtime.movieTitle}</h1>
             <div className="eticket__grid">
               <div>
                 <span>Rạp</span>
@@ -149,7 +150,7 @@ export function TicketView() {
               </div>
               <div>
                 <span>Ngày</span>
-                <strong>{showDate}</strong>
+                <strong>{formatDateLong(showtime.startTime)}</strong>
               </div>
               <div>
                 <span>Giờ</span>
@@ -194,7 +195,7 @@ export function TicketView() {
             </div>
             <div className="summary-line">
               <span>Trạng thái</span>
-              <strong style={{ color: 'var(--success)' }}>Đã thanh toán</strong>
+              <strong style={{ color: isPaid ? 'var(--success)' : 'var(--warning)' }}>{statusLabel}</strong>
             </div>
 
             {booking.status === 'PENDING' && (

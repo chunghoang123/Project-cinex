@@ -4,9 +4,14 @@ import { Link, useNavigate } from 'react-router-dom'
 import { authService } from '../services/authService'
 import { Icon } from '../components/ui/Icon'
 import { Logo } from '../components/ui/Logo'
+import { FieldError } from '../components/ui/FieldError'
+import { errorMessage } from '../utils/consoleFormat'
 
 const heroImage =
   'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?auto=format&fit=crop&w=1600&q=80'
+
+type RegisterField = 'fullName' | 'email' | 'phone' | 'password' | 'confirm' | 'agree'
+type FieldErrors = Partial<Record<RegisterField, string>>
 
 export function Register() {
   const navigate = useNavigate()
@@ -15,6 +20,7 @@ export function Register() {
   const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
+  const [agree, setAgree] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -83,11 +89,6 @@ export function Register() {
     }
   }
 
-  const handleDemo = () => {
-    localStorage.setItem('token', 'demo-token')
-    navigate('/')
-  }
-
   return (
     <div className="auth-page">
       <section className="auth-hero">
@@ -122,8 +123,11 @@ export function Register() {
                   placeholder="Nguyễn Văn A"
                   autoComplete="name"
                   required
+                  aria-invalid={Boolean(fieldErrors.fullName)}
+                  aria-describedby={fieldErrors.fullName ? 'fullName-error' : undefined}
                 />
               </div>
+              <FieldError id="fullName-error" message={fieldErrors.fullName} />
             </div>
 
             <div className="field">
@@ -150,13 +154,16 @@ export function Register() {
 
             <div className="field">
               <label htmlFor="phone">Số điện thoại</label>
-              <div className="input-wrap">
+              <div className={`input-wrap${fieldErrors.phone ? ' input-wrap--error' : ''}`}>
                 <Icon name="phone" size={17} />
                 <input
                   id="phone"
                   className="input"
                   value={phone}
-                  onChange={(event) => setPhone(event.target.value)}
+                  onChange={(event) => {
+                    setPhone(event.target.value)
+                    clearFieldError('phone')
+                  }}
                   placeholder="090 123 4567"
                   autoComplete="tel"
                 />
@@ -190,11 +197,12 @@ export function Register() {
                   <Icon name={showPassword ? 'eye-off' : 'eye'} size={17} />
                 </button>
               </div>
+              <FieldError id="password-error" message={fieldErrors.password} />
             </div>
 
             <div className="field">
               <label htmlFor="confirm">Xác nhận mật khẩu</label>
-              <div className="input-wrap">
+              <div className={`input-wrap${fieldErrors.confirm ? ' input-wrap--error' : ''}`}>
                 <Icon name="lock" size={17} />
                 <input
                   id="confirm"
@@ -222,13 +230,6 @@ export function Register() {
               {!loading && <Icon name="arrow-right" size={17} />}
             </button>
           </form>
-
-          <div className="auth-sep">hoặc</div>
-
-          <button type="button" className="btn btn-outline btn-block" onClick={handleDemo}>
-            <Icon name="sparkles" size={17} />
-            Dùng tài khoản demo
-          </button>
 
           <p className="auth-foot">
             Đã có tài khoản? <Link to="/login">Đăng nhập</Link>

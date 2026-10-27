@@ -78,6 +78,7 @@ public class StaffService {
         this.showtimeService = showtimeService;
         this.paymentService = paymentService;
         this.ticketService = ticketService;
+        this.payOSService = payOSService;
     }
 
     @Transactional(readOnly = true)

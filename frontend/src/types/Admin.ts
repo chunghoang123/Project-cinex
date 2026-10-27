@@ -173,7 +173,7 @@ export interface StaffSalePayload {
 
 export interface StaffSale {
   booking: Booking
-  ticketCode: string
+  ticketCode: string | null
   qrCode: string
 }
 

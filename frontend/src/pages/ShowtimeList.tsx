@@ -15,7 +15,10 @@ export function ShowtimeList() {
   const [dateIndex, setDateIndex] = useState(0)
   const [cinemaId, setCinemaId] = useState<number | null>(null)
 
-  const movie = movies.find((item) => String(item.id) === searchParams.get('movieId')) ?? movies[0]
+  const movieIdParam = searchParams.get('movieId')
+  const selectedMovie = movieIdParam
+    ? movies.find((item) => String(item.id) === movieIdParam) ?? null
+    : null
 
   const { showtimes, loading } = useShowtimes(selectedMovie?.id)
   const activeDate = dates[dateIndex]
@@ -44,8 +47,13 @@ export function ShowtimeList() {
     )
   }
 
-  const slots = showtimesFor(movie.id)
-  const visibleCinemas = cinemaId ? cinemas.filter((cinema) => cinema.id === cinemaId) : cinemas
+  if (!showtimes.length) {
+    return (
+      <div className="container">
+        <EmptyState icon="calendar" title="Chưa có lịch chiếu" description="Vui lòng thử lại sau." />
+      </div>
+    )
+  }
 
   return (
     <div className="container">
@@ -162,6 +170,14 @@ export function ShowtimeList() {
           )
         })}
       </div>
+
+      {visible.length === 0 && (
+        <EmptyState
+          icon="calendar"
+          title="Không có suất chiếu"
+          description="Không có suất chiếu phù hợp với ngày và rạp đã chọn."
+        />
+      )}
     </div>
   )
 }

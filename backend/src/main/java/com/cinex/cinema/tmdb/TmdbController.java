@@ -35,7 +35,11 @@ public class TmdbController {
     @GetMapping("/now-playing")
     public ResponseEntity<ApiResponse<TmdbPage<TmdbMovie>>> nowPlaying(
             @RequestParam(defaultValue = "1") int page) {
-        return ResponseEntity.ok(ApiResponse.ok(tmdbClient.nowPlaying(page)));
+        try {
+            return ResponseEntity.ok(ApiResponse.ok(tmdbClient.nowPlaying(page)));
+        } catch (Exception ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Không lấy được dữ liệu phim từ TMDB, thử lại sau");
+        }
     }
 
     @GetMapping("/upcoming")
@@ -57,7 +61,11 @@ public class TmdbController {
 
     @GetMapping("/movies/{tmdbId}")
     public ResponseEntity<ApiResponse<TmdbMovie>> movieDetail(@PathVariable long tmdbId) {
-        return ResponseEntity.ok(ApiResponse.ok(tmdbClient.movieDetail(tmdbId)));
+        try {
+            return ResponseEntity.ok(ApiResponse.ok(tmdbClient.movieDetail(tmdbId)));
+        } catch (Exception ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Không lấy được dữ liệu phim từ TMDB, thử lại sau");
+        }
     }
 
     @PostMapping("/sync")

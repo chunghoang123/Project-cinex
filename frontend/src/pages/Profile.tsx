@@ -17,7 +17,6 @@ const menuItems: Array<{ icon: IconName; label: string; to?: string; action?: 'p
 ]
 
 export function Profile() {
-  const navigate = useNavigate()
   const token = authService.getToken()
 
   const [user, setUser] = useState<User | null>(null)
@@ -73,7 +72,7 @@ export function Profile() {
         <div className="empty-state">
           <Icon name="user" size={40} />
           <strong>Bạn chưa đăng nhập</strong>
-          <p>Đăng nhập để xem vé, điểm thưởng và thông tin tài khoản.</p>
+          <p>Đăng nhập để xem và cập nhật thông tin tài khoản Cinex.</p>
           <Link to="/login" className="btn btn-primary btn-sm">
             Đăng nhập
           </Link>
@@ -81,6 +80,36 @@ export function Profile() {
       </div>
     )
   }
+
+  if (loading && !user) {
+    return (
+      <div className="container">
+        <PageBar title="Tài khoản" backTo="/" />
+        <div className="empty-state">
+          <p>Đang tải thông tin tài khoản...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <div className="container">
+        <PageBar title="Tài khoản" backTo="/" />
+        <div className="empty-state">
+          <Icon name="alert" size={40} />
+          <strong>Không tải được hồ sơ</strong>
+          <p>{loadError || 'Phiên đăng nhập đã hết hạn.'}</p>
+          <Link to="/login" className="btn btn-primary btn-sm">
+            Đăng nhập lại
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  const displayName = user.fullName?.trim() || user.username
+  const consolePath = authService.hasRole('ROLE_ADMIN') ? '/admin' : '/staff/pos'
 
   return (
     <div className="container">
@@ -104,7 +133,9 @@ export function Profile() {
               )}
             </div>
 
-            <div className="stat-grid">
+            <hr className="divider" style={{ margin: '16px 0' }} />
+
+            <div className="stat-grid" style={{ marginTop: 0 }}>
               <div className="stat-card">
                 <span>Vé đã xem</span>
                 <strong>12</strong>
@@ -113,33 +144,6 @@ export function Profile() {
                 <span>Trạng thái</span>
                 <strong>{user.active ? 'Hoạt động' : 'Tạm khóa'}</strong>
               </div>
-            </div>
-
-            <div className="menu-list">
-              {menuItems.map((item) =>
-                item.to ? (
-                  <Link key={item.label} to={item.to} className="menu-item">
-                    <Icon name={item.icon} size={18} />
-                    {item.label}
-                    <Icon name="chevron-right" size={16} className="menu-item__chevron" />
-                  </Link>
-                ) : (
-                  <button
-                    key={item.label}
-                    type="button"
-                    className="menu-item"
-                    onClick={() => handleMenuAction(item.action)}
-                  >
-                    <Icon name={item.icon} size={18} />
-                    {item.label}
-                    <Icon name="chevron-right" size={16} className="menu-item__chevron" />
-                  </button>
-                ),
-              )}
-              <button type="button" className="menu-item" onClick={handleLogout} style={{ color: 'var(--danger)' }}>
-                <Icon name="logout" size={18} />
-                Đăng xuất
-              </button>
             </div>
           </div>
         </aside>
@@ -165,11 +169,17 @@ export function Profile() {
 
         <div className="stack gap-16">
           <section className="surface card-pad">
-            <div className="row between" style={{ marginBottom: 12 }}>
-              <h2 className="h3">Thông tin cá nhân</h2>
-              <button type="button" className="btn-link" onClick={() => setEditing((value) => !value)}>
-                {editing ? 'Đóng' : 'Chỉnh sửa'}
-              </button>
+            <div className="profile-section-head">
+              <div>
+                <h2 className="h3">Thông tin cá nhân</h2>
+                <p className="muted">Họ tên, email và số điện thoại dùng khi đặt vé.</p>
+              </div>
+              {!editing && (
+                <button type="button" className="btn btn-outline btn-sm" onClick={startEditing}>
+                  <Icon name="edit" size={14} />
+                  Chỉnh sửa
+                </button>
+              )}
             </div>
 
             {editing ? (
@@ -178,9 +188,28 @@ export function Profile() {
                   <label htmlFor="profile-name">Họ và tên</label>
                   <input id="profile-name" className="input" value={name} onChange={(event) => setName(event.target.value)} />
                 </div>
+
                 <div className="field">
                   <label htmlFor="profile-email">Email</label>
-                  <input id="profile-email" className="input" value={email} onChange={(event) => setEmail(event.target.value)} />
+                  <div className={`input-wrap${profileErrors.email ? ' input-wrap--error' : ''}`}>
+                    <Icon name="mail" size={17} />
+                    <input
+                      id="profile-email"
+                      className="input"
+                      type="email"
+                      value={profileForm.email}
+                      onChange={(event) => {
+                        setProfileForm((form) => ({ ...form, email: event.target.value }))
+                        setProfileErrors((errors) => ({ ...errors, email: undefined }))
+                      }}
+                      placeholder="ban@cinex.vn"
+                      autoComplete="email"
+                      maxLength={100}
+                      aria-invalid={Boolean(profileErrors.email)}
+                      aria-describedby={profileErrors.email ? 'profile-email-error' : undefined}
+                    />
+                  </div>
+                  <FieldError id="profile-email-error" message={profileErrors.email} />
                 </div>
                 <div className="field">
                   <label htmlFor="profile-phone">Số điện thoại</label>
@@ -204,10 +233,23 @@ export function Profile() {
                   </div>
                   <FieldError id="profile-phone-error" message={profileErrors.phone} />
                 </div>
-                <button type="button" className="btn btn-primary" onClick={() => setEditing(false)}>
-                  Lưu thay đổi
-                </button>
-              </div>
+
+                {profileError && <div className="form-error">{profileError}</div>}
+
+                <div className="profile-actions">
+                  <button type="submit" className="btn btn-primary" disabled={savingProfile}>
+                    {savingProfile ? 'Đang lưu...' : 'Lưu thay đổi'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={cancelEditing}
+                    disabled={savingProfile}
+                  >
+                    Hủy
+                  </button>
+                </div>
+              </form>
             ) : (
               <div className="stack gap-10">
                 <div className="summary-line">
@@ -219,9 +261,10 @@ export function Profile() {
                   <span className="profile-info__label">Email</span>
                   <span className="profile-info__value">{user.email}</span>
                 </div>
-                <div className="summary-line">
-                  <span>Số điện thoại</span>
-                  <strong>{phone}</strong>
+                <div className="profile-info__row">
+                  <Icon name="phone" size={16} />
+                  <span className="profile-info__label">Số điện thoại</span>
+                  <span className="profile-info__value">{user.phone || 'Chưa cập nhật'}</span>
                 </div>
                 <div className="summary-line">
                   <span>Hạng thành viên</span>
@@ -234,14 +277,10 @@ export function Profile() {
           <section className="surface card-pad">
             <div className="profile-section-head">
               <div>
-                <div style={{ fontSize: 13, fontWeight: 700 }}>Visa •••• 4242</div>
-                <div className="muted" style={{ fontSize: 11 }}>
-                  Hết hạn 08/2027
-                </div>
+                <h2 className="h3">Đổi mật khẩu</h2>
+                <p className="muted">Dùng mật khẩu riêng cho Cinex và thay đổi định kỳ.</p>
               </div>
-              <span className="badge badge-success" style={{ marginLeft: 'auto' }}>
-                Mặc định
-              </span>
+              <Icon name="shield" size={18} />
             </div>
             <div className="payment-card">
               <span className="payment-card__brand" style={{ color: '#fca5a5' }}>
@@ -254,10 +293,67 @@ export function Profile() {
                 </div>
                 <FieldError id="pwd-currentPassword-error" message={passwordErrors.currentPassword} />
               </div>
-              <button type="button" className="header-icon" style={{ marginLeft: 'auto', width: 34, height: 34 }} aria-label="Xóa thẻ">
-                <Icon name="trash" size={15} />
-              </button>
-            </div>
+
+              <div className="field">
+                <label htmlFor="pwd-newPassword">Mật khẩu mới</label>
+                <div className={`input-wrap${passwordErrors.newPassword ? ' input-wrap--error' : ''}`}>
+                  <Icon name="lock" size={17} />
+                  <input
+                    id="pwd-newPassword"
+                    className="input"
+                    type={showPassword ? 'text' : 'password'}
+                    value={passwordForm.newPassword}
+                    onChange={(event) => {
+                      setPasswordForm((form) => ({ ...form, newPassword: event.target.value }))
+                      setPasswordErrors((errors) => ({ ...errors, newPassword: undefined }))
+                    }}
+                    placeholder="Tối thiểu 6 ký tự"
+                    autoComplete="new-password"
+                    aria-invalid={Boolean(passwordErrors.newPassword)}
+                    aria-describedby={passwordErrors.newPassword ? 'pwd-newPassword-error' : undefined}
+                  />
+                  <button
+                    type="button"
+                    className="input-action"
+                    onClick={() => setShowPassword((value) => !value)}
+                    aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                  >
+                    <Icon name={showPassword ? 'eye-off' : 'eye'} size={17} />
+                  </button>
+                </div>
+                <FieldError id="pwd-newPassword-error" message={passwordErrors.newPassword} />
+              </div>
+
+              <div className="field">
+                <label htmlFor="pwd-confirmPassword">Nhập lại mật khẩu mới</label>
+                <div className={`input-wrap${passwordErrors.confirmPassword ? ' input-wrap--error' : ''}`}>
+                  <Icon name="lock" size={17} />
+                  <input
+                    id="pwd-confirmPassword"
+                    className="input"
+                    type={showPassword ? 'text' : 'password'}
+                    value={passwordForm.confirmPassword}
+                    onChange={(event) => {
+                      setPasswordForm((form) => ({ ...form, confirmPassword: event.target.value }))
+                      setPasswordErrors((errors) => ({ ...errors, confirmPassword: undefined }))
+                    }}
+                    placeholder="Nhập lại mật khẩu mới"
+                    autoComplete="new-password"
+                    aria-invalid={Boolean(passwordErrors.confirmPassword)}
+                    aria-describedby={passwordErrors.confirmPassword ? 'pwd-confirmPassword-error' : undefined}
+                  />
+                </div>
+                <FieldError id="pwd-confirmPassword-error" message={passwordErrors.confirmPassword} />
+              </div>
+
+              {passwordError && <div className="form-error">{passwordError}</div>}
+
+              <div className="profile-actions">
+                <button type="submit" className="btn btn-primary" disabled={savingPassword}>
+                  {savingPassword ? 'Đang cập nhật...' : 'Đổi mật khẩu'}
+                </button>
+              </div>
+            </form>
           </section>
         </div>
       </div>

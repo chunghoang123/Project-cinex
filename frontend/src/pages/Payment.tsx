@@ -4,6 +4,7 @@ import { cinemas, movies, showtimesFor } from '../data/mockData'
 import { formatVnd } from '../utils/format'
 import { Icon, type IconName } from '../components/ui/Icon'
 import { PageBar } from '../components/ui/PageBar'
+import { QrImage } from '../components/ui/QrImage'
 
 const methods: Array<{ id: string; name: string; desc: string; icon: IconName; color: string }> = [
   { id: 'momo', name: 'MoMo', desc: 'Ví điện tử MoMo', icon: 'momo', color: '#a50064' },
@@ -14,34 +15,118 @@ const methods: Array<{ id: string; name: string; desc: string; icon: IconName; c
 
 export function Payment() {
   const navigate = useNavigate()
-  const [method, setMethod] = useState('momo')
-  const [paying, setPaying] = useState(false)
+  const [searchParams] = useSearchParams()
+  const [booking, setBooking] = useState<Booking | null>(null)
+  const [link, setLink] = useState<PayosPayment | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [creating, setCreating] = useState(false)
+  const [error, setError] = useState('')
+  const [remaining, setRemaining] = useState(0)
+  const polling = useRef(false)
 
-  const selectedSeats: string[] = JSON.parse(sessionStorage.getItem('selectedSeatLabels') || '[]')
-  const showtimeId = sessionStorage.getItem('showtimeId')
-  const movieId = sessionStorage.getItem('movieId')
-  const cinemaId = sessionStorage.getItem('cinemaId')
-  const total = Number(sessionStorage.getItem('finalTotal') || sessionStorage.getItem('bookingTotal') || 0)
+  const bookingCode = searchParams.get('code') ?? sessionStorage.getItem('pendingBookingCode') ?? ''
 
-  const movie = movies.find((item) => String(item.id) === movieId) ?? movies[0]
-  const cinema = cinemas.find((item) => String(item.id) === cinemaId) ?? cinemas[0]
-  const showtime = showtimesFor(movie.id).find((item) => String(item.id) === showtimeId) ?? showtimesFor(movie.id)[0]
+  const goToTicket = useCallback(
+    (code: string) => {
+      sessionStorage.removeItem('pendingBookingCode')
+      navigate(`/ticket/${code}?paid=1`, { replace: true })
+    },
+    [navigate],
+  )
 
-  const handlePay = () => {
-    setPaying(true)
-    window.setTimeout(() => {
-      const code = `CX-${Date.now().toString().slice(-6)}`
-      sessionStorage.setItem('ticketCode', code)
-      sessionStorage.setItem('ticketMovieId', String(movie.id))
-      sessionStorage.setItem('ticketCinemaId', String(cinema.id))
-      sessionStorage.setItem('ticketShowtimeId', String(showtime.id))
-      sessionStorage.setItem('ticketSeats', JSON.stringify(selectedSeats))
-      sessionStorage.setItem('ticketTotal', String(total))
-      navigate(`/ticket/${code}`)
-    }, 900)
+  useEffect(() => {
+    if (!bookingCode) {
+      setLoading(false)
+      return
+    }
+    let cancelled = false
+    bookingService
+      .getBooking(bookingCode)
+      .then((data) => {
+        if (cancelled) return
+        setBooking(data)
+        if (data.status === 'CONFIRMED') {
+          goToTicket(data.bookingCode)
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) setError(errorMessage(err, 'Không tải được thông tin đơn đặt vé'))
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [bookingCode, goToTicket])
+
+  // Đếm ngược thời hạn thanh toán của đơn
+  useEffect(() => {
+    if (!booking?.expiresAt) {
+      setRemaining(0)
+      return
+    }
+    const tick = () => {
+      const diff = new Date(booking.expiresAt as string).getTime() - Date.now()
+      setRemaining(Math.max(0, Math.floor(diff / 1000)))
+    }
+    tick()
+    const timer = window.setInterval(tick, 1000)
+    return () => window.clearInterval(timer)
+  }, [booking?.expiresAt])
+
+  const pollStatus = useCallback(async () => {
+    if (polling.current) return
+    polling.current = true
+    try {
+      for (let i = 0; i < MAX_POLLS; i += 1) {
+        await new Promise((resolve) => window.setTimeout(resolve, POLL_INTERVAL))
+        try {
+          const data = await bookingService.syncPayosPayment(bookingCode)
+          setBooking(data)
+          if (data.status === 'CONFIRMED') {
+            goToTicket(data.bookingCode)
+            return
+          }
+          if (data.status === 'EXPIRED' || data.status === 'CANCELLED') {
+            setError('Đơn đặt vé đã hết hạn hoặc bị hủy. Vui lòng chọn lại ghế.')
+            return
+          }
+        } catch {
+          // Bỏ qua lỗi mạng tạm thời và tiếp tục kiểm tra
+        }
+      }
+    } finally {
+      polling.current = false
+    }
+  }, [bookingCode, goToTicket])
+
+  const handlePay = async () => {
+    setCreating(true)
+    setError('')
+    try {
+      const payment = await bookingService.createPayosPayment(bookingCode)
+      setLink(payment)
+      void pollStatus()
+    } catch (err) {
+      setError(errorMessage(err, 'Không tạo được mã thanh toán PayOS'))
+    } finally {
+      setCreating(false)
+    }
   }
 
-  if (!total || selectedSeats.length === 0) {
+  if (loading) {
+    return (
+      <div className="container">
+        <div className="loading-screen">
+          <span className="spinner" />
+          Đang tải thông tin thanh toán...
+        </div>
+      </div>
+    )
+  }
+
+  if (!bookingCode || !booking) {
     return (
       <div className="container">
         <PageBar title="Thanh toán" backTo="/movies" />
@@ -67,7 +152,7 @@ export function Payment() {
             <img src={showtime.posterUrl} alt={showtime.movieTitle} />
             <div>
               <span className="eyebrow">Thanh toán an toàn</span>
-              <div className="movie-mini__title">{movie.title}</div>
+              <div className="movie-mini__title">{showtime.movieTitle}</div>
               <div className="meta-row" style={{ marginTop: 5 }}>
                 <span>{cinema.name}</span>
                 <span className="meta-dot" />
@@ -75,7 +160,7 @@ export function Payment() {
               </div>
               <div className="meta-row" style={{ marginTop: 3 }}>
                 <Icon name="calendar" size={12} />
-                Hôm nay · {showtime.time}
+                {formatTime(showtime.startTime)} · Mã đơn {booking.bookingCode}
               </div>
             </div>
           </div>
@@ -103,6 +188,44 @@ export function Payment() {
                 </button>
               ))}
             </div>
+
+            {link && (
+              <div className="surface card-pad" style={{ marginTop: 14, textAlign: 'center' }}>
+                {link.qrCode ? (
+                  <>
+                    <QrImage value={link.qrCode} size={220} alt="QR thanh toán PayOS" />
+                    <p className="muted" style={{ fontSize: 13, marginTop: 10 }}>
+                      Mở ứng dụng ngân hàng và quét mã để thanh toán{' '}
+                      <strong style={{ color: 'var(--text)' }}>{formatVnd(Number(link.amount))}</strong>.
+                    </p>
+                  </>
+                ) : (
+                  <p className="muted" style={{ fontSize: 13 }}>
+                    Mã thanh toán đã được tạo trước đó. Mở cổng PayOS bên dưới để quét mã QR và hoàn tất.
+                  </p>
+                )}
+                <a
+                  className="btn btn-outline btn-block"
+                  href={link.checkoutUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ marginTop: 10 }}
+                >
+                  <Icon name="globe" size={15} />
+                  Mở trang thanh toán PayOS
+                </a>
+                <p className="muted" style={{ fontSize: 12, marginTop: 10 }}>
+                  Đang chờ PayOS xác nhận thanh toán... Trang sẽ tự chuyển khi nhận được tiền.
+                </p>
+              </div>
+            )}
+
+            {remaining > 0 && (
+              <p className="form-hint" style={{ marginTop: 10 }}>
+                Ghế chỉ được giữ sau khi thanh toán thành công. Vui lòng hoàn tất trong{' '}
+                {minutes}:{seconds.toString().padStart(2, '0')} phút.
+              </p>
+            )}
           </section>
 
           <div className="secure-note">
@@ -130,7 +253,7 @@ export function Payment() {
             </div>
             <div className="summary-line">
               <span>Rạp</span>
-              <strong>{cinema.name}</strong>
+              <strong>{showtime.cinemaName}</strong>
             </div>
             <div className="summary-line is-total">
               <span>Tổng cộng</span>

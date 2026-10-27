@@ -34,13 +34,13 @@ public class UserSeeder implements CommandLineRunner {
         Role customerRole = role(ERole.ROLE_CUSTOMER);
 
         createUser("admin", "admin@cinex.vn", "Admin@123", "Quản trị viên", "0900000001",
-            Set.of(adminRole));
+            new HashSet<>(Set.of(adminRole)));
         createUser("staff", "staff@cinex.vn", "Staff@123", "Nhân viên bán vé", "0900000002",
             Set.of(staffRole));
         createUser("customer", "customer@cinex.vn", "Customer@123", "Minh Dương", "0901234567",
             new HashSet<>(Set.of(customerRole)));
         createUser("walkin", "walkin@cinex.vn", "walkin123", "Khách vãng lai", null,
-            Set.of(customerRole));
+            new HashSet<>(Set.of(customerRole)));
     }
 
     private Role role(ERole name) {

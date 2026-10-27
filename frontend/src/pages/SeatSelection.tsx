@@ -1,6 +1,8 @@
-import { useMemo, useState } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { buildSeatMap, cinemas, movies, showtimesFor } from '../data/mockData'
+import { useEffect, useMemo, useState } from 'react'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
+import { bookingService, type SeatDraft } from '../services/bookingService'
+import { authService } from '../services/authService'
+import type { Showtime, ShowtimeSeat } from '../types/Admin'
 import { formatDuration, formatVnd } from '../utils/format'
 import { errorMessage, formatDateLong, formatTime } from '../utils/consoleFormat'
 import { Icon } from '../components/ui/Icon'
@@ -14,15 +16,16 @@ const seatPrice = {
 
 export function SeatSelection() {
   const { showtimeId } = useParams()
-  const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const location = useLocation()
   const numericShowtimeId = Number(showtimeId)
 
-  const movie = movies.find((item) => String(item.id) === searchParams.get('movieId')) ?? movies[0]
-  const cinema = cinemas.find((item) => String(item.id) === searchParams.get('cinemaId')) ?? cinemas[0]
-  const showtime = showtimesFor(movie.id).find((item) => String(item.id) === showtimeId) ?? showtimesFor(movie.id)[0]
-  const seats = useMemo(() => buildSeatMap(), [])
+  const [showtime, setShowtime] = useState<Showtime | null>(null)
+  const [seats, setSeats] = useState<ShowtimeSeat[]>([])
+  const [selected, setSelected] = useState<number[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
     if (!Number.isFinite(numericShowtimeId)) {
@@ -53,11 +56,21 @@ export function SeatSelection() {
     }
   }, [numericShowtimeId, reloadKey])
 
-  const total = selected.reduce((sum, id) => {
-    if (id.startsWith('H')) return sum + seatPrice.couple
-    if (id.startsWith('E') || id.startsWith('F')) return sum + seatPrice.vip
-    return sum + seatPrice.standard
-  }, 0)
+  const rows = useMemo(() => {
+    const map = new Map<number, ShowtimeSeat[]>()
+    seats.forEach((seat) => {
+      const list = map.get(seat.rowNumber) ?? []
+      list.push(seat)
+      map.set(seat.rowNumber, list)
+    })
+    return Array.from(map.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([rowNumber, items]) => ({
+        rowNumber,
+        label: rowLabel(rowNumber),
+        seats: items.sort((a, b) => a.columnNumber - b.columnNumber),
+      }))
+  }, [seats])
 
   const toggleSeat = (id: string) => {
     setSelected((current) => {
@@ -68,13 +81,18 @@ export function SeatSelection() {
   }
 
   const handleContinue = () => {
-    if (selected.length === 0) return
-    sessionStorage.setItem('selectedSeats', JSON.stringify(selected))
-    sessionStorage.setItem('selectedSeatLabels', JSON.stringify(selectedLabels))
-    sessionStorage.setItem('showtimeId', showtimeId ?? String(showtime.id))
-    sessionStorage.setItem('movieId', String(movie.id))
-    sessionStorage.setItem('cinemaId', String(cinema.id))
-    sessionStorage.setItem('bookingTotal', String(total))
+    if (selectedSeats.length === 0) return
+    if (!authService.isAuthenticated()) {
+      navigate('/login', { state: { from: location.pathname + location.search } })
+      return
+    }
+    const draft: SeatDraft = {
+      showtimeId: numericShowtimeId,
+      seatIds: selectedSeats.map((seat) => seat.id),
+      seatCodes: selectedLabels,
+      seatAmount: total,
+    }
+    sessionStorage.setItem('seatHoldDraft', JSON.stringify(draft))
     navigate('/booking/confirm')
   }
 
@@ -112,7 +130,7 @@ export function SeatSelection() {
         backTo={`/showtimes?movieId=${showtime.movieId}`}
         actions={
           <span className="badge badge-muted">
-            {showtime.time} · {showtime.hall}
+            {formatTime(showtime.startTime)} · {showtime.auditoriumName}
           </span>
         }
       />
@@ -125,13 +143,17 @@ export function SeatSelection() {
               <span className="eyebrow">Đang chiếu</span>
               <div className="movie-mini__title">{showtime.movieTitle}</div>
               <div className="meta-row" style={{ marginTop: 5 }}>
-                <span>{cinema.name}</span>
+                <span>{showtime.cinemaName}</span>
                 <span className="meta-dot" />
                 <span>{showtime.hall}</span>
               </div>
               <div className="meta-row" style={{ marginTop: 3 }}>
                 <Icon name="clock" size={12} />
-                {showtime.time} · {formatDuration(movie.durationMinutes)}
+                {formatTime(showtime.startTime)} · {formatDuration(showtime.durationMinutes)}
+              </div>
+              <div className="meta-row" style={{ marginTop: 3 }}>
+                <Icon name="calendar" size={12} />
+                {formatDateLong(showtime.startTime)}
               </div>
             </div>
           </div>
@@ -164,8 +186,8 @@ export function SeatSelection() {
                       onClick={() => toggleSeat(seat)}
                       aria-label={`Ghế ${seat.seatCode}`}
                     >
-                      {first.number}-{second.number}
-                    </button>,
+                      {seat.columnNumber}
+                    </button>
                   )
                 })}
               </div>
@@ -183,7 +205,7 @@ export function SeatSelection() {
               <span className="seat-legend__swatch is-selected" /> Đang chọn
             </span>
             <span className="seat-legend__item">
-              <span className="seat-legend__swatch is-booked" /> Đã đặt
+              <span className="seat-legend__swatch is-booked" /> Đã đặt / đang giữ
             </span>
           </div>
 
@@ -219,7 +241,7 @@ export function SeatSelection() {
             </div>
             <div className="summary-line">
               <span>Phòng</span>
-              <strong>{showtime.hall}</strong>
+              <strong>{showtime.auditoriumName}</strong>
             </div>
             <div className="summary-line is-total">
               <span>Tạm tính</span>

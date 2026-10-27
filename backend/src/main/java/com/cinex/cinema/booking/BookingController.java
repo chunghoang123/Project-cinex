@@ -34,22 +34,17 @@ public class BookingController {
             .body(ApiResponse.ok("Giữ ghế thành công", bookingMapper.toResponse(booking)));
     }
 
-    @GetMapping("/my")
-    public ResponseEntity<ApiResponse<List<BookingResponse>>> myBookings(Authentication authentication) {
-        User user = currentUser(authentication);
-        List<BookingResponse> bookings = bookingService.findMyBookings(user.getId()).stream()
-            .map(bookingMapper::toResponse)
-            .collect(Collectors.toList());
-        return ResponseEntity.ok(ApiResponse.ok(bookings));
-    }
-
-    @PostMapping("/{bookingCode}/confirm")
-    public ResponseEntity<ApiResponse<BookingResponse>> confirm(@PathVariable String bookingCode,
-                                                                Authentication authentication) {
+    /**
+     * Tạo link thanh toán PayOS cho đơn đặt vé online.
+     */
+    @PostMapping("/{bookingCode}/payos")
+    public ResponseEntity<ApiResponse<PayosPaymentResponse>> createPayosPayment(
+            @PathVariable String bookingCode,
+            Authentication authentication) {
         Booking booking = bookingService.findByBookingCode(bookingCode);
         checkAccess(booking, currentUser(authentication));
-        Booking confirmed = bookingService.confirmBooking(bookingCode);
-        return ResponseEntity.ok(ApiResponse.ok("Xác nhận đơn thành công", bookingMapper.toResponse(confirmed)));
+        PayosPaymentResponse payment = bookingService.createPayosPayment(bookingCode);
+        return ResponseEntity.ok(ApiResponse.ok("Tạo mã thanh toán PayOS thành công", payment));
     }
 
     /**

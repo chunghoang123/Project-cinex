@@ -3,9 +3,39 @@ import { AuthResponse, User } from '../types/User'
 
 const SESSION_KEY = 'cinex_session'
 
+interface Envelope<T> {
+  success: boolean
+  message: string
+  data: T
+}
+
 function saveSession(data: AuthResponse) {
   localStorage.setItem('token', data.token)
   localStorage.setItem(SESSION_KEY, JSON.stringify(data))
+}
+
+/** Đồng bộ lại các trường hiển thị trong header sau khi hồ sơ thay đổi. */
+function patchSession(data: Partial<AuthResponse>) {
+  const current = authService.getUser()
+  if (!current) return
+  localStorage.setItem(SESSION_KEY, JSON.stringify({ ...current, ...data }))
+}
+
+function normalizeRoles(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.map((item) => {
+    if (typeof item === 'string') return item
+    return (item as { name?: string })?.name ?? String(item)
+  })
+}
+function toSessionPatch(user: User): Partial<AuthResponse> {
+  return {
+    email: user.email,
+    fullName: user.fullName,
+    phone: user.phone,
+    avatarUrl: user.avatarUrl,
+    roles: normalizeRoles(user.roles),
+  }
 }
 
 export const authService = {

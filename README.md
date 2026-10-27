@@ -68,7 +68,7 @@ project-Cinex/
 Yêu cầu Java 21.
 
 ```powershell
-cd backend
+cd C:\Users\chung\OneDrive\Desktop\project-Cinex\backend
 .\gradlew.bat bootRun --args="--spring.profiles.active=local" --console=plain
 ```
 
@@ -97,8 +97,8 @@ Nếu MySQL chưa sẵn sàng, dùng profile `local` ở trên.
 
 ```powershell
 cd frontend
-npm install
-npm run dev
+npm run lint
+npm run build
 ```
 
 Mở `http://localhost:5173`.

@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { ConsolePageHeader } from '../../components/console/ConsolePageHeader'
 import { Modal } from '../../components/console/Modal'
 import { StatusBadge } from '../../components/console/StatusBadge'
@@ -12,7 +13,7 @@ import type { Cinema, Showtime, ShowtimeSeat, StaffSale } from '../../types/Admi
 import { formatVnd } from '../../utils/format'
 import { errorMessage, formatDateTime, formatTime, todayIso } from '../../utils/consoleFormat'
 
-type PaymentMethod = 'CASH' | 'CARD' | 'TRANSFER'
+type PaymentMethod = 'CASH' | 'CARD' | 'TRANSFER' | 'PAYOS'
 
 const PAYMENT_LABELS: Record<PaymentMethod, string> = {
   CASH: 'Tiền mặt',
@@ -20,6 +21,23 @@ const PAYMENT_LABELS: Record<PaymentMethod, string> = {
   TRANSFER: 'Chuyển khoản',
   PAYOS: 'PayOS',
 }
+
+const ONLINE_METHODS: PaymentMethod[] = ['PAYOS']
+
+interface PosPaymentOption {
+  value: PaymentMethod
+  icon: IconName
+  name: string
+  desc: string
+}
+
+const POS_METHODS: PosPaymentOption[] = [
+  { value: 'CASH', icon: 'cash', name: 'Tiền mặt', desc: 'Thu tiền tại quầy, in vé ngay' },
+  { value: 'PAYOS', icon: 'qr', name: 'PayOS (QR)', desc: 'Khách quét mã QR để thanh toán' },
+]
+
+// Mệnh giá gợi ý khi thu tiền mặt
+const CASH_DENOMINATIONS = [20000, 50000, 100000, 200000, 500000]
 
 export function StaffPosPage() {
   const [date, setDate] = useState(todayIso())
@@ -43,6 +61,13 @@ export function StaffPosPage() {
   const [error, setError] = useState('')
   const [sale, setSale] = useState<StaffSale | null>(null)
   const [successOpen, setSuccessOpen] = useState(false)
+  const [qrOpen, setQrOpen] = useState(false)
+  const [payosBookingCode, setPayosBookingCode] = useState<string | null>(null)
+  const [payosQrCode, setPayosQrCode] = useState<string | null>(null)
+  const [payosPolling, setPayosPolling] = useState(false)
+  const [cancellingQr, setCancellingQr] = useState(false)
+  // Mỗi lượt chờ thanh toán có một token riêng; tăng token để dừng vòng poll cũ
+  const payosPollToken = useRef(0)
 
   const fetchShowtimes = async () => {
     setShowtimesLoading(true)
@@ -126,6 +151,7 @@ export function StaffPosPage() {
   }
 
   const resetSale = () => {
+    payosPollToken.current += 1
     setSelectedSeatIds([])
     setCustomerName('')
     setCustomerPhone('')
@@ -142,7 +168,9 @@ export function StaffPosPage() {
     fetchShowtimes()
   }
 
-  const submitSale = async () => {
+  const isOnlinePayment = ONLINE_METHODS.includes(paymentMethod)
+
+  const doSale = async () => {
     if (!selectedShowtime) {
       setError('Vui lòng chọn suất chiếu')
       return
@@ -163,6 +191,8 @@ export function StaffPosPage() {
         snackAmount,
         snackNote: snackNote || undefined,
       })
+      setCashOpen(false)
+      setCashReceived('')
       setSale(result)
       setSuccessOpen(true)
       resetSale()

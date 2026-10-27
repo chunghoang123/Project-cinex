@@ -45,7 +45,7 @@ export function MovieDetail() {
     )
   }
 
-  const slots = showtimesFor(movie.id).slice(0, 4)
+  const slots = showtimes.slice(0, 4)
   const related = movies.filter((item) => item.id !== movie.id).slice(0, 5)
 
   return (
@@ -175,8 +175,8 @@ export function MovieDetail() {
                   className={`slot ${index === 0 ? 'is-active' : ''}`}
                   onClick={() => navigate(`/seats/${slot.id}`)}
                 >
-                  <strong>{slot.time}</strong>
-                  <span>{formatVnd(slot.price)}</span>
+                  <strong>{formatTime(slot.startTime)}</strong>
+                  <span>{formatVnd(Number(slot.basePrice))}</span>
                 </button>
               ))}
             </div>
