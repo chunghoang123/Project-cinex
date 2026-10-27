@@ -4,11 +4,33 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { authService } from '../services/authService'
 import { Icon } from '../components/ui/Icon'
 import { Logo } from '../components/ui/Logo'
-import { DEMO_ACCOUNTS } from '../types/User'
+import { FieldError } from '../components/ui/FieldError'
 import { errorMessage } from '../utils/consoleFormat'
 
 const heroImage =
   'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=1600&q=80'
+
+type LoginField = 'username' | 'password'
+type FieldErrors = Partial<Record<LoginField, string>>
+
+/** Thư viện GIS (Google Identity Services) nạp từ index.html */
+interface GoogleCredentialResponse {
+  credential?: string
+}
+
+interface GoogleAccountsId {
+  initialize(config: { client_id: string; callback: (response: GoogleCredentialResponse) => void }): void
+  renderButton(element: HTMLElement, options: Record<string, unknown>): void
+}
+
+declare global {
+  interface Window {
+    google?: { accounts?: { id?: GoogleAccountsId } }
+    __cinexGoogleInitialized?: boolean
+  }
+}
+
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined
 
 export function Login() {
   const navigate = useNavigate()
@@ -124,6 +146,16 @@ export function Login() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    const nextErrors: FieldErrors = {}
+    if (!username.trim()) nextErrors.username = 'Vui lòng nhập tên đăng nhập.'
+    if (!password) nextErrors.password = 'Vui lòng nhập mật khẩu.'
+    if (Object.keys(nextErrors).length > 0) {
+      setFieldErrors(nextErrors)
+      const first = (Object.keys(nextErrors) as LoginField[])[0]
+      document.getElementById(first)?.focus()
+      return
+    }
+    setFieldErrors({})
     await performLogin(username, password)
   }
 
@@ -157,20 +189,24 @@ export function Login() {
           <form className="auth-form" onSubmit={handleSubmit} noValidate>
             <div className="field">
               <label htmlFor="username">Tên đăng nhập</label>
-              <div className="input-wrap">
+              <div className={`input-wrap${fieldErrors.username ? ' input-wrap--error' : ''}`}>
                 <Icon name="user" size={17} />
                 <input
                   id="username"
                   className="input"
                   value={username}
-                  onChange={(event) => setUsername(event.target.value)}
-                  placeholder="Nhập tên đăng nhập"
+                  onChange={(event) => {
+                    setUsername(event.target.value)
+                    clearFieldError('username')
+                  }}
+                  placeholder="Nhập tên đăng nhập hoặc email"
                   autoComplete="username"
                   required
                   aria-invalid={Boolean(fieldErrors.username)}
                   aria-describedby={fieldErrors.username ? 'username-error' : undefined}
                 />
               </div>
+              <FieldError id="username-error" message={fieldErrors.username} />
             </div>
 
             <div className="field">
@@ -182,10 +218,15 @@ export function Login() {
                   className="input"
                   type={showPassword ? 'text' : 'password'}
                   value={password}
-                  onChange={(event) => setPassword(event.target.value)}
+                  onChange={(event) => {
+                    setPassword(event.target.value)
+                    clearFieldError('password')
+                  }}
                   placeholder="Nhập mật khẩu"
                   autoComplete="current-password"
                   required
+                  aria-invalid={Boolean(fieldErrors.password)}
+                  aria-describedby={fieldErrors.password ? 'password-error' : undefined}
                 />
                 <button
                   type="button"
@@ -210,8 +251,17 @@ export function Login() {
             </div>
 
             <button type="submit" className="btn btn-gradient btn-block btn-lg" disabled={loading}>
-              {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
-              {!loading && <Icon name="arrow-right" size={17} />}
+              {loading ? (
+                <>
+                  <span className="spinner spinner-sm" aria-hidden="true" />
+                  Đang đăng nhập...
+                </>
+              ) : (
+                <>
+                  Đăng nhập
+                  <Icon name="arrow-right" size={17} />
+                </>
+              )}
             </button>
           </form>
 

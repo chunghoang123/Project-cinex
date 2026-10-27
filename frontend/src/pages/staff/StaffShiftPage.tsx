@@ -118,6 +118,22 @@ export function StaffShiftPage() {
               </table>
             </div>
           </div>
+
+          <div className="pos-print-area">
+            <h2>CINEX</h2>
+            <p>Báo cáo doanh thu ca · {summary.date}</p>
+            <div>Tổng doanh thu: {formatVnd(summary.totalRevenue)}</div>
+            <div>Số vé đã bán: {summary.ticketCount}</div>
+            <div>Số giao dịch: {summary.transactionCount}</div>
+            <div>Tiền mặt: {formatVnd(summary.cashRevenue)}</div>
+            <div>Thẻ / chuyển khoản: {formatVnd(summary.cardRevenue)}</div>
+            <div style={{ marginTop: 20, fontWeight: 700 }}>Giao dịch gần đây</div>
+            {summary.recentSales.map((booking) => (
+              <div key={booking.id}>
+                {booking.bookingCode} · {booking.showtime.movieTitle} · {booking.seats.map((seat) => seat.seatCode).join(', ')} · {formatVnd(booking.totalAmount)}
+              </div>
+            ))}
+          </div>
         </>
       ) : null}
     </div>
