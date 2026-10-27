@@ -32,7 +32,7 @@ export function Home() {
           <Avatar alt={greetingName} />
           <div>
             <div className="greeting__hello">Chào buổi tối,</div>
-            <div className="greeting__name">{demoUser.name}</div>
+            <div className="greeting__name">{greetingName}</div>
           </div>
         </div>
         <Link to="/history" className="header-icon" aria-label="Thông báo">

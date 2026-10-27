@@ -62,6 +62,17 @@ export function Header() {
     navigate(query ? `/search?q=${encodeURIComponent(query)}` : '/search')
   }
 
+  const handleLogout = () => {
+    setMenuOpen(false)
+    setLoggingOut(true)
+    window.setTimeout(() => {
+      authService.logout()
+      navigate('/login')
+    }, 300)
+  }
+
+  const displayName = user?.fullName || user?.username || (isConsoleUser ? 'Cinex Console' : 'Khách')
+
   return (
     <header className="site-header">
       <div className="container site-header__inner">
@@ -89,27 +100,49 @@ export function Header() {
           </Link>
 
           {token ? (
-            isConsoleUser ? (
-              <Link to={consolePath} className="header-user">
+            <div className="header-user-wrap" ref={menuRef}>
+              <button
+                type="button"
+                className="header-user"
+                onClick={() => setMenuOpen((value) => !value)}
+                aria-expanded={menuOpen}
+                aria-haspopup="menu"
+              >
                 <div>
                   <div className="header-user__name">{displayName}</div>
                   <div className="header-user__role">
                     {isConsoleUser ? 'Vào console' : 'Thành viên Cinex'}
                   </div>
                 </div>
-                <span className="console-avatar" style={{ width: 30, height: 30, fontSize: 10 }}>
-                  {(user?.fullName || user?.username || 'CX').slice(0, 2).toUpperCase()}
-                </span>
-              </Link>
-            ) : (
-              <Link to="/profile" className="header-user">
-                <div>
-                  <div className="header-user__name">{user?.fullName || demoUser.name}</div>
-                  <div className="header-user__role">Thành viên Cinex</div>
+                {isConsoleUser ? (
+                  <span className="console-avatar" style={{ width: 30, height: 30, fontSize: 10 }}>
+                    {(user?.fullName || user?.username || 'CX').slice(0, 2).toUpperCase()}
+                  </span>
+                ) : (
+                  <Avatar alt={displayName} size="sm" />
+                )}
+                <Icon name="chevron-down" size={14} />
+              </button>
+
+              {menuOpen && (
+                <div className="header-dropdown" role="menu">
+                  <Link to="/profile" className="header-dropdown__item" role="menuitem" onClick={() => setMenuOpen(false)}>
+                    <Icon name="user" size={16} />
+                    <span>Hồ sơ cá nhân</span>
+                  </Link>
+                  {isConsoleUser && (
+                    <Link to={consolePath} className="header-dropdown__item" role="menuitem" onClick={() => setMenuOpen(false)}>
+                      <Icon name="dashboard" size={16} />
+                      <span>Cinex Console</span>
+                    </Link>
+                  )}
+                  <button type="button" className="header-dropdown__item header-dropdown__item--danger" role="menuitem" onClick={handleLogout}>
+                    <Icon name="logout" size={16} />
+                    <span>Đăng xuất</span>
+                  </button>
                 </div>
-                <Avatar src={demoUser.avatar} alt={user?.fullName || demoUser.name} size="sm" />
-              </Link>
-            )
+              )}
+            </div>
           ) : (
             <Link to="/login" className="btn btn-primary btn-sm">
               Đăng nhập

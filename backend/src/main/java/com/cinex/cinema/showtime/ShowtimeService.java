@@ -47,6 +47,11 @@ public class ShowtimeService {
             .stream().map(this::toResponse).collect(Collectors.toList());
     }
 
+    public List<ShowtimeResponse> findInRange(LocalDateTime from, LocalDateTime to) {
+        return showtimeRepository.findByStartTimeBetweenAndActiveTrueOrderByStartTimeAsc(from, to)
+            .stream().map(this::toResponse).collect(Collectors.toList());
+    }
+
     public List<ShowtimeResponse> findAdmin(LocalDate date, Long cinemaId, Long movieId) {
         LocalDate targetDate = date == null ? LocalDate.now() : date;
         LocalDateTime from = targetDate.atStartOfDay();

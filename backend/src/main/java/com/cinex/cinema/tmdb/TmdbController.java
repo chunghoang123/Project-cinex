@@ -4,6 +4,7 @@ import com.cinex.cinema.common.ApiResponse;
 import com.cinex.cinema.tmdb.TmdbDtos.TmdbMovie;
 import com.cinex.cinema.tmdb.TmdbDtos.TmdbPage;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -45,7 +46,11 @@ public class TmdbController {
     @GetMapping("/upcoming")
     public ResponseEntity<ApiResponse<TmdbPage<TmdbMovie>>> upcoming(
             @RequestParam(defaultValue = "1") int page) {
-        return ResponseEntity.ok(ApiResponse.ok(tmdbClient.upcoming(page)));
+        try {
+            return ResponseEntity.ok(ApiResponse.ok(tmdbClient.upcoming(page)));
+        } catch (Exception ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Không lấy được dữ liệu phim từ TMDB, thử lại sau");
+        }
     }
 
     @GetMapping("/search")

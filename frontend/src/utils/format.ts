@@ -30,11 +30,11 @@ export function buildDates(count = 7) {
     const day = date.getDate().toString().padStart(2, '0')
     const month = `${date.getMonth() + 1}`.padStart(2, '0')
     return {
-      key: date.toISOString().slice(0, 10),
+      key: `${date.getFullYear()}-${month}-${day}`,
       weekday: days[date.getDay()],
-      day: date.getDate().toString().padStart(2, '0'),
-      month: `${date.getMonth() + 1}`.padStart(2, '0'),
-      label: `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}`,
+      day,
+      month,
+      label: `${day}/${month}`,
     }
   })
 }

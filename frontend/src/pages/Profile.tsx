@@ -2,19 +2,60 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { authService } from '../services/authService'
+import type { User } from '../types/User'
 import { Avatar } from '../components/ui/Avatar'
 import { FieldError } from '../components/ui/FieldError'
 import { Icon } from '../components/ui/Icon'
 import { PageBar } from '../components/ui/PageBar'
 import { errorMessage, formatDate } from '../utils/consoleFormat'
 
-const menuItems: Array<{ icon: IconName; label: string; to?: string; action?: 'payments' | 'favorites' | 'settings' }> = [
-  { icon: 'ticket', label: 'Vé của tôi', to: '/history' },
-  { icon: 'card', label: 'Phương thức thanh toán', action: 'payments' },
-  { icon: 'heart', label: 'Phim yêu thích', action: 'favorites' },
-  { icon: 'settings', label: 'Cài đặt', action: 'settings' },
-  { icon: 'info', label: 'Trợ giúp & hỗ trợ', to: '/ai-chat' },
-]
+const roleLabels: Record<string, string> = {
+  ROLE_ADMIN: 'Quản trị viên',
+  ROLE_STAFF: 'Nhân viên rạp',
+  ROLE_CUSTOMER: 'Thành viên',
+}
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const PHONE_PATTERN = /^[0-9+\s.-]{8,15}$/
+
+type ProfileField = 'fullName' | 'email' | 'phone'
+type PasswordField = 'currentPassword' | 'newPassword' | 'confirmPassword'
+
+interface ProfileForm {
+  fullName: string
+  email: string
+  phone: string
+}
+
+interface PasswordForm {
+  currentPassword: string
+  newPassword: string
+  confirmPassword: string
+}
+
+const emptyPasswordForm: PasswordForm = {
+  currentPassword: '',
+  newPassword: '',
+  confirmPassword: '',
+}
+
+function normalizeRoles(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.map((item) =>
+    typeof item === 'string' ? item : (item as { name?: string })?.name ?? String(item)
+  )
+}
+function toProfileForm(user: User): ProfileForm {
+  return {
+    fullName: user.fullName ?? '',
+    email: user.email,
+    phone: user.phone ?? '',
+  }
+}
+
+function focusField(id: string) {
+  document.getElementById(id)?.focus()
+}
 
 export function Profile() {
   const token = authService.getToken()
@@ -24,9 +65,52 @@ export function Profile() {
   const [loadError, setLoadError] = useState('')
 
   const [editing, setEditing] = useState(false)
-  const [name, setName] = useState(demoUser.name)
-  const [email, setEmail] = useState(demoUser.email)
-  const [phone, setPhone] = useState(demoUser.phone)
+  const [profileForm, setProfileForm] = useState<ProfileForm>({ fullName: '', email: '', phone: '' })
+  const [profileErrors, setProfileErrors] = useState<Partial<Record<ProfileField, string>>>({})
+  const [profileError, setProfileError] = useState('')
+  const [profileNotice, setProfileNotice] = useState('')
+  const [savingProfile, setSavingProfile] = useState(false)
+
+  const [passwordForm, setPasswordForm] = useState<PasswordForm>(emptyPasswordForm)
+  const [passwordErrors, setPasswordErrors] = useState<Partial<Record<PasswordField, string>>>({})
+  const [passwordError, setPasswordError] = useState('')
+  const [passwordNotice, setPasswordNotice] = useState('')
+  const [savingPassword, setSavingPassword] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+
+  useEffect(() => {
+    if (!token) return
+    let active = true
+    setLoading(true)
+    authService
+      .me()
+      .then((data) => {
+        if (!active) return
+        const normalized = { ...data, roles: normalizeRoles(data.roles) }
+        setUser(normalized)
+        setProfileForm(toProfileForm(normalized))
+        setLoadError('')
+      })
+      .catch((err) => {
+        if (!active) return
+        setLoadError(errorMessage(err, 'Không tải được thông tin tài khoản.'))
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [token])
+
+  const startEditing = () => {
+    if (!user) return
+    setProfileForm(toProfileForm(user))
+    setProfileErrors({})
+    setProfileError('')
+    setProfileNotice('')
+    setEditing(true)
+  }
 
   const cancelEditing = () => {
     if (user) setProfileForm(toProfileForm(user))
@@ -62,7 +146,69 @@ export function Profile() {
       focusField(`profile-${first}`)
       return
     }
-    window.alert('Tính năng đang được phát triển trong bản demo.')
+
+    setSavingProfile(true)
+    setProfileError('')
+    setProfileNotice('')
+    try {
+      const updated = await authService.updateProfile({
+        fullName: form.fullName,
+        email: form.email,
+        phone: form.phone,
+      })
+      setUser(updated)
+      setProfileForm(toProfileForm(updated))
+      setEditing(false)
+      setProfileNotice('Đã cập nhật thông tin cá nhân.')
+    } catch (err) {
+      setProfileError(errorMessage(err, 'Không lưu được thông tin. Vui lòng thử lại.'))
+    } finally {
+      setSavingProfile(false)
+    }
+  }
+
+  const handlePasswordSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+
+    const errors: Partial<Record<PasswordField, string>> = {}
+    if (!passwordForm.currentPassword) {
+      errors.currentPassword = 'Vui lòng nhập mật khẩu hiện tại.'
+    }
+    if (!passwordForm.newPassword) {
+      errors.newPassword = 'Vui lòng nhập mật khẩu mới.'
+    } else if (passwordForm.newPassword.length < 6) {
+      errors.newPassword = 'Mật khẩu mới tối thiểu 6 ký tự.'
+    } else if (passwordForm.newPassword === passwordForm.currentPassword) {
+      errors.newPassword = 'Mật khẩu mới phải khác mật khẩu hiện tại.'
+    }
+    if (!passwordForm.confirmPassword) {
+      errors.confirmPassword = 'Vui lòng nhập lại mật khẩu mới.'
+    } else if (passwordForm.confirmPassword !== passwordForm.newPassword) {
+      errors.confirmPassword = 'Mật khẩu nhập lại không khớp.'
+    }
+
+    setPasswordErrors(errors)
+    if (Object.keys(errors).length > 0) {
+      const first = (Object.keys(errors) as PasswordField[])[0]
+      focusField(`pwd-${first}`)
+      return
+    }
+
+    setSavingPassword(true)
+    setPasswordError('')
+    setPasswordNotice('')
+    try {
+      const message = await authService.changePassword({
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+      })
+      setPasswordForm(emptyPasswordForm)
+      setPasswordNotice(message || 'Đổi mật khẩu thành công.')
+    } catch (err) {
+      setPasswordError(errorMessage(err, 'Không đổi được mật khẩu. Vui lòng thử lại.'))
+    } finally {
+      setSavingPassword(false)
+    }
   }
 
   if (!token) {
@@ -137,8 +283,8 @@ export function Profile() {
 
             <div className="stat-grid" style={{ marginTop: 0 }}>
               <div className="stat-card">
-                <span>Vé đã xem</span>
-                <strong>12</strong>
+                <span>Thành viên từ</span>
+                <strong>{formatDate(user.createdAt)}</strong>
               </div>
               <div className="stat-card">
                 <span>Trạng thái</span>
@@ -146,26 +292,27 @@ export function Profile() {
               </div>
             </div>
           </div>
-        </aside>
 
-        <div className="stack gap-16">
-          <div className="promo-banner">
-            <span className="eyebrow">Cinex Rewards</span>
-            <h3>{demoUser.points.toLocaleString('vi-VN')} điểm thưởng</h3>
-            <p>Bạn còn 720 điểm nữa để lên hạng Gold và nhận vé miễn phí mỗi tháng.</p>
-            <div className="row gap-10" style={{ marginTop: 14 }}>
-              <Link to="/movies" className="btn btn-accent btn-sm">
-                Đặt vé tích điểm
+          <nav className="menu-list" aria-label="Lối tắt tài khoản">
+            <Link to="/history" className="menu-item">
+              <Icon name="ticket" size={17} />
+              <span className="grow">Vé của tôi</span>
+              <Icon name="chevron-right" size={16} className="menu-item__chevron" />
+            </Link>
+            <Link to="/movies" className="menu-item">
+              <Icon name="film" size={17} />
+              <span className="grow">Khám phá phim</span>
+              <Icon name="chevron-right" size={16} className="menu-item__chevron" />
+            </Link>
+            {authService.isStaffOrAdmin() && (
+              <Link to={consolePath} className="menu-item">
+                <Icon name="dashboard" size={17} />
+                <span className="grow">Vào Cinex Console</span>
+                <Icon name="chevron-right" size={16} className="menu-item__chevron" />
               </Link>
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                onClick={() => window.alert('Tính năng đổi điểm đang được phát triển trong bản demo.')}
-              >
-                Đổi điểm
-              </button>
-            </div>
-          </div>
+            )}
+          </nav>
+        </aside>
 
         <div className="stack gap-16">
           <section className="surface card-pad">
@@ -182,11 +329,30 @@ export function Profile() {
               )}
             </div>
 
+            {profileNotice && <div className="form-success" style={{ marginBottom: 14 }}>{profileNotice}</div>}
+
             {editing ? (
               <form className="profile-form" onSubmit={handleProfileSubmit} noValidate>
                 <div className="field">
-                  <label htmlFor="profile-name">Họ và tên</label>
-                  <input id="profile-name" className="input" value={name} onChange={(event) => setName(event.target.value)} />
+                  <label htmlFor="profile-fullName">Họ tên</label>
+                  <div className={`input-wrap${profileErrors.fullName ? ' input-wrap--error' : ''}`}>
+                    <Icon name="user" size={17} />
+                    <input
+                      id="profile-fullName"
+                      className="input"
+                      value={profileForm.fullName}
+                      onChange={(event) => {
+                        setProfileForm((form) => ({ ...form, fullName: event.target.value }))
+                        setProfileErrors((errors) => ({ ...errors, fullName: undefined }))
+                      }}
+                      placeholder="Nguyễn Văn A"
+                      autoComplete="name"
+                      maxLength={100}
+                      aria-invalid={Boolean(profileErrors.fullName)}
+                      aria-describedby={profileErrors.fullName ? 'profile-fullName-error' : undefined}
+                    />
+                  </div>
+                  <FieldError id="profile-fullName-error" message={profileErrors.fullName} />
                 </div>
 
                 <div className="field">
@@ -211,6 +377,7 @@ export function Profile() {
                   </div>
                   <FieldError id="profile-email-error" message={profileErrors.email} />
                 </div>
+
                 <div className="field">
                   <label htmlFor="profile-phone">Số điện thoại</label>
                   <div className={`input-wrap${profileErrors.phone ? ' input-wrap--error' : ''}`}>
@@ -251,10 +418,11 @@ export function Profile() {
                 </div>
               </form>
             ) : (
-              <div className="stack gap-10">
-                <div className="summary-line">
-                  <span>Họ và tên</span>
-                  <strong>{name}</strong>
+              <div className="profile-info">
+                <div className="profile-info__row">
+                  <Icon name="user" size={16} />
+                  <span className="profile-info__label">Tên đăng nhập</span>
+                  <span className="profile-info__value">{user.username}</span>
                 </div>
                 <div className="profile-info__row">
                   <Icon name="mail" size={16} />
@@ -266,9 +434,10 @@ export function Profile() {
                   <span className="profile-info__label">Số điện thoại</span>
                   <span className="profile-info__value">{user.phone || 'Chưa cập nhật'}</span>
                 </div>
-                <div className="summary-line">
-                  <span>Hạng thành viên</span>
-                  <strong style={{ color: 'var(--accent)' }}>Silver</strong>
+                <div className="profile-info__row">
+                  <Icon name="calendar" size={16} />
+                  <span className="profile-info__label">Ngày tham gia</span>
+                  <span className="profile-info__value">{formatDate(user.createdAt)}</span>
                 </div>
               </div>
             )}
@@ -282,14 +451,28 @@ export function Profile() {
               </div>
               <Icon name="shield" size={18} />
             </div>
-            <div className="payment-card">
-              <span className="payment-card__brand" style={{ color: '#fca5a5' }}>
-                MC
-              </span>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 700 }}>Mastercard •••• 8888</div>
-                <div className="muted" style={{ fontSize: 11 }}>
-                  Hết hạn 12/2026
+
+            {passwordNotice && <div className="form-success" style={{ marginBottom: 14 }}>{passwordNotice}</div>}
+
+            <form className="profile-form" onSubmit={handlePasswordSubmit} noValidate>
+              <div className="field">
+                <label htmlFor="pwd-currentPassword">Mật khẩu hiện tại</label>
+                <div className={`input-wrap${passwordErrors.currentPassword ? ' input-wrap--error' : ''}`}>
+                  <Icon name="lock" size={17} />
+                  <input
+                    id="pwd-currentPassword"
+                    className="input"
+                    type="password"
+                    value={passwordForm.currentPassword}
+                    onChange={(event) => {
+                      setPasswordForm((form) => ({ ...form, currentPassword: event.target.value }))
+                      setPasswordErrors((errors) => ({ ...errors, currentPassword: undefined }))
+                    }}
+                    placeholder="Nhập mật khẩu đang dùng"
+                    autoComplete="current-password"
+                    aria-invalid={Boolean(passwordErrors.currentPassword)}
+                    aria-describedby={passwordErrors.currentPassword ? 'pwd-currentPassword-error' : undefined}
+                  />
                 </div>
                 <FieldError id="pwd-currentPassword-error" message={passwordErrors.currentPassword} />
               </div>

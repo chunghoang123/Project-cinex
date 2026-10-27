@@ -32,6 +32,13 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.ok("Đăng nhập thành công", response));
     }
 
+    @PostMapping("/google")
+    public ResponseEntity<ApiResponse<AuthResponse>> google(
+            @RequestBody java.util.Map<String, String> request) {
+        AuthResponse response = authService.googleLogin(request.get("credential"));
+        return ResponseEntity.ok(ApiResponse.ok("Đăng nhập Google thành công", response));
+    }
+
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<UserResponse>> getMe(Authentication authentication) {
         return ResponseEntity.ok(ApiResponse.ok(authService.me(currentUser(authentication))));

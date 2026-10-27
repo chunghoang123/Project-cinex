@@ -4,6 +4,7 @@ import { snacks } from '../data/mockData'
 import { bookingService, type SeatDraft } from '../services/bookingService'
 import type { Showtime } from '../types/Admin'
 import { formatVnd } from '../utils/format'
+import { errorMessage, formatDateLong, formatTime } from '../utils/consoleFormat'
 import { Icon } from '../components/ui/Icon'
 import { PageBar } from '../components/ui/PageBar'
 
@@ -25,16 +26,21 @@ export function BookingConfirm() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
-  const selectedSeats: string[] = JSON.parse(sessionStorage.getItem('selectedSeatLabels') || '[]')
-  const seatIds: string[] = JSON.parse(sessionStorage.getItem('selectedSeats') || '[]')
-  const showtimeId = sessionStorage.getItem('showtimeId')
-  const movieId = sessionStorage.getItem('movieId')
-  const cinemaId = sessionStorage.getItem('cinemaId')
-  const ticketTotal = Number(sessionStorage.getItem('bookingTotal') || 0)
-
-  const movie = movies.find((item) => String(item.id) === movieId) ?? movies[0]
-  const cinema = cinemas.find((item) => String(item.id) === cinemaId) ?? cinemas[0]
-  const showtime = showtimesFor(movie.id).find((item) => String(item.id) === showtimeId) ?? showtimesFor(movie.id)[0]
+  useEffect(() => {
+    if (!draft) return
+    let cancelled = false
+    bookingService
+      .getShowtime(draft.showtimeId)
+      .then((data) => {
+        if (!cancelled) setShowtime(data)
+      })
+      .catch((err) => {
+        if (!cancelled) setError(errorMessage(err, 'Không tải được thông tin suất chiếu'))
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [draft])
 
   const snackTotal = useMemo(
     () => snacks.filter((snack) => selectedSnacks.includes(snack.id)).reduce((sum, snack) => sum + snack.price, 0),
@@ -90,7 +96,7 @@ export function BookingConfirm() {
 
   return (
     <div className="container">
-      <PageBar title="Xác nhận đặt vé" backTo={`/seats/${showtime.id}?movieId=${movie.id}`} />
+      <PageBar title="Xác nhận đặt vé" backTo={`/seats/${draft.showtimeId}`} />
 
       <div className="checkout-layout">
         <div className="stack gap-16">
@@ -119,8 +125,8 @@ export function BookingConfirm() {
                 <Icon name="seat" size={17} />
               </span>
               <div>
-                <div style={{ fontSize: 12, color: 'var(--muted)' }}>Ghế đã giữ</div>
-                <strong style={{ fontSize: 14 }}>{selectedSeats.join(', ')}</strong>
+                <div style={{ fontSize: 12, color: 'var(--muted)' }}>Ghế đã chọn</div>
+                <strong style={{ fontSize: 14 }}>{draft.seatCodes.join(', ')}</strong>
               </div>
             </div>
             <span className="badge badge-success">{draft.seatCodes.length} vé</span>
@@ -182,7 +188,7 @@ export function BookingConfirm() {
             </h2>
             <div className="summary-line">
               <span>Phim</span>
-              <strong>{movie.title}</strong>
+              <strong>{showtime?.movieTitle ?? '—'}</strong>
             </div>
             <div className="summary-line">
               <span>Suất chiếu</span>
@@ -194,7 +200,7 @@ export function BookingConfirm() {
             </div>
             <div className="summary-line">
               <span>Ghế</span>
-              <strong>{selectedSeats.join(', ')}</strong>
+              <strong>{draft.seatCodes.join(', ')}</strong>
             </div>
             <div className="summary-line is-total">
               <span>Tổng cộng</span>

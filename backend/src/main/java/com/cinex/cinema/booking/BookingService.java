@@ -23,6 +23,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -62,6 +63,11 @@ public class BookingService {
     }
 
     public Booking createHold(Long userId, Long showtimeId, List<Long> seatIds) {
+        return createHold(userId, showtimeId, seatIds, BigDecimal.ZERO, null);
+    }
+
+    public Booking createHold(Long userId, Long showtimeId, List<Long> seatIds,
+                              BigDecimal snackAmount, String snackNote) {
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User không tồn tại"));
         Showtime showtime = showtimeRepository.findById(showtimeId)
@@ -80,11 +86,8 @@ public class BookingService {
         LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(10);
         String bookingCode = "BK" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
 
-        for (ShowtimeSeat seat : seats) {
-            seat.setStatus(SeatStatus.HELD);
-            seat.setHeldUntil(expiresAt);
-            seat.setHoldByBookingId(bookingCode);
-        }
+        // Không khoá ghế ở bước tạo đơn: ghế chỉ chuyển BOOKED khi PayOS xác nhận đã nhận tiền.
+        // Nhờ vậy khách không giữ chỗ trước khi trả tiền; xung đột hiếm được xử lý lúc chốt đơn.
         showtimeSeatRepository.saveAll(seats);
 
         BigDecimal seatAmount = calculateSeatAmount(showtime, seats);
@@ -92,7 +95,7 @@ public class BookingService {
             .bookingCode(bookingCode)
             .user(user)
             .showtime(showtime)
-            .totalAmount(seatAmount)
+            .totalAmount(seatAmount.add(extraAmount))
             .seatAmount(seatAmount)
             .snackAmount(extraAmount)
             .snackNote(snackNote)
@@ -137,14 +140,11 @@ public class BookingService {
     public PayosPaymentResponse createPayosPayment(String bookingCode) {
         Booking booking = findByBookingCode(bookingCode);
         if (booking.getStatus() == BookingStatus.CONFIRMED) {
-            paymentService.recordSuccess(booking, paymentMethod, booking.getTotalAmount(), "PAY-" + bookingCode);
-            ticketService.issue(booking);
-            return booking;
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn đã được thanh toán");
         }
         if (booking.getStatus() != BookingStatus.PENDING) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn không ở trạng thái chờ thanh toán");
         }
-
         if (booking.getExpiresAt() != null && booking.getExpiresAt().isBefore(LocalDateTime.now())) {
             booking.setStatus(BookingStatus.EXPIRED);
             releaseSeats(booking.getBookingCode());
@@ -325,6 +325,24 @@ public class BookingService {
         return booking.getUser() != null && booking.getUser().getId().equals(userId);
     }
 
+    /** Kiểm tra ghế của đơn còn trống trước khi tạo link thanh toán. */
+    private void ensureSeatsFree(Booking booking) {
+        LocalDateTime now = LocalDateTime.now();
+        List<ShowtimeSeat> seats = bookingSeatRepository.findByBookingId(booking.getId()).stream()
+            .map(BookingSeat::getShowtimeSeat)
+            .collect(Collectors.toList());
+        for (ShowtimeSeat seat : seats) {
+            boolean takenByOther = seat.getStatus() == SeatStatus.BOOKED
+                || (seat.getStatus() == SeatStatus.HELD
+                    && seat.getHeldUntil() != null && seat.getHeldUntil().isAfter(now)
+                    && !booking.getBookingCode().equals(seat.getHoldByBookingId()));
+            if (takenByOther) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Ghế " + seat.getSeat().getSeatCode() + " đã được người khác đặt");
+            }
+        }
+    }
+
     private List<ShowtimeSeat> validateSeats(Long showtimeId, List<Long> seatIds) {
         if (seatIds == null || seatIds.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Vui lòng chọn ít nhất một ghế");
@@ -365,7 +383,7 @@ public class BookingService {
     }
 
     private void releaseSeats(String bookingCode) {
-        List<ShowtimeSeat> seats = showtimeSeatRepository.findByHoldByBookingId(bookingCode);
+        List<ShowtimeSeat> seats = showtimeSeatRepository.findByHoldByBookingIdForUpdate(bookingCode);
         for (ShowtimeSeat seat : seats) {
             seat.setStatus(SeatStatus.AVAILABLE);
             seat.setHeldUntil(null);

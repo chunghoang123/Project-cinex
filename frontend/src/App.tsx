@@ -10,6 +10,7 @@ import { ShowtimeList } from './pages/ShowtimeList'
 import { SeatSelection } from './pages/SeatSelection'
 import { BookingConfirm } from './pages/BookingConfirm'
 import { Payment } from './pages/Payment'
+import { PaymentReturn } from './pages/PaymentReturn'
 import { TicketView } from './pages/TicketView'
 import { Login } from './pages/Login'
 import { Register } from './pages/Register'
@@ -57,6 +58,8 @@ function Shell() {
           <Route path="/seats/:showtimeId" element={<SeatSelection />} />
           <Route path="/booking/confirm" element={<BookingConfirm />} />
           <Route path="/booking/payment" element={<Payment />} />
+          <Route path="/payment/return" element={<PaymentReturn />} />
+          <Route path="/payment/cancel" element={<PaymentReturn cancelled />} />
           <Route path="/ticket/:bookingId" element={<TicketView />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />

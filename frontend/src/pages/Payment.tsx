@@ -1,17 +1,15 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { cinemas, movies, showtimesFor } from '../data/mockData'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { bookingService, type PayosPayment } from '../services/bookingService'
+import type { Booking } from '../types/Admin'
 import { formatVnd } from '../utils/format'
-import { Icon, type IconName } from '../components/ui/Icon'
+import { errorMessage, formatTime } from '../utils/consoleFormat'
+import { Icon } from '../components/ui/Icon'
 import { PageBar } from '../components/ui/PageBar'
 import { QrImage } from '../components/ui/QrImage'
 
-const methods: Array<{ id: string; name: string; desc: string; icon: IconName; color: string }> = [
-  { id: 'momo', name: 'MoMo', desc: 'Ví điện tử MoMo', icon: 'momo', color: '#a50064' },
-  { id: 'vnpay', name: 'VNPay', desc: 'Cổng thanh toán VNPay', icon: 'vnpay', color: '#0066cc' },
-  { id: 'card', name: 'Thẻ ngân hàng', desc: 'Visa, Mastercard, JCB', icon: 'credit-card', color: '#22d3ee' },
-  { id: 'apple', name: 'Apple Pay', desc: 'Thanh toán nhanh với Face ID', icon: 'apple', color: '#f8fafc' },
-]
+const POLL_INTERVAL = 3000
+const MAX_POLLS = 200
 
 export function Payment() {
   const navigate = useNavigate()
@@ -133,7 +131,7 @@ export function Payment() {
         <div className="empty-state">
           <Icon name="card" size={40} />
           <strong>Chưa có giao dịch nào</strong>
-          <p>Hãy chọn ghế và xác nhận đặt vé trước khi thanh toán.</p>
+          <p>{error || 'Hãy chọn ghế và xác nhận đặt vé trước khi thanh toán.'}</p>
           <Link to="/movies" className="btn btn-primary btn-sm">
             Chọn phim
           </Link>
@@ -141,6 +139,10 @@ export function Payment() {
       </div>
     )
   }
+
+  const minutes = Math.floor(remaining / 60)
+  const seconds = remaining % 60
+  const showtime = booking.showtime
 
   return (
     <div className="container">
@@ -154,7 +156,7 @@ export function Payment() {
               <span className="eyebrow">Thanh toán an toàn</span>
               <div className="movie-mini__title">{showtime.movieTitle}</div>
               <div className="meta-row" style={{ marginTop: 5 }}>
-                <span>{cinema.name}</span>
+                <span>{showtime.cinemaName}</span>
                 <span className="meta-dot" />
                 <span>{showtime.auditoriumName}</span>
               </div>
@@ -169,24 +171,15 @@ export function Payment() {
             <h2 className="h3" style={{ marginBottom: 12 }}>
               Phương thức thanh toán
             </h2>
-            <div className="stack gap-10">
-              {methods.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  className={`pay-method ${method === item.id ? 'is-active' : ''}`}
-                  onClick={() => setMethod(item.id)}
-                >
-                  <span className="pay-method__icon" style={{ color: item.color }}>
-                    <Icon name={item.icon} size={22} />
-                  </span>
-                  <span>
-                    <span className="pay-method__name">{item.name}</span>
-                    <span className="pay-method__desc">{item.desc}</span>
-                  </span>
-                  <span className="pay-method__radio" />
-                </button>
-              ))}
+            <div className="pay-method is-active" style={{ cursor: 'default' }}>
+              <span className="pay-method__icon" style={{ color: '#22d3ee' }}>
+                <Icon name="qr" size={22} />
+              </span>
+              <span>
+                <span className="pay-method__name">PayOS</span>
+                <span className="pay-method__desc">Quét mã QR hoặc mở cổng thanh toán PayOS</span>
+              </span>
+              <span className="pay-method__radio" />
             </div>
 
             {link && (
@@ -245,7 +238,7 @@ export function Payment() {
             </div>
             <div className="summary-line">
               <span>Ghế</span>
-              <strong>{selectedSeats.join(', ')}</strong>
+              <strong>{booking.seats.map((seat) => seat.seatCode).join(', ')}</strong>
             </div>
             <div className="summary-line">
               <span>Suất chiếu</span>
@@ -257,7 +250,7 @@ export function Payment() {
             </div>
             <div className="summary-line is-total">
               <span>Tổng cộng</span>
-              <strong>{formatVnd(total)}</strong>
+              <strong>{formatVnd(Number(booking.totalAmount))}</strong>
             </div>
 
             {error && (

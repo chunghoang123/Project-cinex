@@ -13,6 +13,8 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
@@ -35,6 +37,10 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
+
+    /** Google OAuth Client ID, cấu hình qua biến môi trường GOOGLE_CLIENT_ID */
+    @Value("${app.oauth2.google.client-id:}")
+    private String googleClientId;
 
     public AuthService(UserRepository userRepository, RoleRepository roleRepository,
                        PasswordEncoder passwordEncoder, JwtService jwtService,
@@ -75,7 +81,8 @@ public class AuthService {
         Set<String> roleNames = user.getRoles().stream()
             .map(r -> r.getName().name()).collect(Collectors.toSet());
 
-        return new AuthResponse(token, user.getUsername(), user.getEmail(), user.getFullName(), roleNames);
+        return new AuthResponse(token, user.getUsername(), user.getEmail(), user.getFullName(),
+            user.getAvatarUrl(), roleNames);
     }
 
     public AuthResponse login(LoginRequest request) {
@@ -103,6 +110,7 @@ public class AuthService {
             .email(user.getEmail())
             .fullName(user.getFullName())
             .phone(user.getPhone())
+            .avatarUrl(user.getAvatarUrl())
             .roles(user.getRoles().stream().map(role -> role.getName().name()).collect(Collectors.toSet()))
             .active(user.isActive())
             .createdAt(user.getCreatedAt())

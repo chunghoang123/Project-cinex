@@ -10,6 +10,7 @@ import org.springframework.core.annotation.Order;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
+import java.util.HashSet;
 import java.util.Set;
 
 @Component
@@ -36,7 +37,7 @@ public class UserSeeder implements CommandLineRunner {
         createUser("admin", "admin@cinex.vn", "Admin@123", "Quản trị viên", "0900000001",
             new HashSet<>(Set.of(adminRole)));
         createUser("staff", "staff@cinex.vn", "Staff@123", "Nhân viên bán vé", "0900000002",
-            Set.of(staffRole));
+            new HashSet<>(Set.of(staffRole)));
         createUser("customer", "customer@cinex.vn", "Customer@123", "Minh Dương", "0901234567",
             new HashSet<>(Set.of(customerRole)));
         createUser("walkin", "walkin@cinex.vn", "walkin123", "Khách vãng lai", null,

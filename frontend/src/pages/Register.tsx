@@ -23,6 +23,7 @@ export function Register() {
   const [agree, setAgree] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [loading, setLoading] = useState(false)
 
   const clearFieldError = (field: RegisterField) => {
@@ -82,8 +83,8 @@ export function Register() {
         phone,
       })
       navigate('/')
-    } catch {
-      setError('Không thể kết nối máy chủ. Bạn có thể dùng chế độ demo để trải nghiệm giao diện.')
+    } catch (err) {
+      setError(errorMessage(err, 'Không thể kết nối máy chủ. Vui lòng kiểm tra kết nối và thử lại.'))
     } finally {
       setLoading(false)
     }
@@ -110,7 +111,7 @@ export function Register() {
 
           {error && <div className="form-error" style={{ marginBottom: 14 }}>{error}</div>}
 
-          <form className="auth-form" onSubmit={handleSubmit}>
+          <form className="auth-form" onSubmit={handleSubmit} noValidate>
             <div className="field">
               <label htmlFor="fullName">Họ và tên</label>
               <div className={`input-wrap${fieldErrors.fullName ? ' input-wrap--error' : ''}`}>
@@ -119,7 +120,10 @@ export function Register() {
                   id="fullName"
                   className="input"
                   value={fullName}
-                  onChange={(event) => setFullName(event.target.value)}
+                  onChange={(event) => {
+                    setFullName(event.target.value)
+                    clearFieldError('fullName')
+                  }}
                   placeholder="Nguyễn Văn A"
                   autoComplete="name"
                   required
@@ -132,7 +136,7 @@ export function Register() {
 
             <div className="field">
               <label htmlFor="email">Email</label>
-              <div className="input-wrap">
+              <div className={`input-wrap${fieldErrors.email ? ' input-wrap--error' : ''}`}>
                 <Icon name="mail" size={17} />
                 <input
                   id="email"
@@ -150,6 +154,7 @@ export function Register() {
                   aria-describedby={fieldErrors.email ? 'email-error' : undefined}
                 />
               </div>
+              <FieldError id="email-error" message={fieldErrors.email} />
             </div>
 
             <div className="field">
@@ -166,6 +171,9 @@ export function Register() {
                   }}
                   placeholder="090 123 4567"
                   autoComplete="tel"
+                  required
+                  aria-invalid={Boolean(fieldErrors.phone)}
+                  aria-describedby={fieldErrors.phone ? 'phone-error' : undefined}
                 />
               </div>
               <FieldError id="phone-error" message={fieldErrors.phone} />
@@ -173,14 +181,18 @@ export function Register() {
 
             <div className="field">
               <label htmlFor="password">Mật khẩu</label>
-              <div className="input-wrap">
+              <div className={`input-wrap${fieldErrors.password ? ' input-wrap--error' : ''}`}>
                 <Icon name="lock" size={17} />
                 <input
                   id="password"
                   className="input"
                   type={showPassword ? 'text' : 'password'}
                   value={password}
-                  onChange={(event) => setPassword(event.target.value)}
+                  onChange={(event) => {
+                    setPassword(event.target.value)
+                    clearFieldError('password')
+                    clearFieldError('confirm')
+                  }}
                   placeholder="Tối thiểu 6 ký tự"
                   autoComplete="new-password"
                   minLength={6}
@@ -209,21 +221,40 @@ export function Register() {
                   className="input"
                   type={showPassword ? 'text' : 'password'}
                   value={confirm}
-                  onChange={(event) => setConfirm(event.target.value)}
+                  onChange={(event) => {
+                    setConfirm(event.target.value)
+                    clearFieldError('confirm')
+                  }}
                   placeholder="Nhập lại mật khẩu"
                   autoComplete="new-password"
                   required
+                  aria-invalid={Boolean(fieldErrors.confirm)}
+                  aria-describedby={fieldErrors.confirm ? 'confirm-error' : undefined}
                 />
               </div>
+              <FieldError id="confirm-error" message={fieldErrors.confirm} />
             </div>
 
-            <label className="checkbox">
-              <input type="checkbox" required />
-              <span>
-                Tôi đồng ý với <a href="#terms" className="btn-link">điều khoản</a> và{' '}
-                <a href="#privacy" className="btn-link">chính sách bảo mật</a>.
-              </span>
-            </label>
+            <div className="field">
+              <label className={`checkbox${fieldErrors.agree ? ' checkbox--error' : ''}`}>
+                <input
+                  id="terms"
+                  type="checkbox"
+                  checked={agree}
+                  onChange={(event) => {
+                    setAgree(event.target.checked)
+                    clearFieldError('agree')
+                  }}
+                  aria-invalid={Boolean(fieldErrors.agree)}
+                  aria-describedby={fieldErrors.agree ? 'terms-error' : undefined}
+                />
+                <span>
+                  Tôi đồng ý với <a href="#terms" className="btn-link">điều khoản</a> và{' '}
+                  <a href="#privacy" className="btn-link">chính sách bảo mật</a>.
+                </span>
+              </label>
+              <FieldError id="terms-error" message={fieldErrors.agree} />
+            </div>
 
             <button type="submit" className="btn btn-gradient btn-block btn-lg" disabled={loading}>
               {loading ? 'Đang tạo tài khoản...' : 'Đăng ký'}

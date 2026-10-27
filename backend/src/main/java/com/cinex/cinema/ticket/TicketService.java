@@ -1,7 +1,6 @@
 package com.cinex.cinema.ticket;
 
 import com.cinex.cinema.booking.Booking;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,16 +17,17 @@ public class TicketService {
     }
 
     public Ticket issue(Booking booking) {
-        return ticketRepository.findByBookingId(booking.getId()).orElseGet(() -> {
-            String code = "TK" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-            Ticket ticket = Ticket.builder()
-                .booking(booking)
-                .ticketCode(code)
-                .qrCode(code)
-                .status(TicketStatus.UNUSED)
-                .build();
-            return ticketRepository.save(ticket);
-        });
+        String ticketCode = "TKT-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        String qrContent = "CINEX|" + ticketCode + "|" + booking.getBookingCode();
+
+        Ticket ticket = Ticket.builder()
+            .booking(booking)
+            .ticketCode(ticketCode)
+            .qrCode(qrContent)
+            .status(TicketStatus.UNUSED)
+            .build();
+
+        return ticketRepository.save(ticket);
     }
 
     public Ticket findByTicketCode(String ticketCode) {
@@ -60,7 +60,7 @@ public class TicketService {
         if (ticket != null) {
             ticket.setStatus(TicketStatus.CANCELLED);
             ticketRepository.save(ticket);
-        });
+        }
     }
 
     public Ticket validateTicket(String ticketCode) {

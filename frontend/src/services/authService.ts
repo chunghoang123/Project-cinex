@@ -1,5 +1,10 @@
 import api from '../api/axios'
-import { AuthResponse, User } from '../types/User'
+import type {
+  AuthResponse,
+  ChangePasswordPayload,
+  UpdateProfilePayload,
+  User,
+} from '../types/User'
 
 const SESSION_KEY = 'cinex_session'
 
@@ -57,18 +62,20 @@ export const authService = {
     return res.data.data
   },
   me: async (): Promise<User> => {
-    const res = await api.get<{ success: boolean; message: string; data: User }>('/auth/me')
-    const current = authService.getUser()
-    if (current) {
-      localStorage.setItem(SESSION_KEY, JSON.stringify({
-        ...current,
-        username: res.data.data.username,
-        email: res.data.data.email,
-        fullName: res.data.data.fullName,
-        roles: res.data.data.roles,
-      }))
-    }
-    return res.data.data
+    const res = await api.get<Envelope<User>>('/auth/me')
+    const user = { ...res.data.data, roles: normalizeRoles(res.data.data.roles) }
+    patchSession(toSessionPatch(user))
+    return user
+  },
+  updateProfile: async (payload: UpdateProfilePayload): Promise<User> => {
+    const res = await api.put<Envelope<User>>('/auth/me', payload)
+    const user = { ...res.data.data, roles: normalizeRoles(res.data.data.roles) }
+    patchSession(toSessionPatch(user))
+    return user
+  },
+  changePassword: async (payload: ChangePasswordPayload): Promise<string> => {
+    const res = await api.put<Envelope<null>>('/auth/password', payload)
+    return res.data.message
   },
   logout: () => {
     localStorage.removeItem('token')

@@ -8,10 +8,10 @@ import { errorMessage, formatDateLong, formatTime } from '../utils/consoleFormat
 import { Icon } from '../components/ui/Icon'
 import { PageBar } from '../components/ui/PageBar'
 
-const seatPrice = {
-  standard: 110000,
-  vip: 140000,
-  couple: 220000,
+const MAX_SEATS = 8
+
+function rowLabel(rowNumber: number) {
+  return rowNumber >= 1 && rowNumber <= 26 ? String.fromCharCode(64 + rowNumber) : `R${rowNumber}`
 }
 
 export function SeatSelection() {
@@ -72,7 +72,15 @@ export function SeatSelection() {
       }))
   }, [seats])
 
-  const toggleSeat = (id: string) => {
+  const selectedSeats = useMemo(
+    () => seats.filter((seat) => selected.includes(seat.id)),
+    [seats, selected],
+  )
+  const total = selectedSeats.reduce((sum, seat) => sum + Number(seat.price), 0)
+  const selectedLabels = selectedSeats.map((seat) => seat.seatCode)
+
+  const toggleSeat = (seat: ShowtimeSeat) => {
+    if (seat.status !== 'AVAILABLE') return
     setSelected((current) => {
       if (current.includes(seat.id)) return current.filter((id) => id !== seat.id)
       if (current.length >= MAX_SEATS) return current
@@ -138,14 +146,14 @@ export function SeatSelection() {
       <div className="seat-layout">
         <div className="surface card-pad">
           <div className="movie-mini" style={{ marginBottom: 16 }}>
-            <img src={movie.posterUrl} alt={movie.title} />
+            <img src={showtime.posterUrl} alt={showtime.movieTitle} />
             <div>
               <span className="eyebrow">Đang chiếu</span>
               <div className="movie-mini__title">{showtime.movieTitle}</div>
               <div className="meta-row" style={{ marginTop: 5 }}>
                 <span>{showtime.cinemaName}</span>
                 <span className="meta-dot" />
-                <span>{showtime.hall}</span>
+                <span>{showtime.auditoriumName}</span>
               </div>
               <div className="meta-row" style={{ marginTop: 3 }}>
                 <Icon name="clock" size={12} />
@@ -164,17 +172,15 @@ export function SeatSelection() {
           </div>
 
           <div className="seat-map" aria-label="Sơ đồ ghế">
-            {['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].map((row) => {
-              const rowSeats = seats.filter((seat) => seat.row === row)
-              if (row === 'H') {
-                const pairs = []
-                for (let index = 0; index < rowSeats.length; index += 2) {
-                  const first = rowSeats[index]
-                  const second = rowSeats[index + 1]
-                  if (!first || !second) continue
-                  const id = `${first.id}-${second.id}`
-                  const disabled = first.status !== 'available' || second.status !== 'available'
-                  pairs.push(
+            {rows.map((row) => (
+              <div key={row.rowNumber} className="seat-row">
+                <span className="seat-row__label">{row.label}</span>
+                {row.seats.map((seat) => {
+                  const isSelected = selected.includes(seat.id)
+                  const isCouple = seat.seatType === 'COUPLE'
+                  const isVip = seat.seatType === 'VIP'
+                  const disabled = seat.status !== 'AVAILABLE'
+                  return (
                     <button
                       key={seat.id}
                       type="button"
@@ -228,12 +234,14 @@ export function SeatSelection() {
                   {selectedLabels.length > 0 ? selectedLabels.join(', ') : 'Chưa chọn ghế'}
                 </div>
               </div>
-              <span className="badge badge-accent">{selected.length}/8</span>
+              <span className="badge badge-accent">
+                {selected.length}/{MAX_SEATS}
+              </span>
             </div>
 
             <div className="summary-line">
               <span>Suất chiếu</span>
-              <strong>{showtime.time}</strong>
+              <strong>{formatTime(showtime.startTime)}</strong>
             </div>
             <div className="summary-line">
               <span>Rạp</span>
@@ -259,7 +267,7 @@ export function SeatSelection() {
               <Icon name="arrow-right" size={17} />
             </button>
             <p className="form-hint" style={{ marginTop: 10, textAlign: 'center' }}>
-              Ghế được giữ trong 10 phút sau khi xác nhận.
+              Ghế chỉ được giữ sau khi thanh toán thành công.
             </p>
           </div>
         </aside>
@@ -273,12 +281,7 @@ export function SeatSelection() {
             {selectedLabels.length > 0 ? selectedLabels.join(', ') : 'Chưa chọn ghế'}
           </div>
         </div>
-        <button
-          type="button"
-          className="btn btn-gradient"
-          disabled={selected.length === 0}
-          onClick={handleContinue}
-        >
+        <button type="button" className="btn btn-gradient" disabled={selected.length === 0} onClick={handleContinue}>
           Tiếp tục
           <Icon name="arrow-right" size={17} />
         </button>

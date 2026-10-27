@@ -30,8 +30,8 @@ public class PaymentService {
     }
 
     public Payment recordSuccess(Booking booking, String paymentMethod, BigDecimal amount, String transactionId) {
-        Payment payment = paymentRepository.findByBookingId(booking.getId()).orElseGet(Payment::new);
-        payment.setBooking(booking);
+        Payment payment = paymentRepository.findByBookingId(booking.getId())
+            .orElseGet(() -> Payment.builder().booking(booking).build());
         payment.setAmount(amount);
         payment.setStatus(PaymentStatus.SUCCESS);
         payment.setPaymentMethod(paymentMethod);
@@ -69,10 +69,7 @@ public class PaymentService {
         return paymentRepository.findByBookingId(bookingId);
     }
 
-    public void refund(Booking booking) {
-        paymentRepository.findByBookingId(booking.getId()).ifPresent(payment -> {
-            payment.setStatus(PaymentStatus.REFUNDED);
-            paymentRepository.save(payment);
-        });
+    public Optional<Payment> findByTransactionId(String transactionId) {
+        return paymentRepository.findByTransactionId(transactionId);
     }
 }

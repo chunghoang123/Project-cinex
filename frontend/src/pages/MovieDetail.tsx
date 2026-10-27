@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMovie, useMovies } from '../hooks/useMovies'
 import { useShowtimes } from '../hooks/useShowtimes'
 import { formatDuration, formatVnd } from '../utils/format'
+import { formatTime } from '../utils/consoleFormat'
 import { EmptyState } from '../components/ui/EmptyState'
 import { Icon } from '../components/ui/Icon'
 import { MovieCard } from '../components/ui/MovieCard'
@@ -165,9 +166,14 @@ export function MovieDetail() {
             </div>
             <div className="row gap-6" style={{ marginBottom: 14, color: 'var(--muted)', fontSize: 12 }}>
               <Icon name="location" size={14} />
-              {cinemas[0].name}
+              {slots[0]?.cinemaName ?? 'Cinex'}
             </div>
             <div className="showtime-slots" style={{ marginBottom: 16 }}>
+              {slots.length === 0 && (
+                <p className="muted" style={{ fontSize: 13 }}>
+                  Chưa có suất chiếu cho phim này.
+                </p>
+              )}
               {slots.map((slot, index) => (
                 <button
                   key={slot.id}

@@ -1,5 +1,5 @@
 interface AvatarProps {
-  src: string
+  src?: string
   alt: string
   size?: 'sm' | 'md' | 'lg'
   className?: string

@@ -37,7 +37,7 @@ export function Modal({
       document.removeEventListener('keydown', onKeyDown)
       document.body.style.overflow = ''
     }
-  }, [open, onClose])
+  }, [open, dismissible, onClose])
 
   if (!open) return null
 

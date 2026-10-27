@@ -6,7 +6,14 @@ import { formatVnd } from '../utils/format'
 import { errorMessage, formatDateLong, formatTime } from '../utils/consoleFormat'
 import { Icon } from '../components/ui/Icon'
 import { PageBar } from '../components/ui/PageBar'
-import { QrCode } from '../components/ui/QrCode'
+import { QrImage } from '../components/ui/QrImage'
+
+const STATUS_LABEL: Record<string, string> = {
+  PENDING: 'Chờ thanh toán',
+  CONFIRMED: 'Đã thanh toán',
+  CANCELLED: 'Đã hủy',
+  EXPIRED: 'Hết hạn',
+}
 
 export function TicketView() {
   const { bookingId } = useParams()
@@ -99,6 +106,7 @@ export function TicketView() {
       `Suất chiếu: ${formatTime(showtime.startTime)}`,
       `Ghế: ${seats.join(', ')}`,
       `Tổng tiền: ${formatVnd(total)}`,
+      `Trạng thái: ${statusLabel}`,
     ].join('\n')
     const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
     const url = URL.createObjectURL(blob)
@@ -142,7 +150,7 @@ export function TicketView() {
             <div className="eticket__grid">
               <div>
                 <span>Rạp</span>
-                <strong>{cinemaName}</strong>
+                <strong>{showtime.cinemaName}</strong>
               </div>
               <div>
                 <span>Phòng chiếu</span>
@@ -154,7 +162,7 @@ export function TicketView() {
               </div>
               <div>
                 <span>Giờ</span>
-                <strong>{showTime}</strong>
+                <strong>{formatTime(showtime.startTime)}</strong>
               </div>
             </div>
           </div>
@@ -186,6 +194,10 @@ export function TicketView() {
               <strong>{code}</strong>
             </div>
             <div className="summary-line">
+              <span>Mã đơn</span>
+              <strong>{booking.bookingCode}</strong>
+            </div>
+            <div className="summary-line">
               <span>Ghế</span>
               <strong>{seats.join(', ')}</strong>
             </div>
@@ -210,7 +222,7 @@ export function TicketView() {
                 <Icon name="download" size={16} />
                 Tải vé
               </button>
-              <button type="button" className="btn btn-ghost btn-block" onClick={handleShare}>
+              <button type="button" className="btn btn-ghost btn-block" onClick={() => void handleShare()}>
                 <Icon name="share" size={16} />
                 Chia sẻ
               </button>

@@ -29,7 +29,8 @@ public class BookingController {
             @Valid @RequestBody HoldRequest request,
             Authentication authentication) {
         User user = currentUser(authentication);
-        Booking booking = bookingService.createHold(user.getId(), request.getShowtimeId(), request.getSeatIds());
+        Booking booking = bookingService.createHold(user.getId(), request.getShowtimeId(),
+            request.getSeatIds(), request.getSnackAmount(), request.getSnackNote());
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(ApiResponse.ok("Giữ ghế thành công", bookingMapper.toResponse(booking)));
     }

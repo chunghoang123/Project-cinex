@@ -175,6 +175,8 @@ export interface StaffSale {
   booking: Booking
   ticketCode: string | null
   qrCode: string
+  checkoutUrl?: string
+  paymentLinkId?: string
 }
 
 export interface ShiftSummary {

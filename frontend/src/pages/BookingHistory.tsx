@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { bookings } from '../data/mockData'
+import { bookingService } from '../services/bookingService'
+import { authService } from '../services/authService'
+import type { Booking } from '../types/Admin'
 import { formatVnd } from '../utils/format'
 import { errorMessage, formatTime } from '../utils/consoleFormat'
 import { Icon } from '../components/ui/Icon'
@@ -21,8 +23,10 @@ const STATUS_LABEL: Record<string, string> = {
 
 export function BookingHistory() {
   const [tab, setTab] = useState<'UPCOMING' | 'COMPLETED'>('UPCOMING')
-  const [items, setItems] = useState(bookings)
-  const visible = items.filter((booking) => booking.status === tab)
+  const [items, setItems] = useState<Booking[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const authenticated = authService.isAuthenticated()
 
   useEffect(() => {
     if (!authenticated) {
@@ -197,7 +201,7 @@ export function BookingHistory() {
             <button type="button" className="btn btn-ghost btn-block btn-sm" onClick={openChat}>
               <Icon name="chat" size={15} />
               Chat với Cinex AI
-            </Link>
+            </button>
           </div>
         </aside>
       </div>
