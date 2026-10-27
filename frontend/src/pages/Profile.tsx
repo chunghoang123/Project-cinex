@@ -1,10 +1,12 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { demoUser } from '../data/mockData'
+import { useEffect, useState } from 'react'
+import type { FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { authService } from '../services/authService'
 import { Avatar } from '../components/ui/Avatar'
-import { Icon, type IconName } from '../components/ui/Icon'
+import { FieldError } from '../components/ui/FieldError'
+import { Icon } from '../components/ui/Icon'
 import { PageBar } from '../components/ui/PageBar'
+import { errorMessage, formatDate } from '../utils/consoleFormat'
 
 const menuItems: Array<{ icon: IconName; label: string; to?: string; action?: 'payments' | 'favorites' | 'settings' }> = [
   { icon: 'ticket', label: 'Vé của tôi', to: '/history' },
@@ -17,19 +19,48 @@ const menuItems: Array<{ icon: IconName; label: string; to?: string; action?: 'p
 export function Profile() {
   const navigate = useNavigate()
   const token = authService.getToken()
+
+  const [user, setUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(Boolean(token))
+  const [loadError, setLoadError] = useState('')
+
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(demoUser.name)
   const [email, setEmail] = useState(demoUser.email)
   const [phone, setPhone] = useState(demoUser.phone)
 
-  const handleLogout = () => {
-    authService.logout()
-    navigate('/login')
+  const cancelEditing = () => {
+    if (user) setProfileForm(toProfileForm(user))
+    setProfileErrors({})
+    setProfileError('')
+    setEditing(false)
   }
 
-  const handleMenuAction = (action?: 'payments' | 'favorites' | 'settings') => {
-    if (action === 'payments') {
-      document.getElementById('profile-payments')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  const handleProfileSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+
+    const form: ProfileForm = {
+      fullName: profileForm.fullName.trim(),
+      email: profileForm.email.trim(),
+      phone: profileForm.phone.trim(),
+    }
+    const errors: Partial<Record<ProfileField, string>> = {}
+    if (form.fullName.length > 100) {
+      errors.fullName = 'Họ tên tối đa 100 ký tự.'
+    }
+    if (!form.email) {
+      errors.email = 'Vui lòng nhập email.'
+    } else if (!EMAIL_PATTERN.test(form.email)) {
+      errors.email = 'Email không hợp lệ.'
+    }
+    if (form.phone && !PHONE_PATTERN.test(form.phone)) {
+      errors.phone = 'Số điện thoại không hợp lệ.'
+    }
+
+    setProfileErrors(errors)
+    if (Object.keys(errors).length > 0) {
+      const first = (Object.keys(errors) as ProfileField[])[0]
+      focusField(`profile-${first}`)
       return
     }
     window.alert('Tính năng đang được phát triển trong bản demo.')
@@ -40,7 +71,7 @@ export function Profile() {
       <div className="container">
         <PageBar title="Tài khoản" backTo="/" />
         <div className="empty-state">
-          <Icon name="user" size={42} />
+          <Icon name="user" size={40} />
           <strong>Bạn chưa đăng nhập</strong>
           <p>Đăng nhập để xem vé, điểm thưởng và thông tin tài khoản.</p>
           <Link to="/login" className="btn btn-primary btn-sm">
@@ -59,10 +90,18 @@ export function Profile() {
         <aside>
           <div className="surface card-pad">
             <div className="profile-head">
-              <Avatar src={demoUser.avatar} alt={name} size="lg" />
-              <div className="profile-name">{name}</div>
-              <div className="profile-email">{email}</div>
-              <span className="badge badge-accent">Thành viên từ {demoUser.memberSince}</span>
+              <Avatar src={user.avatarUrl} alt={displayName} size="lg" />
+              <div className="profile-name">{displayName}</div>
+              <div className="profile-email">@{user.username}</div>
+              {user.roles.length > 0 && (
+                <div className="row center wrap gap-6" style={{ marginTop: 4 }}>
+                  {user.roles.map((role) => (
+                    <span key={role} className="badge badge-accent">
+                      {roleLabels[role] ?? role}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="stat-grid">
@@ -71,8 +110,8 @@ export function Profile() {
                 <strong>12</strong>
               </div>
               <div className="stat-card">
-                <span>Điểm thưởng</span>
-                <strong>{demoUser.points.toLocaleString('vi-VN')}</strong>
+                <span>Trạng thái</span>
+                <strong>{user.active ? 'Hoạt động' : 'Tạm khóa'}</strong>
               </div>
             </div>
 
@@ -124,6 +163,7 @@ export function Profile() {
             </div>
           </div>
 
+        <div className="stack gap-16">
           <section className="surface card-pad">
             <div className="row between" style={{ marginBottom: 12 }}>
               <h2 className="h3">Thông tin cá nhân</h2>
@@ -133,7 +173,7 @@ export function Profile() {
             </div>
 
             {editing ? (
-              <div className="stack gap-12">
+              <form className="profile-form" onSubmit={handleProfileSubmit} noValidate>
                 <div className="field">
                   <label htmlFor="profile-name">Họ và tên</label>
                   <input id="profile-name" className="input" value={name} onChange={(event) => setName(event.target.value)} />
@@ -144,7 +184,25 @@ export function Profile() {
                 </div>
                 <div className="field">
                   <label htmlFor="profile-phone">Số điện thoại</label>
-                  <input id="profile-phone" className="input" value={phone} onChange={(event) => setPhone(event.target.value)} />
+                  <div className={`input-wrap${profileErrors.phone ? ' input-wrap--error' : ''}`}>
+                    <Icon name="phone" size={17} />
+                    <input
+                      id="profile-phone"
+                      className="input"
+                      type="tel"
+                      value={profileForm.phone}
+                      onChange={(event) => {
+                        setProfileForm((form) => ({ ...form, phone: event.target.value }))
+                        setProfileErrors((errors) => ({ ...errors, phone: undefined }))
+                      }}
+                      placeholder="09xx xxx xxx"
+                      autoComplete="tel"
+                      maxLength={15}
+                      aria-invalid={Boolean(profileErrors.phone)}
+                      aria-describedby={profileErrors.phone ? 'profile-phone-error' : undefined}
+                    />
+                  </div>
+                  <FieldError id="profile-phone-error" message={profileErrors.phone} />
                 </div>
                 <button type="button" className="btn btn-primary" onClick={() => setEditing(false)}>
                   Lưu thay đổi
@@ -156,9 +214,10 @@ export function Profile() {
                   <span>Họ và tên</span>
                   <strong>{name}</strong>
                 </div>
-                <div className="summary-line">
-                  <span>Email</span>
-                  <strong>{email}</strong>
+                <div className="profile-info__row">
+                  <Icon name="mail" size={16} />
+                  <span className="profile-info__label">Email</span>
+                  <span className="profile-info__value">{user.email}</span>
                 </div>
                 <div className="summary-line">
                   <span>Số điện thoại</span>
@@ -172,21 +231,8 @@ export function Profile() {
             )}
           </section>
 
-          <section className="surface card-pad" id="profile-payments">
-            <div className="row between" style={{ marginBottom: 12 }}>
-              <h2 className="h3">Phương thức thanh toán</h2>
-              <button
-                type="button"
-                className="btn-link"
-                onClick={() => window.alert('Tính năng thêm thẻ đang được phát triển trong bản demo.')}
-              >
-                Thêm thẻ
-              </button>
-            </div>
-            <div className="payment-card">
-              <span className="payment-card__brand" style={{ color: '#93c5fd' }}>
-                VISA
-              </span>
+          <section className="surface card-pad">
+            <div className="profile-section-head">
               <div>
                 <div style={{ fontSize: 13, fontWeight: 700 }}>Visa •••• 4242</div>
                 <div className="muted" style={{ fontSize: 11 }}>
@@ -206,6 +252,7 @@ export function Profile() {
                 <div className="muted" style={{ fontSize: 11 }}>
                   Hết hạn 12/2026
                 </div>
+                <FieldError id="pwd-currentPassword-error" message={passwordErrors.currentPassword} />
               </div>
               <button type="button" className="header-icon" style={{ marginLeft: 'auto', width: 34, height: 34 }} aria-label="Xóa thẻ">
                 <Icon name="trash" size={15} />

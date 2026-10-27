@@ -1,5 +1,7 @@
-import { Link, useParams } from 'react-router-dom'
-import { bookings, cinemas, movies, showtimesFor } from '../data/mockData'
+import { useEffect, useState } from 'react'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { bookingService } from '../services/bookingService'
+import type { Booking } from '../types/Admin'
 import { formatVnd } from '../utils/format'
 import { Icon } from '../components/ui/Icon'
 import { PageBar } from '../components/ui/PageBar'
@@ -7,30 +9,76 @@ import { QrCode } from '../components/ui/QrCode'
 
 export function TicketView() {
   const { bookingId } = useParams()
-  const storedCode = sessionStorage.getItem('ticketCode')
-  const code = bookingId ?? storedCode ?? bookings[0].code
-  const booking = bookings.find((item) => item.code === code)
+  const [searchParams] = useSearchParams()
+  const [booking, setBooking] = useState<Booking | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const justPaid = searchParams.get('paid') === '1'
 
-  const storedMovieId = sessionStorage.getItem('ticketMovieId')
-  const storedCinemaId = sessionStorage.getItem('ticketCinemaId')
-  const storedShowtimeId = sessionStorage.getItem('ticketShowtimeId')
-  const storedSeats: string[] = JSON.parse(sessionStorage.getItem('ticketSeats') || '[]')
-  const storedTotal = Number(sessionStorage.getItem('ticketTotal') || 0)
+  useEffect(() => {
+    const code = bookingId ?? sessionStorage.getItem('pendingBookingCode') ?? ''
+    if (!code) {
+      setLoading(false)
+      setError('Không tìm thấy mã đơn đặt vé')
+      return
+    }
+    let cancelled = false
+    bookingService
+      .getBooking(code)
+      .then((data) => {
+        if (!cancelled) setBooking(data)
+      })
+      .catch((err) => {
+        if (!cancelled) setError(errorMessage(err, 'Không tìm thấy vé'))
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [bookingId])
 
-  const movie = movies.find((item) => String(item.id) === storedMovieId) ?? movies[0]
-  const cinema = cinemas.find((item) => String(item.id) === storedCinemaId) ?? cinemas[0]
-  const showtime = showtimesFor(movie.id).find((item) => String(item.id) === storedShowtimeId) ?? showtimesFor(movie.id)[0]
+  if (loading) {
+    return (
+      <div className="container">
+        <div className="loading-screen">
+          <span className="spinner" />
+          Đang tải vé...
+        </div>
+      </div>
+    )
+  }
 
-  const title = booking?.movieTitle ?? movie.title
-  const cinemaName = booking?.cinema ?? cinema.name
-  const hall = booking?.hall ?? showtime.hall
-  const showDate = booking?.date ?? 'Hôm nay'
-  const showTime = booking?.time ?? showtime.time
-  const seats = booking?.seats ?? (storedSeats.length > 0 ? storedSeats : ['D5', 'D6'])
-  const total = booking?.total ?? (storedTotal || 380000)
+  if (!booking) {
+    return (
+      <div className="container">
+        <PageBar title="Vé của tôi" backTo="/history" />
+        <div className="empty-state">
+          <Icon name="ticket" size={40} />
+          <strong>Không tìm thấy vé</strong>
+          <p>{error || 'Vé có thể đã bị hủy hoặc mã vé không đúng.'}</p>
+          <Link to="/history" className="btn btn-primary btn-sm">
+            Xem vé của tôi
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  const showtime = booking.showtime
+  const seats = booking.seats.map((seat) => seat.seatCode)
+  const total = Number(booking.totalAmount)
+  const code = booking.ticketCode ?? booking.bookingCode
+  const isPaid = booking.status === 'CONFIRMED'
+  const statusLabel = STATUS_LABEL[booking.status] ?? booking.status
+
+  const qrValue = booking.ticketCode
+    ? `CINEX|${booking.ticketCode}|${booking.bookingCode}`
+    : booking.bookingCode
 
   const handleShare = async () => {
-    const text = `Vé Cinex ${code} - ${title} - ${showTime} - Ghế ${seats.join(', ')}`
+    const text = `Vé Cinex ${code} - ${showtime.movieTitle} - ${formatTime(showtime.startTime)} - Ghế ${seats.join(', ')}`
     if (navigator.share) {
       await navigator.share({ title: 'Vé Cinex', text })
     } else {
@@ -42,11 +90,12 @@ export function TicketView() {
     const text = [
       'CINEX E-TICKET',
       `Mã vé: ${code}`,
-      `Phim: ${title}`,
-      `Rạp: ${cinemaName}`,
-      `Phòng: ${hall}`,
-      `Ngày: ${showDate}`,
-      `Suất chiếu: ${showTime}`,
+      `Mã đơn: ${booking.bookingCode}`,
+      `Phim: ${showtime.movieTitle}`,
+      `Rạp: ${showtime.cinemaName}`,
+      `Phòng: ${showtime.auditoriumName}`,
+      `Ngày: ${formatDateLong(showtime.startTime)}`,
+      `Suất chiếu: ${formatTime(showtime.startTime)}`,
       `Ghế: ${seats.join(', ')}`,
       `Tổng tiền: ${formatVnd(total)}`,
     ].join('\n')
@@ -62,6 +111,16 @@ export function TicketView() {
   return (
     <div className="container">
       <PageBar title="Vé của tôi" backTo="/history" />
+
+      {justPaid && isPaid && (
+        <div className="surface card-pad" style={{ marginBottom: 16, borderColor: 'var(--success)' }}>
+          <div className="row gap-10">
+            <Icon name="check" size={18} />
+            <strong>Đặt vé thành công!</strong>
+            <span className="muted">Vé của bạn đã được phát hành.</span>
+          </div>
+        </div>
+      )}
 
       <div className="ticket-wrap">
         <div className="eticket">
@@ -86,7 +145,7 @@ export function TicketView() {
               </div>
               <div>
                 <span>Phòng chiếu</span>
-                <strong>{hall}</strong>
+                <strong>{showtime.auditoriumName}</strong>
               </div>
               <div>
                 <span>Ngày</span>
@@ -105,7 +164,7 @@ export function TicketView() {
           </div>
 
           <div className="qr-box">
-            <QrCode value={code} size={150} />
+            <QrImage value={qrValue} size={150} alt="QR vé Cinex" />
           </div>
 
           <div className="eticket__foot">
@@ -137,6 +196,13 @@ export function TicketView() {
               <span>Trạng thái</span>
               <strong style={{ color: 'var(--success)' }}>Đã thanh toán</strong>
             </div>
+
+            {booking.status === 'PENDING' && (
+              <Link to={`/booking/payment?code=${booking.bookingCode}`} className="btn btn-primary btn-block" style={{ marginTop: 14 }}>
+                <Icon name="qr" size={16} />
+                Tiếp tục thanh toán
+              </Link>
+            )}
 
             <div className="stack gap-10" style={{ marginTop: 14 }}>
               <button type="button" className="btn btn-primary btn-block" onClick={handleDownload}>

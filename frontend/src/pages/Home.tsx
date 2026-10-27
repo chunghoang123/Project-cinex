@@ -10,6 +10,8 @@ import { SectionHeader } from '../components/ui/SectionHeader'
 
 export function Home() {
   const { movies } = useMovies()
+  const session = authService.getUser()
+  const greetingName = session ? session.fullName || session.username : 'Khách'
   const [heroIndex, setHeroIndex] = useState(0)
   const featured = useMemo(() => movies.filter((movie) => movie.status === 'NOW_SHOWING').slice(0, 3), [movies])
   const hero = featured[heroIndex % Math.max(featured.length, 1)] ?? movies[0]

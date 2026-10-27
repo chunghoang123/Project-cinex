@@ -2,6 +2,7 @@ package com.cinex.cinema.booking;
 
 import com.cinex.cinema.common.SeatPricing;
 import com.cinex.cinema.payment.PaymentService;
+import com.cinex.cinema.payment.PaymentStatus;
 import com.cinex.cinema.showtime.SeatStatus;
 import com.cinex.cinema.showtime.Showtime;
 import com.cinex.cinema.showtime.ShowtimeRepository;
@@ -33,6 +34,13 @@ public class BookingService {
     private final UserRepository userRepository;
     private final PaymentService paymentService;
     private final TicketService ticketService;
+    private final PayOSService payOSService;
+
+    @Value("${payos.return-url:http://localhost:5173/payment/return}")
+    private String payosReturnUrl;
+
+    @Value("${payos.cancel-url:http://localhost:5173/payment/cancel}")
+    private String payosCancelUrl;
 
     public BookingService(BookingRepository bookingRepository, BookingSeatRepository bookingSeatRepository,
                           ShowtimeSeatRepository showtimeSeatRepository, ShowtimeRepository showtimeRepository,
@@ -45,6 +53,7 @@ public class BookingService {
         this.userRepository = userRepository;
         this.paymentService = paymentService;
         this.ticketService = ticketService;
+        this.payOSService = payOSService;
     }
 
     public Booking createHold(Long userId, Long showtimeId, List<Long> seatIds) {
@@ -55,6 +64,11 @@ public class BookingService {
 
         if (!showtime.isActive() || showtime.getStartTime().isBefore(LocalDateTime.now())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Suất chiếu không còn khả dụng");
+        }
+
+        BigDecimal extraAmount = snackAmount == null ? BigDecimal.ZERO : snackAmount;
+        if (extraAmount.signum() < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tiền bắp nước không hợp lệ");
         }
 
         List<ShowtimeSeat> seats = validateSeats(showtimeId, seatIds);
@@ -75,7 +89,8 @@ public class BookingService {
             .showtime(showtime)
             .totalAmount(seatAmount)
             .seatAmount(seatAmount)
-            .snackAmount(BigDecimal.ZERO)
+            .snackAmount(extraAmount)
+            .snackNote(snackNote)
             .customerName(user.getFullName() == null ? user.getUsername() : user.getFullName())
             .customerPhone(user.getPhone())
             .channel(BookingChannel.ONLINE)
@@ -95,9 +110,10 @@ public class BookingService {
         return booking;
     }
 
-    public Booking findByBookingCode(String bookingCode) {
-        return bookingRepository.findByBookingCode(bookingCode)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Đơn không tồn tại"));
+    public List<Booking> findByUserId(Long userId) {
+        return bookingRepository.findAll().stream()
+            .filter(b -> b.getUser().getId().equals(userId))
+            .collect(Collectors.toList());
     }
 
     public List<Booking> findMyBookings(Long userId) {
@@ -108,7 +124,11 @@ public class BookingService {
         return confirmBooking(bookingCode, "ONLINE");
     }
 
-    public Booking confirmBooking(String bookingCode, String paymentMethod) {
+    /**
+     * Tạo (hoặc lấy lại) link thanh toán PayOS cho đơn đặt vé online.
+     * Ghế không bị khoá trước khi trả tiền, chỉ kiểm tra còn trống tại thời điểm tạo link.
+     */
+    public PayosPaymentResponse createPayosPayment(String bookingCode) {
         Booking booking = findByBookingCode(bookingCode);
 
         if (booking.getStatus() == BookingStatus.CONFIRMED) {
@@ -132,15 +152,14 @@ public class BookingService {
         markSeatsBooked(booking.getBookingCode());
         booking = bookingRepository.save(booking);
 
-        paymentService.recordSuccess(booking, paymentMethod, booking.getTotalAmount(), "PAY-" + bookingCode);
+        paymentService.markSuccess(booking, "PAYOS", paymentLinkId);
         ticketService.issue(booking);
-        return booking;
     }
 
     public Booking payBooking(String bookingCode, String paymentMethod) {
         Booking booking = findByBookingCode(bookingCode);
-        if (booking.getStatus() == BookingStatus.PENDING) {
-            return confirmBooking(bookingCode, paymentMethod);
+        if (booking.getStatus() == BookingStatus.CONFIRMED) {
+            return booking;
         }
         if (booking.getStatus() != BookingStatus.CONFIRMED) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn không thể thanh toán");

@@ -86,8 +86,9 @@ H2 dùng `create-drop`, nên dữ liệu sẽ được tạo lại khi restart.
 Tạo database `cinex` và cấu hình kết nối trong `backend/src/main/resources/application.properties` hoặc biến môi trường. Sau đó chạy:
 
 ```powershell
-cd backend
-.\gradlew.bat bootRun --console=plain
+cd C:\Users\chung\OneDrive\Desktop\project-Cinex\frontend
+npm install
+npm run dev
 ```
 
 Nếu MySQL chưa sẵn sàng, dùng profile `local` ở trên.

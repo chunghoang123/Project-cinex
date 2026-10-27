@@ -1,7 +1,6 @@
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import type { FormEvent } from 'react'
 import { authService } from '../../services/authService'
-import { demoUser } from '../../data/mockData'
 import { Avatar } from '../ui/Avatar'
 import { Icon } from '../ui/Icon'
 import { Logo } from '../ui/Logo'
@@ -21,6 +20,37 @@ export function Header() {
   const isConsoleUser = authService.isStaffOrAdmin()
   const consolePath = authService.hasRole('ROLE_ADMIN') ? '/admin' : '/staff/pos'
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register'
+
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!menuOpen) return
+    const onClick = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMenuOpen(false)
+    }
+    document.addEventListener('mousedown', onClick)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onClick)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [menuOpen])
+
+  useEffect(() => {
+    if (!loggingOut) return
+    const safety = window.setTimeout(() => setLoggingOut(false), 5000)
+    return () => {
+      window.clearTimeout(safety)
+      setLoggingOut(false)
+    }
+  }, [loggingOut])
 
   if (isAuthPage) return null
 
@@ -61,8 +91,10 @@ export function Header() {
             isConsoleUser ? (
               <Link to={consolePath} className="header-user">
                 <div>
-                  <div className="header-user__name">{user?.fullName || user?.username || 'Cinex Console'}</div>
-                  <div className="header-user__role">Vào console</div>
+                  <div className="header-user__name">{displayName}</div>
+                  <div className="header-user__role">
+                    {isConsoleUser ? 'Vào console' : 'Thành viên Cinex'}
+                  </div>
                 </div>
                 <span className="console-avatar" style={{ width: 30, height: 30, fontSize: 10 }}>
                   {(user?.fullName || user?.username || 'CX').slice(0, 2).toUpperCase()}
@@ -84,6 +116,13 @@ export function Header() {
           )}
         </div>
       </div>
+      {loggingOut && createPortal(
+        <div className="auth-loading-overlay" role="status" aria-live="polite">
+          <div className="spinner" />
+          <p>Đang đăng xuất...</p>
+        </div>,
+        document.body
+      )}
     </header>
   )
 }

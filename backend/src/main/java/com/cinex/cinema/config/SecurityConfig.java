@@ -81,6 +81,14 @@ public class SecurityConfig {
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/staff/**").hasAnyRole("STAFF", "ADMIN")
                 .anyRequest().authenticated()
+            )
+            // Trả 401 khi chưa đăng nhập/phiên hết hạn để frontend tự đăng xuất,
+            // 403 chỉ dành cho trường hợp đã đăng nhập nhưng không đủ quyền.
+            .exceptionHandling(ex -> ex
+                .authenticationEntryPoint((request, response, authException) ->
+                    writeError(response, 401, "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại"))
+                .accessDeniedHandler((request, response, accessDeniedException) ->
+                    writeError(response, 403, "Bạn không có quyền thực hiện thao tác này"))
             );
         return http.build();
     }

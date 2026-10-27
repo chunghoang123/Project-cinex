@@ -64,14 +64,14 @@ export function Payment() {
       <div className="checkout-layout">
         <div className="stack gap-16">
           <div className="movie-mini">
-            <img src={movie.posterUrl} alt={movie.title} />
+            <img src={showtime.posterUrl} alt={showtime.movieTitle} />
             <div>
               <span className="eyebrow">Thanh toán an toàn</span>
               <div className="movie-mini__title">{movie.title}</div>
               <div className="meta-row" style={{ marginTop: 5 }}>
                 <span>{cinema.name}</span>
                 <span className="meta-dot" />
-                <span>{showtime.hall}</span>
+                <span>{showtime.auditoriumName}</span>
               </div>
               <div className="meta-row" style={{ marginTop: 3 }}>
                 <Icon name="calendar" size={12} />
@@ -117,12 +117,16 @@ export function Payment() {
               Chi tiết thanh toán
             </h2>
             <div className="summary-line">
+              <span>Mã đơn</span>
+              <strong>{booking.bookingCode}</strong>
+            </div>
+            <div className="summary-line">
               <span>Ghế</span>
               <strong>{selectedSeats.join(', ')}</strong>
             </div>
             <div className="summary-line">
               <span>Suất chiếu</span>
-              <strong>{showtime.time}</strong>
+              <strong>{formatTime(showtime.startTime)}</strong>
             </div>
             <div className="summary-line">
               <span>Rạp</span>
@@ -132,25 +136,39 @@ export function Payment() {
               <span>Tổng cộng</span>
               <strong>{formatVnd(total)}</strong>
             </div>
-            <button
-              type="button"
-              className="btn btn-gradient btn-block btn-lg"
-              style={{ marginTop: 14 }}
-              disabled={paying}
-              onClick={handlePay}
-            >
-              {paying ? (
-                <>
-                  <span className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} />
-                  Đang xử lý...
-                </>
-              ) : (
-                <>
-                  <Icon name="lock" size={16} />
-                  Thanh toán {formatVnd(total)}
-                </>
-              )}
-            </button>
+
+            {error && (
+              <p className="form-error" style={{ marginTop: 10 }}>
+                {error}
+              </p>
+            )}
+
+            {!link ? (
+              <button
+                type="button"
+                className="btn btn-gradient btn-block btn-lg"
+                style={{ marginTop: 14 }}
+                disabled={creating || booking.status !== 'PENDING'}
+                onClick={() => void handlePay()}
+              >
+                {creating ? (
+                  <>
+                    <span className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} />
+                    Đang tạo mã thanh toán...
+                  </>
+                ) : (
+                  <>
+                    <Icon name="qr" size={16} />
+                    Thanh toán {formatVnd(Number(booking.totalAmount))}
+                  </>
+                )}
+              </button>
+            ) : (
+              <Link to={`/ticket/${booking.bookingCode}`} className="btn btn-ghost btn-block" style={{ marginTop: 14 }}>
+                <Icon name="ticket" size={16} />
+                Xem vé của tôi
+              </Link>
+            )}
             <p className="form-hint" style={{ marginTop: 10, textAlign: 'center' }}>
               Bằng việc thanh toán, bạn đồng ý với điều khoản của Cinex.
             </p>

@@ -166,7 +166,7 @@ export interface StaffSalePayload {
   seatIds: number[]
   customerName?: string
   customerPhone?: string
-  paymentMethod: 'CASH' | 'CARD' | 'TRANSFER'
+  paymentMethod: 'CASH' | 'CARD' | 'TRANSFER' | 'PAYOS'
   snackAmount?: number
   snackNote?: string
 }

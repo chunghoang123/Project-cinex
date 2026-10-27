@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMovie, useMovies } from '../hooks/useMovies'
-import { cinemas, showtimesFor } from '../data/mockData'
+import { useShowtimes } from '../hooks/useShowtimes'
 import { formatDuration, formatVnd } from '../utils/format'
 import { EmptyState } from '../components/ui/EmptyState'
 import { Icon } from '../components/ui/Icon'
@@ -13,6 +13,7 @@ export function MovieDetail() {
   const navigate = useNavigate()
   const { movie, loading } = useMovie(id)
   const { movies } = useMovies()
+  const { showtimes } = useShowtimes(movie?.id)
   const [expanded, setExpanded] = useState(false)
   const [trailerOpen, setTrailerOpen] = useState(false)
 
@@ -184,7 +185,7 @@ export function MovieDetail() {
             </Link>
             <div className="secure-note" style={{ marginTop: 14 }}>
               <Icon name="shield" size={15} />
-              Thanh toán an toàn, giữ ghế trong 10 phút.
+              Thanh toán an toàn, ghế được giữ ngay khi thanh toán xong.
             </div>
           </div>
         </aside>

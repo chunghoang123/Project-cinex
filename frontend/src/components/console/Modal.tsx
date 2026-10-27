@@ -31,7 +31,7 @@ export function Modal({ open, title, subtitle, onClose, children, footer, size =
     <div
       className="console-modal-backdrop"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose()
+        if (dismissible && event.target === event.currentTarget) onClose()
       }}
     >
       <div className={`console-modal console-modal--${size}`} role="dialog" aria-modal="true">

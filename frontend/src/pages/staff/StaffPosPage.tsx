@@ -3,6 +3,8 @@ import { ConsolePageHeader } from '../../components/console/ConsolePageHeader'
 import { Modal } from '../../components/console/Modal'
 import { StatusBadge } from '../../components/console/StatusBadge'
 import { Icon } from '../../components/ui/Icon'
+import type { IconName } from '../../components/ui/Icon'
+import { QrImage } from '../../components/ui/QrImage'
 import { snacks } from '../../data/mockData'
 import { catalogService } from '../../services/catalogService'
 import { staffService } from '../../services/staffService'
@@ -16,6 +18,7 @@ const PAYMENT_LABELS: Record<PaymentMethod, string> = {
   CASH: 'Tiền mặt',
   CARD: 'Thẻ',
   TRANSFER: 'Chuyển khoản',
+  PAYOS: 'PayOS',
 }
 
 export function StaffPosPage() {
@@ -93,6 +96,11 @@ export function StaffPosPage() {
     0
   )
   const totalAmount = seatTotal + snackAmount
+  const cashReceivedValue = Number(cashReceived) || 0
+  const cashChange = cashReceivedValue - totalAmount
+  const cashSuggestions = Array.from(
+    new Set([totalAmount, ...CASH_DENOMINATIONS.filter((value) => value >= totalAmount)])
+  ).sort((a, b) => a - b)
   const snackNote = snacks
     .filter((snack) => (snackQty[snack.id] || 0) > 0)
     .map((snack) => `${snack.name} x${snackQty[snack.id]}`)
@@ -123,7 +131,13 @@ export function StaffPosPage() {
     setCustomerPhone('')
     setSnackQty({})
     setPaymentMethod('CASH')
+    setCashOpen(false)
+    setCashReceived('')
     setError('')
+    setPayosBookingCode(null)
+    setPayosQrCode(null)
+    setPayosPolling(false)
+    setCancellingQr(false)
     setSeatVersion((value) => value + 1)
     fetchShowtimes()
   }
@@ -413,6 +427,124 @@ export function StaffPosPage() {
           </aside>
         </section>
       </div>
+
+      <Modal
+        open={cashOpen}
+        title="Thanh toán tiền mặt"
+        subtitle={`Thu tiền tại quầy · ${selectedSeats.length} ghế`}
+        onClose={() => setCashOpen(false)}
+        size="sm"
+        footer={
+          <>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setCashOpen(false)}>
+              Hủy
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => void doSale()}
+              disabled={submitting || cashReceivedValue < totalAmount}
+            >
+              <Icon name="cash" size={15} />
+              {submitting ? 'Đang xử lý…' : 'Xác nhận & in vé'}
+            </button>
+          </>
+        }
+      >
+        <div style={{ display: 'grid', gap: 14, padding: '4px 0' }}>
+          <div className="pos-line pos-line--total">
+            <span>Tổng cần thu</span>
+            <strong>{formatVnd(totalAmount)}</strong>
+          </div>
+
+          <div className="field">
+            <label htmlFor="cash-received">Tiền khách đưa</label>
+            <input
+              id="cash-received"
+              className="input"
+              type="number"
+              min={0}
+              step={1000}
+              inputMode="numeric"
+              value={cashReceived}
+              onChange={(event) => setCashReceived(event.target.value)}
+              placeholder="0"
+              autoFocus
+            />
+          </div>
+
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {cashSuggestions.map((value) => (
+              <button
+                type="button"
+                key={value}
+                className={`btn btn-sm ${cashReceivedValue === value ? 'btn-primary' : 'btn-ghost'}`}
+                onClick={() => setCashReceived(String(value))}
+              >
+                {formatVnd(value)}
+              </button>
+            ))}
+          </div>
+
+          <div className="pos-line">
+            <span>Tiền thối</span>
+            <strong style={{ color: cashChange < 0 ? 'var(--danger)' : 'var(--accent)' }}>
+              {cashChange < 0 ? `Thiếu ${formatVnd(Math.abs(cashChange))}` : formatVnd(cashChange)}
+            </strong>
+          </div>
+
+          {error && <div className="form-error">{error}</div>}
+        </div>
+      </Modal>
+
+      <Modal
+        open={qrOpen}
+        title={`Thanh toán ${PAYMENT_LABELS[paymentMethod]}`}
+        subtitle="Hệ thống tự xác nhận khi khách thanh toán xong"
+        onClose={() => undefined}
+        size="sm"
+        dismissible={false}
+        footer={
+          <>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => void cancelPayosSale()}
+              disabled={cancellingQr}
+            >
+              {cancellingQr ? 'Đang huỷ…' : 'Huỷ thanh toán'}
+            </button>
+            <span className="muted" style={{ fontSize: 13 }}>
+              {cancellingQr ? 'Đang huỷ đơn…' : payosPolling ? 'Đang chờ khách quét mã…' : 'Sẵn sàng'}
+            </span>
+          </>
+        }
+      >
+        <div style={{ display: 'grid', placeItems: 'center', gap: 12, padding: '8px 0' }}>
+          {payosQrCode ? (
+            <QrImage value={payosQrCode} size={200} alt="QR thanh toán PayOS" />
+          ) : (
+            <div style={{
+              width: 180, height: 180, borderRadius: 12,
+              background: 'linear-gradient(135deg, #fff 0%, #e2e8f0 100%)',
+              display: 'grid', placeItems: 'center', color: '#0f172a', fontWeight: 700,
+            }}>
+              <Icon name="qr" size={120} />
+            </div>
+          )}
+          <p className="muted" style={{ fontSize: 13, textAlign: 'center' }}>
+            Quét mã QR PayOS để thanh toán.<br />
+            Tổng: <strong style={{ color: 'var(--text)' }}>{formatVnd(totalAmount)}</strong>
+          </p>
+          {payosBookingCode && (
+            <p className="muted" style={{ fontSize: 11 }}>Mã đơn: {payosBookingCode}</p>
+          )}
+          <p className="muted" style={{ fontSize: 11, textAlign: 'center' }}>
+            Cửa sổ chỉ đóng khi thanh toán thành công hoặc bạn bấm <strong>Huỷ thanh toán</strong>.
+          </p>
+          {error && <div className="form-error">{error}</div>}
+        </div>
+      </Modal>
 
       <Modal
         open={successOpen}

@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 /**
  * API proxy dữ liệu phim TMDB:
@@ -47,7 +48,11 @@ public class TmdbController {
     public ResponseEntity<ApiResponse<TmdbPage<TmdbMovie>>> search(
             @RequestParam String query,
             @RequestParam(defaultValue = "1") int page) {
-        return ResponseEntity.ok(ApiResponse.ok(tmdbClient.search(query, page)));
+        try {
+            return ResponseEntity.ok(ApiResponse.ok(tmdbClient.search(query, page)));
+        } catch (Exception ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Không lấy được dữ liệu phim từ TMDB, thử lại sau");
+        }
     }
 
     @GetMapping("/movies/{tmdbId}")

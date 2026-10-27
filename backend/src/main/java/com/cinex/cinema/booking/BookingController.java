@@ -52,25 +52,26 @@ public class BookingController {
         return ResponseEntity.ok(ApiResponse.ok("Xác nhận đơn thành công", bookingMapper.toResponse(confirmed)));
     }
 
-    @PostMapping("/{bookingCode}/pay")
-    public ResponseEntity<ApiResponse<BookingResponse>> pay(@PathVariable String bookingCode,
-                                                            @RequestBody(required = false) PaymentRequest request,
-                                                            Authentication authentication) {
+    /**
+     * Đồng bộ trạng thái thanh toán PayOS cho đơn hàng (dự phòng khi webhook chưa tới).
+     */
+    @PostMapping("/{bookingCode}/payos/sync")
+    public ResponseEntity<ApiResponse<BookingResponse>> syncPayosPayment(
+            @PathVariable String bookingCode,
+            Authentication authentication) {
         Booking booking = bookingService.findByBookingCode(bookingCode);
         checkAccess(booking, currentUser(authentication));
-        String method = request == null || request.getPaymentMethod() == null
-            ? "ONLINE" : request.getPaymentMethod();
-        Booking paid = bookingService.payBooking(bookingCode, method);
-        return ResponseEntity.ok(ApiResponse.ok("Thanh toán thành công", bookingMapper.toResponse(paid)));
+        Booking synced = bookingService.syncPayosPayment(bookingCode);
+        return ResponseEntity.ok(ApiResponse.ok(bookingMapper.toResponse(synced)));
     }
 
-    @PostMapping("/{bookingCode}/cancel")
-    public ResponseEntity<ApiResponse<BookingResponse>> cancel(@PathVariable String bookingCode,
-                                                               Authentication authentication) {
-        Booking booking = bookingService.findByBookingCode(bookingCode);
-        checkAccess(booking, currentUser(authentication));
-        Booking cancelled = bookingService.cancelBooking(bookingCode);
-        return ResponseEntity.ok(ApiResponse.ok("Hủy đơn thành công", bookingMapper.toResponse(cancelled)));
+    @GetMapping("/my")
+    public ResponseEntity<ApiResponse<List<BookingResponse>>> myBookings(Authentication authentication) {
+        User user = currentUser(authentication);
+        List<BookingResponse> bookings = bookingService.findMyBookings(user.getId()).stream()
+            .map(bookingMapper::toResponse)
+            .collect(Collectors.toList());
+        return ResponseEntity.ok(ApiResponse.ok(bookings));
     }
 
     @GetMapping("/{bookingCode}")

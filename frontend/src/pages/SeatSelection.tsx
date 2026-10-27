@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { buildSeatMap, cinemas, movies, showtimesFor } from '../data/mockData'
 import { formatDuration, formatVnd } from '../utils/format'
+import { errorMessage, formatDateLong, formatTime } from '../utils/consoleFormat'
 import { Icon } from '../components/ui/Icon'
 import { PageBar } from '../components/ui/PageBar'
 
@@ -15,14 +16,42 @@ export function SeatSelection() {
   const { showtimeId } = useParams()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
-  const [selected, setSelected] = useState<string[]>([])
+  const location = useLocation()
+  const numericShowtimeId = Number(showtimeId)
 
   const movie = movies.find((item) => String(item.id) === searchParams.get('movieId')) ?? movies[0]
   const cinema = cinemas.find((item) => String(item.id) === searchParams.get('cinemaId')) ?? cinemas[0]
   const showtime = showtimesFor(movie.id).find((item) => String(item.id) === showtimeId) ?? showtimesFor(movie.id)[0]
   const seats = useMemo(() => buildSeatMap(), [])
 
-  const selectedLabels = selected.map((id) => id.replace('-', ' - '))
+  useEffect(() => {
+    if (!Number.isFinite(numericShowtimeId)) {
+      setError('Suất chiếu không hợp lệ')
+      setLoading(false)
+      return
+    }
+    let cancelled = false
+    setLoading(true)
+    setError('')
+    Promise.all([
+      bookingService.getShowtime(numericShowtimeId),
+      bookingService.getSeats(numericShowtimeId),
+    ])
+      .then(([showtimeData, seatData]) => {
+        if (cancelled) return
+        setShowtime(showtimeData)
+        setSeats(seatData)
+      })
+      .catch((err) => {
+        if (!cancelled) setError(errorMessage(err, 'Không tải được sơ đồ ghế'))
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [numericShowtimeId, reloadKey])
 
   const total = selected.reduce((sum, id) => {
     if (id.startsWith('H')) return sum + seatPrice.couple
@@ -32,9 +61,9 @@ export function SeatSelection() {
 
   const toggleSeat = (id: string) => {
     setSelected((current) => {
-      if (current.includes(id)) return current.filter((seat) => seat !== id)
-      if (current.length >= 8) return current
-      return [...current, id]
+      if (current.includes(seat.id)) return current.filter((id) => id !== seat.id)
+      if (current.length >= MAX_SEATS) return current
+      return [...current, seat.id]
     })
   }
 
@@ -49,11 +78,38 @@ export function SeatSelection() {
     navigate('/booking/confirm')
   }
 
+  if (loading) {
+    return (
+      <div className="container">
+        <div className="loading-screen">
+          <span className="spinner" />
+          Đang tải sơ đồ ghế...
+        </div>
+      </div>
+    )
+  }
+
+  if (!showtime || error) {
+    return (
+      <div className="container">
+        <PageBar title="Chọn ghế" backTo="/showtimes" />
+        <div className="empty-state">
+          <Icon name="seat" size={40} />
+          <strong>Không tải được suất chiếu</strong>
+          <p>{error || 'Suất chiếu có thể đã bị hủy hoặc không tồn tại.'}</p>
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => setReloadKey((v) => v + 1)}>
+            Thử lại
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="container seat-page">
       <PageBar
         title="Chọn ghế"
-        backTo={`/showtimes?movieId=${movie.id}`}
+        backTo={`/showtimes?movieId=${showtime.movieId}`}
         actions={
           <span className="badge badge-muted">
             {showtime.time} · {showtime.hall}
@@ -67,7 +123,7 @@ export function SeatSelection() {
             <img src={movie.posterUrl} alt={movie.title} />
             <div>
               <span className="eyebrow">Đang chiếu</span>
-              <div className="movie-mini__title">{movie.title}</div>
+              <div className="movie-mini__title">{showtime.movieTitle}</div>
               <div className="meta-row" style={{ marginTop: 5 }}>
                 <span>{cinema.name}</span>
                 <span className="meta-dot" />
@@ -98,47 +154,22 @@ export function SeatSelection() {
                   const disabled = first.status !== 'available' || second.status !== 'available'
                   pairs.push(
                     <button
-                      key={id}
+                      key={seat.id}
                       type="button"
-                      className={`seat is-couple ${selected.includes(id) ? 'is-selected' : ''} ${disabled ? 'is-booked' : ''}`}
+                      title={`${seat.seatCode} · ${formatVnd(Number(seat.price))}`}
+                      className={`seat ${isVip ? 'is-vip' : ''} ${isCouple ? 'is-couple' : ''} ${
+                        disabled ? 'is-booked' : ''
+                      } ${isSelected ? 'is-selected' : ''}`}
                       disabled={disabled}
-                      onClick={() => toggleSeat(id)}
-                      aria-label={`Ghế đôi ${first.number}-${second.number}`}
+                      onClick={() => toggleSeat(seat)}
+                      aria-label={`Ghế ${seat.seatCode}`}
                     >
                       {first.number}-{second.number}
                     </button>,
                   )
-                }
-                return (
-                  <div key={row} className="seat-row">
-                    <span className="seat-row__label">{row}</span>
-                    {pairs}
-                  </div>
-                )
-              }
-              return (
-                <div key={row} className="seat-row">
-                  <span className="seat-row__label">{row}</span>
-                  {rowSeats.map((seat) => {
-                    const isSelected = selected.includes(seat.id)
-                    const typeClass = seat.type === 'vip' ? 'is-vip' : ''
-                    const statusClass = seat.status === 'booked' ? 'is-booked' : seat.status === 'held' ? 'is-held' : ''
-                    return (
-                      <button
-                        key={seat.id}
-                        type="button"
-                        className={`seat ${typeClass} ${statusClass} ${isSelected ? 'is-selected' : ''}`}
-                        disabled={seat.status !== 'available'}
-                        onClick={() => toggleSeat(seat.id)}
-                        aria-label={`Ghế ${seat.id}`}
-                      >
-                        {seat.number}
-                      </button>
-                    )
-                  })}
-                </div>
-              )
-            })}
+                })}
+              </div>
+            ))}
           </div>
 
           <div className="seat-legend">
@@ -155,6 +186,15 @@ export function SeatSelection() {
               <span className="seat-legend__swatch is-booked" /> Đã đặt
             </span>
           </div>
+
+          <button
+            type="button"
+            className="btn-link"
+            style={{ marginTop: 12 }}
+            onClick={() => setReloadKey((value) => value + 1)}
+          >
+            Làm mới sơ đồ ghế
+          </button>
         </div>
 
         <aside>
@@ -175,7 +215,7 @@ export function SeatSelection() {
             </div>
             <div className="summary-line">
               <span>Rạp</span>
-              <strong>{cinema.name}</strong>
+              <strong>{showtime.cinemaName}</strong>
             </div>
             <div className="summary-line">
               <span>Phòng</span>
@@ -186,7 +226,13 @@ export function SeatSelection() {
               <strong>{formatVnd(total)}</strong>
             </div>
 
-            <button type="button" className="btn btn-gradient btn-block btn-lg" disabled={selected.length === 0} onClick={handleContinue} style={{ marginTop: 14 }}>
+            <button
+              type="button"
+              className="btn btn-gradient btn-block btn-lg"
+              disabled={selected.length === 0}
+              onClick={handleContinue}
+              style={{ marginTop: 14 }}
+            >
               Tiếp tục
               <Icon name="arrow-right" size={17} />
             </button>

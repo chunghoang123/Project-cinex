@@ -63,7 +63,7 @@ function Shell() {
           <Route path="/history" element={<BookingHistory />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/search" element={<Search />} />
-          <Route path="/ai-chat" element={<AIChat />} />
+
 
           <Route
             path="/admin"
@@ -101,6 +101,7 @@ function Shell() {
       </main>
       {!isConsole && !isAuthPage && <Footer />}
       {!isConsole && !isAuthPage && <BottomNav />}
+      {!isConsole && <ChatWidget />}
     </div>
   )
 }

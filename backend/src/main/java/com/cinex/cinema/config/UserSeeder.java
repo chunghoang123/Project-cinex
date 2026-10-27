@@ -38,7 +38,7 @@ public class UserSeeder implements CommandLineRunner {
         createUser("staff", "staff@cinex.vn", "Staff@123", "Nhân viên bán vé", "0900000002",
             Set.of(staffRole));
         createUser("customer", "customer@cinex.vn", "Customer@123", "Minh Dương", "0901234567",
-            Set.of(customerRole));
+            new HashSet<>(Set.of(customerRole)));
         createUser("walkin", "walkin@cinex.vn", "walkin123", "Khách vãng lai", null,
             Set.of(customerRole));
     }

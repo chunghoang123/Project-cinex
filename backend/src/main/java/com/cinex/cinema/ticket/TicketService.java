@@ -4,7 +4,6 @@ import com.cinex.cinema.booking.Booking;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -43,13 +42,16 @@ public class TicketService {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                 "Vé đã được soát lúc " + ticket.getScannedAt());
         }
-        if (ticket.getStatus() == TicketStatus.CANCELLED) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Vé đã bị hủy");
+        String value = ticketCode.trim();
+        if (value.startsWith("CINEX|")) {
+            String[] parts = value.split("\\|");
+            if (parts.length >= 2 && !parts[1].isBlank()) {
+                return parts[1].trim();
+            }
         }
 
-        ticket.setStatus(TicketStatus.SCANNED);
-        ticket.setScannedAt(LocalDateTime.now());
-        return ticketRepository.save(ticket);
+    public Ticket validate(String ticketCode) {
+        return validateTicket(ticketCode);
     }
 
     public void cancel(Booking booking) {

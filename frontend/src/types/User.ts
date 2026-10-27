@@ -3,7 +3,8 @@ export interface User {
   username: string
   email: string
   fullName: string
-  phone: string
+  phone?: string
+  avatarUrl?: string
   roles: string[]
   active: boolean
   createdAt?: string
@@ -14,6 +15,8 @@ export interface AuthResponse {
   username: string
   email: string
   fullName: string
+  phone?: string
+  avatarUrl?: string
   roles: string[]
 }
 

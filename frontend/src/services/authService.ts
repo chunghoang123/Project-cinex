@@ -10,18 +10,19 @@ function saveSession(data: AuthResponse) {
 
 export const authService = {
   login: async (username: string, password: string): Promise<AuthResponse> => {
-    const res = await api.post<{ success: boolean; message: string; data: AuthResponse }>(
-      '/auth/login', { username, password }
-    )
+    const res = await api.post<Envelope<AuthResponse>>('/auth/login', { username, password })
+    saveSession(res.data.data)
+    return res.data.data
+  },
+  googleLogin: async (credential: string): Promise<AuthResponse> => {
+    const res = await api.post<Envelope<AuthResponse>>('/auth/google', { credential })
     saveSession(res.data.data)
     return res.data.data
   },
   register: async (data: {
     username: string; email: string; password: string; fullName?: string; phone?: string
   }): Promise<AuthResponse> => {
-    const res = await api.post<{ success: boolean; message: string; data: AuthResponse }>(
-      '/auth/register', data
-    )
+    const res = await api.post<Envelope<AuthResponse>>('/auth/register', data)
     saveSession(res.data.data)
     return res.data.data
   },

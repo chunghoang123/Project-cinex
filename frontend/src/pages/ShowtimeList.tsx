@@ -17,7 +17,26 @@ export function ShowtimeList() {
 
   const movie = movies.find((item) => String(item.id) === searchParams.get('movieId')) ?? movies[0]
 
-  if (!movie) {
+  const { showtimes, loading } = useShowtimes(selectedMovie?.id)
+  const activeDate = dates[dateIndex]
+
+  const cinemas = useMemo(() => {
+    const map = new Map<number, string>()
+    showtimes.forEach((item) => map.set(item.cinemaId, item.cinemaName))
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }))
+  }, [showtimes])
+
+  const byDate = useMemo(
+    () => showtimes.filter((item) => localDateKey(item.startTime) === activeDate.key),
+    [showtimes, activeDate.key],
+  )
+
+  const visible = useMemo(
+    () => byDate.filter((item) => cinemaId === null || item.cinemaId === cinemaId),
+    [byDate, cinemaId],
+  )
+
+  if (loading) {
     return (
       <div className="container">
         <EmptyState icon="calendar" title="Chưa có lịch chiếu" description="Vui lòng chọn phim để xem suất chiếu." />
@@ -138,9 +157,10 @@ export function ShowtimeList() {
                   )
                 })}
               </div>
+              {renderSlots(slots)}
             </div>
-          ))}
-        </section>
+          )
+        })}
       </div>
     </div>
   )

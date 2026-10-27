@@ -1,9 +1,21 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { cinemas, movies, snacks, showtimesFor } from '../data/mockData'
+import { snacks } from '../data/mockData'
+import { bookingService, type SeatDraft } from '../services/bookingService'
+import type { Showtime } from '../types/Admin'
 import { formatVnd } from '../utils/format'
 import { Icon } from '../components/ui/Icon'
 import { PageBar } from '../components/ui/PageBar'
+
+function readDraft(): SeatDraft | null {
+  const raw = sessionStorage.getItem('seatHoldDraft')
+  if (!raw) return null
+  try {
+    return JSON.parse(raw) as SeatDraft
+  } catch {
+    return null
+  }
+}
 
 export function BookingConfirm() {
   const navigate = useNavigate()
@@ -76,7 +88,7 @@ export function BookingConfirm() {
                 Hôm nay · {showtime.time}
               </div>
             </div>
-          </div>
+          )}
 
           <div className="surface card-pad row between">
             <div className="row gap-10">
@@ -111,7 +123,10 @@ export function BookingConfirm() {
                       <div className="snack-card__desc">{snack.description}</div>
                       <div className="snack-card__price">{formatVnd(snack.price)}</div>
                     </div>
-                    <span className={`pay-method__radio ${active ? 'is-active' : ''}`} style={{ border: active ? '5px solid var(--accent)' : '1px solid var(--border-strong)' }} />
+                    <span
+                      className={`pay-method__radio ${active ? 'is-active' : ''}`}
+                      style={{ border: active ? '5px solid var(--accent)' : '1px solid var(--border-strong)' }}
+                    />
                   </button>
                 )
               })}
@@ -123,8 +138,8 @@ export function BookingConfirm() {
               Tóm tắt đơn hàng
             </h2>
             <div className="summary-line">
-              <span>Vé ({selectedSeats.length} ghế)</span>
-              <strong>{formatVnd(ticketTotal)}</strong>
+              <span>Vé ({draft.seatCodes.length} ghế)</span>
+              <strong>{formatVnd(seatAmount)}</strong>
             </div>
             <div className="summary-line">
               <span>Bắp nước &amp; đồ uống</span>
@@ -152,7 +167,7 @@ export function BookingConfirm() {
             </div>
             <div className="summary-line">
               <span>Suất chiếu</span>
-              <strong>{showtime.time}</strong>
+              <strong>{showtime ? formatTime(showtime.startTime) : '—'}</strong>
             </div>
             <div className="summary-line">
               <span>Rạp</span>
@@ -166,9 +181,27 @@ export function BookingConfirm() {
               <span>Tổng cộng</span>
               <strong>{formatVnd(grandTotal)}</strong>
             </div>
-            <button type="button" className="btn btn-gradient btn-block btn-lg" style={{ marginTop: 14 }} onClick={handleContinue}>
-              Tiến hành thanh toán
-              <Icon name="arrow-right" size={17} />
+
+            {error && <p className="form-error" style={{ marginTop: 10 }}>{error}</p>}
+
+            <button
+              type="button"
+              className="btn btn-gradient btn-block btn-lg"
+              style={{ marginTop: 14 }}
+              onClick={() => void handleContinue()}
+              disabled={submitting || !showtime}
+            >
+              {submitting ? (
+                <>
+                  <span className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} />
+                  Đang tạo đơn...
+                </>
+              ) : (
+                <>
+                  Tiến hành thanh toán
+                  <Icon name="arrow-right" size={17} />
+                </>
+              )}
             </button>
             <div className="secure-note" style={{ marginTop: 12 }}>
               <Icon name="shield" size={15} />

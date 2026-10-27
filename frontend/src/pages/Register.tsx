@@ -19,13 +19,53 @@ export function Register() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  const clearFieldError = (field: RegisterField) => {
+    setFieldErrors((current) => {
+      if (!current[field]) return current
+      const next = { ...current }
+      delete next[field]
+      return next
+    })
+  }
+
+  const validate = (): FieldErrors => {
+    const next: FieldErrors = {}
+    if (!fullName.trim()) next.fullName = 'Vui lòng nhập họ và tên.'
+    if (!email.trim()) {
+      next.email = 'Vui lòng nhập email.'
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      next.email = 'Email không hợp lệ.'
+    }
+    if (!phone.trim()) {
+      next.phone = 'Vui lòng nhập số điện thoại.'
+    } else if (!/^[0-9+\s.-]{8,15}$/.test(phone.trim())) {
+      next.phone = 'Số điện thoại không hợp lệ.'
+    }
+    if (!password) {
+      next.password = 'Vui lòng nhập mật khẩu.'
+    } else if (password.length < 6) {
+      next.password = 'Mật khẩu phải có ít nhất 6 ký tự.'
+    }
+    if (!confirm) {
+      next.confirm = 'Vui lòng xác nhận mật khẩu.'
+    } else if (confirm !== password) {
+      next.confirm = 'Mật khẩu xác nhận không khớp.'
+    }
+    if (!agree) next.agree = 'Vui lòng đồng ý với điều khoản.'
+    return next
+  }
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError('')
-    if (password !== confirm) {
-      setError('Mật khẩu xác nhận không khớp.')
+    const nextErrors = validate()
+    if (Object.keys(nextErrors).length > 0) {
+      setFieldErrors(nextErrors)
+      const first = (Object.keys(nextErrors) as RegisterField[])[0]
+      document.getElementById(first === 'agree' ? 'terms' : first)?.focus()
       return
     }
+    setFieldErrors({})
     setLoading(true)
     try {
       await authService.register({
@@ -72,7 +112,7 @@ export function Register() {
           <form className="auth-form" onSubmit={handleSubmit}>
             <div className="field">
               <label htmlFor="fullName">Họ và tên</label>
-              <div className="input-wrap">
+              <div className={`input-wrap${fieldErrors.fullName ? ' input-wrap--error' : ''}`}>
                 <Icon name="user" size={17} />
                 <input
                   id="fullName"
@@ -95,10 +135,15 @@ export function Register() {
                   className="input"
                   type="email"
                   value={email}
-                  onChange={(event) => setEmail(event.target.value)}
+                  onChange={(event) => {
+                    setEmail(event.target.value)
+                    clearFieldError('email')
+                  }}
                   placeholder="you@example.com"
                   autoComplete="email"
                   required
+                  aria-invalid={Boolean(fieldErrors.email)}
+                  aria-describedby={fieldErrors.email ? 'email-error' : undefined}
                 />
               </div>
             </div>
@@ -116,6 +161,7 @@ export function Register() {
                   autoComplete="tel"
                 />
               </div>
+              <FieldError id="phone-error" message={fieldErrors.phone} />
             </div>
 
             <div className="field">
@@ -132,6 +178,8 @@ export function Register() {
                   autoComplete="new-password"
                   minLength={6}
                   required
+                  aria-invalid={Boolean(fieldErrors.password)}
+                  aria-describedby={fieldErrors.password ? 'password-error' : undefined}
                 />
                 <button
                   type="button"

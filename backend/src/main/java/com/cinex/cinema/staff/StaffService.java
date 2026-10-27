@@ -11,6 +11,7 @@ import com.cinex.cinema.booking.BookingService;
 import com.cinex.cinema.booking.BookingStatus;
 import com.cinex.cinema.common.SeatPricing;
 import com.cinex.cinema.payment.Payment;
+import com.cinex.cinema.payment.PayOSService;
 import com.cinex.cinema.payment.PaymentService;
 import com.cinex.cinema.showtime.SeatStatus;
 import com.cinex.cinema.showtime.Showtime;
@@ -41,7 +42,7 @@ import java.util.stream.Collectors;
 @Transactional
 public class StaffService {
 
-    private static final Set<String> PAYMENT_METHODS = Set.of("CASH", "CARD", "TRANSFER");
+    private static final Set<String> PAYMENT_METHODS = Set.of("CASH", "CARD", "TRANSFER", "PAYOS");
 
     private final UserRepository userRepository;
     private final ShowtimeRepository showtimeRepository;
@@ -53,12 +54,20 @@ public class StaffService {
     private final ShowtimeService showtimeService;
     private final PaymentService paymentService;
     private final TicketService ticketService;
+    private final PayOSService payOSService;
+
+    @org.springframework.beans.factory.annotation.Value("${payos.return-url:http://localhost:5173/payment/return}")
+    private String payosReturnUrl;
+
+    @org.springframework.beans.factory.annotation.Value("${payos.cancel-url:http://localhost:5173/payment/cancel}")
+    private String payosCancelUrl;
 
     public StaffService(UserRepository userRepository, ShowtimeRepository showtimeRepository,
                         ShowtimeSeatRepository showtimeSeatRepository, BookingRepository bookingRepository,
                         BookingSeatRepository bookingSeatRepository, BookingService bookingService,
                         BookingMapper bookingMapper, ShowtimeService showtimeService,
-                        PaymentService paymentService, TicketService ticketService) {
+                        PaymentService paymentService, TicketService ticketService,
+                        PayOSService payOSService) {
         this.userRepository = userRepository;
         this.showtimeRepository = showtimeRepository;
         this.showtimeSeatRepository = showtimeSeatRepository;
