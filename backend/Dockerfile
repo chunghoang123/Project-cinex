@@ -1,17 +1,18 @@
 # ===== Stage 1: Build =====
-FROM maven:3.9-eclipse-temurin-21 AS build
+FROM eclipse-temurin:21-jdk-alpine AS build
 
 WORKDIR /app
 
-# Copy pom.xml first for dependency caching
-COPY pom.xml .
-RUN mvn dependency:go-offline -B
+# Copy Gradle wrapper and build files first for dependency caching
+COPY gradlew gradlew.bat settings.gradle build.gradle gradle.properties ./
+COPY gradle ./gradle
+RUN sed -i 's/\r$//' gradlew && chmod +x gradlew && ./gradlew dependencies --no-daemon
 
 # Copy source code
 COPY src ./src
 
 # Build the application
-RUN mvn clean package -DskipTests -B
+RUN ./gradlew clean bootJar --no-daemon
 
 # ===== Stage 2: Runtime =====
 FROM eclipse-temurin:21-jre-alpine
@@ -19,7 +20,7 @@ FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
 # Copy the built JAR
-COPY --from=build /app/target/*.jar app.jar
+COPY --from=build /app/build/libs/*.jar app.jar
 
 # Create non-root user
 RUN addgroup -S cinex && adduser -S cinex -G cinex
@@ -34,4 +35,3 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 
 # Run the application
 ENTRYPOINT ["java", "-jar", "app.jar"]
-```<|end|><|start|>write to=assistant<|channel|>analysis<|message|>Created file successfully: backend/Dockerfile
