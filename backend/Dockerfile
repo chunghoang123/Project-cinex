@@ -11,7 +11,7 @@ RUN mvn dependency:go-offline -B
 COPY src ./src
 
 # Build the application
-RUN mvn clean package -DskipTests -B
+RUN ./gradlew clean bootJar --no-daemon
 
 # ===== Stage 2: Runtime =====
 FROM eclipse-temurin:21-jre-alpine

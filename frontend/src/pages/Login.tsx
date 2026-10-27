@@ -22,6 +22,86 @@ export function Login() {
 
   const from = (location.state as { from?: string } | null)?.from
 
+  // Khởi tạo nút Google Identity Services (popup), mỗi lần bấm gửi credential về backend
+  const googleRef = useRef<HTMLDivElement>(null)
+  const [googleError, setGoogleError] = useState('')
+
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID) return
+    let cancelled = false
+    let attempts = 0
+    const tryInit = () => {
+      if (cancelled) return
+      if (window.google?.accounts?.id) {
+        if (!window.__cinexGoogleInitialized) {
+          window.__cinexGoogleInitialized = true
+          window.google.accounts.id.initialize({
+            client_id: GOOGLE_CLIENT_ID,
+            callback: (response) => void handleGoogleCredential(response.credential ?? ''),
+          })
+        }
+        if (googleRef.current) {
+          googleRef.current.innerHTML = ''
+          window.google.accounts.id.renderButton(googleRef.current, {
+            theme: 'outline',
+            size: 'large',
+            width: 320,
+            text: 'continue_with',
+            shape: 'pill',
+            locale: 'vi',
+          })
+        } else if (attempts < 40) {
+          attempts += 1
+          window.setTimeout(tryInit, 250)
+        }
+      } else if (attempts < 40) {
+        attempts += 1
+        window.setTimeout(tryInit, 250)
+      } else {
+        setGoogleError('Không tải được Google Sign-In. Vui lòng kiểm tra kết nối mạng.')
+      }
+    }
+    tryInit()
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Đảm bảo overlay loading không bị kẹt nếu component unmount.
+  useEffect(() => {
+    return () => {
+      setLoading(false)
+    }
+  }, [])
+
+  const handleGoogleCredential = async (credential: string) => {
+    if (!credential) return
+    setGoogleError('')
+    setLoading(true)
+    try {
+      await authService.googleLogin(credential)
+      if (authService.hasRole('ROLE_ADMIN')) {
+        navigate('/admin', { replace: true })
+      } else if (authService.hasRole('ROLE_STAFF')) {
+        navigate('/staff/pos', { replace: true })
+      } else {
+        navigate(from && !from.startsWith('/admin') && !from.startsWith('/staff') ? from : '/', { replace: true })
+      }
+    } catch (err) {
+      setGoogleError(errorMessage(err, 'Không thể đăng nhập bằng Google. Vui lòng thử lại.'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const clearFieldError = (field: LoginField) => {
+    setFieldErrors((current) => {
+      if (!current[field]) return current
+      const next = { ...current }
+      delete next[field]
+      return next
+    })
+  }
+
   const performLogin = async (loginUsername: string, loginPassword: string) => {
     setLoading(true)
     setError('')
@@ -35,7 +115,7 @@ export function Login() {
         navigate(from && !from.startsWith('/admin') && !from.startsWith('/staff') ? from : '/', { replace: true })
       }
     } catch (err) {
-      setError(errorMessage(err, 'Tên đăng nhập hoặc mật khẩu không đúng.'))
+      setError(errorMessage(err, 'Không thể kết nối máy chủ. Vui lòng kiểm tra kết nối và thử lại.'))
     } finally {
       setLoading(false)
     }
@@ -91,6 +171,8 @@ export function Login() {
                   placeholder="Nhập tên đăng nhập"
                   autoComplete="username"
                   required
+                  aria-invalid={Boolean(fieldErrors.username)}
+                  aria-describedby={fieldErrors.username ? 'username-error' : undefined}
                 />
               </div>
             </div>
@@ -118,6 +200,7 @@ export function Login() {
                   <Icon name={showPassword ? 'eye-off' : 'eye'} size={17} />
                 </button>
               </div>
+              <FieldError id="password-error" message={fieldErrors.password} />
             </div>
 
             <div className="row between">
