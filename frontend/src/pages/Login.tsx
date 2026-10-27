@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { authService } from '../services/authService'
@@ -18,6 +18,7 @@ export function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const [remember, setRemember] = useState(true)
   const [error, setError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [loading, setLoading] = useState(false)
 
   const from = (location.state as { from?: string } | null)?.from
@@ -126,19 +127,14 @@ export function Login() {
     await performLogin(username, password)
   }
 
-  const handleDemo = () => {
-    localStorage.setItem('token', 'demo-token')
-    navigate('/')
-  }
-
-  const loginAsDemo = async (demoUsername: string, demoPassword: string) => {
-    setUsername(demoUsername)
-    setPassword(demoPassword)
-    await performLogin(demoUsername, demoPassword)
-  }
-
   return (
     <div className="auth-page">
+      {loading && (
+        <div className="auth-loading-overlay" role="status" aria-live="polite">
+          <div className="spinner" />
+          <p>Đang đăng nhập...</p>
+        </div>
+      )}
       <section className="auth-hero">
         <img className="auth-hero__bg" src={heroImage} alt="" />
         <div className="auth-hero__shade" />
@@ -158,7 +154,7 @@ export function Login() {
 
           {error && <div className="form-error" style={{ marginBottom: 14 }}>{error}</div>}
 
-          <form className="auth-form" onSubmit={handleSubmit}>
+          <form className="auth-form" onSubmit={handleSubmit} noValidate>
             <div className="field">
               <label htmlFor="username">Tên đăng nhập</label>
               <div className="input-wrap">
@@ -179,7 +175,7 @@ export function Login() {
 
             <div className="field">
               <label htmlFor="password">Mật khẩu</label>
-              <div className="input-wrap">
+              <div className={`input-wrap${fieldErrors.password ? ' input-wrap--error' : ''}`}>
                 <Icon name="lock" size={17} />
                 <input
                   id="password"
@@ -222,32 +218,15 @@ export function Login() {
           <div className="auth-sep">hoặc tiếp tục với</div>
 
           <div className="auth-social">
-            <button type="button" className="btn btn-ghost btn-block" onClick={handleDemo}>
-              <Icon name="google" size={18} />
-              Tiếp tục với Google
-            </button>
-            <button type="button" className="btn btn-outline btn-block" onClick={handleDemo}>
-              <Icon name="sparkles" size={17} />
-              Dùng tài khoản demo
-            </button>
+            {GOOGLE_CLIENT_ID ? (
+              <div ref={googleRef} style={{ display: 'flex', justifyContent: 'center' }} />
+            ) : (
+              <div className="muted" style={{ fontSize: 14 }}>
+                Đăng nhập Google chưa được cấu hình (thiếu <code>VITE_GOOGLE_CLIENT_ID</code>).
+              </div>
+            )}
           </div>
-
-          <div className="auth-sep">Tài khoản demo</div>
-          <div className="auth-demo-list">
-            {DEMO_ACCOUNTS.map((account) => (
-              <button
-                type="button"
-                className="auth-demo-card"
-                key={account.username}
-                onClick={() => loginAsDemo(account.username, account.password)}
-                disabled={loading}
-              >
-                <span className="auth-demo-card__role">{account.label}</span>
-                <strong>{account.username} / {account.password}</strong>
-                <small>{account.description}</small>
-              </button>
-            ))}
-          </div>
+          {googleError && <div className="form-error" style={{ marginTop: 10 }}>{googleError}</div>}
 
           <p className="auth-foot">
             Chưa có tài khoản? <Link to="/register">Đăng ký ngay</Link>
