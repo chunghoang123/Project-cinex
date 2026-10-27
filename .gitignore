@@ -3,11 +3,14 @@
 .vscode/
 *.iml
 
-# Backend (Spring Boot / Maven)
+# Backend (Spring Boot / Maven / Gradle)
 backend/target/
 backend/.mvn/
 backend/mvnw
 backend/mvnw.cmd
+backend/.gradle/
+backend/build/
+backend/out/
 
 # Frontend (React / Node)
 frontend/node_modules/
