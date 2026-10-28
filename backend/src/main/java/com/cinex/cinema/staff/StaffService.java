@@ -287,7 +287,7 @@ public class StaffService {
                 .ticketCode(ticket.getTicketCode())
                 .ticketStatus(ticket.getStatus().name())
                 .scannedAt(ticket.getScannedAt())
-                .booking(bookingMapper.toResponse(ticket.getBooking()))
+                .booking(bookingMapper.toResponse(booking))
                 .build();
         } catch (ResponseStatusException ex) {
             return TicketValidationResponse.builder()
