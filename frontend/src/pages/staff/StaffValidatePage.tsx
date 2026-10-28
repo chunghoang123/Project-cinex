@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ConsolePageHeader } from '../../components/console/ConsolePageHeader'
 import { StatusBadge } from '../../components/console/StatusBadge'
 import { Icon } from '../../components/ui/Icon'
@@ -13,9 +13,21 @@ export function StaffValidatePage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const validate = async (event: React.FormEvent) => {
-    event.preventDefault()
-    if (!code.trim()) {
+  const stopCamera = useCallback(() => {
+    cancelledRef.current = true
+    cancelAnimationFrame(rafRef.current)
+    streamRef.current?.getTracks().forEach((track) => track.stop())
+    streamRef.current = null
+    if (videoRef.current) {
+      videoRef.current.srcObject = null
+      videoRef.current.pause()
+    }
+    setCameraOn(false)
+  }, [])
+
+  const runValidate = useCallback(async (raw: string) => {
+    const value = raw.trim()
+    if (!value) {
       setError('Vui lòng nhập mã vé')
       return
     }
@@ -23,7 +35,7 @@ export function StaffValidatePage() {
     setError('')
     setResult(null)
     try {
-      setResult(await staffService.validateTicket(code.trim()))
+      setResult(await staffService.validateTicket(value))
     } catch (err) {
       setError(errorMessage(err, 'Không thể soát vé'))
     } finally {
@@ -129,7 +141,7 @@ export function StaffValidatePage() {
             <input
               className="input"
               value={code}
-              onChange={(event) => setCode(event.target.value.toUpperCase())}
+              onChange={handleCodeChange}
               placeholder="TKDEMO0001"
               autoFocus
             />
@@ -138,6 +150,21 @@ export function StaffValidatePage() {
               {loading ? 'Đang kiểm tra…' : 'Soát vé'}
             </button>
           </form>
+
+          <button
+            type="button"
+            className="btn btn-outline btn-block"
+            style={{ marginTop: 12 }}
+            onClick={cameraOn ? stopCamera : startCamera}
+            disabled={loading}
+          >
+            <Icon name="scan" size={17} />
+            {cameraOn ? 'Tắt camera' : 'Bật camera quét QR vé điện tử'}
+          </button>
+          {cameraError && <div className="form-error" style={{ marginTop: 10 }}>{cameraError}</div>}
+          {cameraOn && (
+            <video ref={videoRef} className="scan-video" muted playsInline style={{ width: '100%', borderRadius: 12, background: '#000', marginTop: 10 }} />
+          )}
 
           {error && <div className="form-error" style={{ marginTop: 14 }}>{error}</div>}
 
