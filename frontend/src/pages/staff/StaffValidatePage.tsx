@@ -9,9 +9,16 @@ import { errorMessage, formatDateTime } from '../../utils/consoleFormat'
 
 export function StaffValidatePage() {
   const [code, setCode] = useState('')
+  const codeRef = useRef('')
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+  const rafRef = useRef(0)
+  const cancelledRef = useRef(false)
   const [result, setResult] = useState<TicketValidation | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [cameraOn, setCameraOn] = useState(false)
+  const [cameraError, setCameraError] = useState('')
 
   const stopCamera = useCallback(() => {
     cancelledRef.current = true
@@ -124,7 +131,7 @@ export function StaffValidatePage() {
       <ConsolePageHeader
         eyebrow="Kiểm soát vé"
         title="Soát vé tại cổng"
-        description="Nhập mã vé in trên vé điện tử để xác thực và đánh dấu đã sử dụng. Mỗi vé chỉ có hiệu lực một lần."
+        description="Quét mã QR vé điện tử hoặc nhập mã vé để xác thực và đánh dấu đã sử dụng. Mỗi vé chỉ có hiệu lực một lần."
       />
 
       <div className="scan-panel">
@@ -193,6 +200,24 @@ export function StaffValidatePage() {
                   </>
                 )}
               </div>
+
+              {result.valid && result.booking && (
+                <button type="button" className="btn btn-outline btn-sm" style={{ marginTop: 14 }} onClick={() => window.print()}>
+                  <Icon name="printer" size={15} /> In vé
+                </button>
+              )}
+            </div>
+          )}
+
+          {result?.valid && result.booking && (
+            <div className="pos-print-area">
+              <h2>CINEX</h2>
+              <p>Vé xem phim · {result.ticketCode}</p>
+              <div>Phim: {result.booking.showtime.movieTitle}</div>
+              <div>Suất: {formatDateTime(result.booking.showtime.startTime)}</div>
+              <div>Rạp: {result.booking.showtime.cinemaName} · {result.booking.showtime.auditoriumName}</div>
+              <div>Ghế: {result.booking.seats.map((seat) => seat.seatCode).join(', ')}</div>
+              <div>Tổng: {formatVnd(result.booking.totalAmount)}</div>
             </div>
           )}
 
