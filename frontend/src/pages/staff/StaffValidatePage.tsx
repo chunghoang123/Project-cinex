@@ -29,6 +29,82 @@ export function StaffValidatePage() {
     } finally {
       setLoading(false)
     }
+  }, [])
+
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+      streamRef.current = stream
+      const video = videoRef.current
+      if (video) {
+        video.srcObject = stream
+        await video.play()
+      }
+      setCameraError('')
+      setCameraOn(true)
+    } catch (err) {
+      setCameraError(errorMessage(err, 'Không mở được camera để quét mã QR'))
+    }
+  }
+
+  useEffect(() => {
+    if (!cameraOn) return
+    return () => stopCamera()
+  }, [cameraOn, stopCamera])
+
+  useEffect(() => {
+    if (!cameraOn) return
+    const video = videoRef.current
+    if (!video) return
+    type DetectorInstance = {
+      detect: (source: CanvasImageSource) => Promise<Array<{ rawValue?: string }>>
+    }
+    type DetectorCtor = new (options?: { formats?: string[] }) => DetectorInstance
+    const DetectorCtor = (window as unknown as { BarcodeDetector?: DetectorCtor }).BarcodeDetector
+    if (!DetectorCtor) {
+      setCameraError('Trình duyệt hiện chưa hỗ trợ camera quét mã QR')
+      setCameraOn(false)
+      return
+    }
+    const detector = new DetectorCtor({ formats: ['qr_code'] })
+    cancelledRef.current = false
+    const tick = async () => {
+      const width = video.videoWidth
+      const height = video.videoHeight
+      if (width && height) {
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        canvas.getContext('2d')?.drawImage(video, 0, 0, width, height)
+        const codes = await detector.detect(canvas)
+        if (cancelledRef.current) return
+        if (codes && codes.length > 0) {
+          const raw = String(codes[0].rawValue || '')
+          cancelAnimationFrame(rafRef.current)
+          const ticketCode = raw.startsWith('CINEX|') ? raw.split('|')[1] || raw : raw
+          stopCamera()
+          void runValidate(ticketCode)
+          return
+        }
+      }
+      rafRef.current = requestAnimationFrame(tick)
+    }
+    rafRef.current = requestAnimationFrame(tick)
+    return () => {
+      cancelledRef.current = true
+      cancelAnimationFrame(rafRef.current)
+    }
+  }, [cameraOn, stopCamera, runValidate])
+
+  const validate = (event: React.FormEvent) => {
+    event.preventDefault()
+    void runValidate(codeRef.current)
+  }
+
+  const handleCodeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const value = event.target.value.toUpperCase()
+    setCode(value)
+    codeRef.current = value
   }
 
   return (
