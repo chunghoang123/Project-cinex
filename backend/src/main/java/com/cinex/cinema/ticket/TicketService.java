@@ -63,6 +63,11 @@ public class TicketService {
         }
     }
 
+    /**
+     * Chạy trong transaction riêng (REQUIRES_NEW) để khi throw,
+     * transaction gốc của caller (vd StaffService.validateTicket) không bị đánh dấu rollback-only.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Ticket validateTicket(String ticketCode) {
         Ticket ticket = findByTicketCode(ticketCode);
 
