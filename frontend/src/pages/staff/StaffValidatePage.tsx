@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ConsolePageHeader } from '../../components/console/ConsolePageHeader'
 import { StatusBadge } from '../../components/console/StatusBadge'
 import { Icon } from '../../components/ui/Icon'
@@ -20,7 +20,7 @@ export function StaffValidatePage() {
   const [cameraOn, setCameraOn] = useState(false)
   const [cameraError, setCameraError] = useState('')
 
-  const stopCamera = () => {
+  const stopCamera = useCallback(() => {
     cancelledRef.current = true
     cancelAnimationFrame(rafRef.current)
     streamRef.current?.getTracks().forEach((track) => track.stop())
@@ -30,7 +30,25 @@ export function StaffValidatePage() {
       videoRef.current.pause()
     }
     setCameraOn(false)
-  }
+  }, [])
+
+  const runValidate = useCallback(async (raw: string) => {
+    const value = raw.trim()
+    if (!value) {
+      setError('Vui lòng nhập mã vé')
+      return
+    }
+    setLoading(true)
+    setError('')
+    setResult(null)
+    try {
+      setResult(await staffService.validateTicket(value))
+    } catch (err) {
+      setError(errorMessage(err, 'Không thể soát vé'))
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
   const startCamera = async () => {
     try {
@@ -51,7 +69,7 @@ export function StaffValidatePage() {
   useEffect(() => {
     if (!cameraOn) return
     return () => stopCamera()
-  }, [cameraOn])
+  }, [cameraOn, stopCamera])
 
   useEffect(() => {
     if (!cameraOn) return
@@ -95,26 +113,7 @@ export function StaffValidatePage() {
       cancelledRef.current = true
       cancelAnimationFrame(rafRef.current)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cameraOn])
-
-  const runValidate = async (raw: string) => {
-    const value = raw.trim()
-    if (!value) {
-      setError('Vui lòng nhập mã vé')
-      return
-    }
-    setLoading(true)
-    setError('')
-    setResult(null)
-    try {
-      setResult(await staffService.validateTicket(value))
-    } catch (err) {
-      setError(errorMessage(err, 'Không thể soát vé'))
-    } finally {
-      setLoading(false)
-    }
-  }
+  }, [cameraOn, stopCamera, runValidate])
 
   const validate = (event: React.FormEvent) => {
     event.preventDefault()
