@@ -20,7 +20,7 @@ public class Seat extends BaseEntity {
     @Column(nullable = false)
     private Integer rowNumber;
 
-    @Column(nullable = false)
+    @Column(name = "column_num", nullable = false)
     private Integer columnNumber;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
