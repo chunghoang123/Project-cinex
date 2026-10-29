@@ -39,8 +39,8 @@ jobs:
       - name: Build frontend
         working-directory: ./frontend
         run: npm ci && npm run build
-        env:
-          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+        # Biến môi trường production lấy từ frontend/.env.production đã commit,
+        # tránh inject secret rỗng đè lên giá trị đã cấu hình.
 
       - name: Deploy to server
         uses: appleboy/ssh-action@v1.0.3
