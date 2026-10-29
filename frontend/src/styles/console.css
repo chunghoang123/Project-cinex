@@ -1211,6 +1211,17 @@
   letter-spacing: 0.05em;
 }
 
+.scan-video {
+  width: 100%;
+  border-radius: 12px;
+  background: #000;
+  aspect-ratio: 4 / 3;
+}
+
+.scan-video:fullscreen {
+  border-radius: 0;
+}
+
 .scan-result {
   margin-top: 16px;
   padding: 16px;
