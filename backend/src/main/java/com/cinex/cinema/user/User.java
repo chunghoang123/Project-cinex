@@ -32,6 +32,13 @@ public class User extends BaseEntity implements org.springframework.security.cor
     @Column(length = 20)
     private String phone;
 
+    /** Id tài khoản Google (Google sub), null nếu đăng ký thường */
+    @Column(name = "google_id", unique = true)
+    private String googleId;
+
+    @Column(length = 500)
+    private String avatarUrl;
+
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
         name = "user_roles",

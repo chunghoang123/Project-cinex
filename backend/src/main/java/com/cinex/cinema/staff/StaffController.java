@@ -48,6 +48,15 @@ public class StaffController {
             .body(ApiResponse.ok("Bán vé thành công", sale));
     }
 
+    @PostMapping("/sales/payos")
+    public ResponseEntity<ApiResponse<StaffSaleResponse>> createPayosSale(
+            @Valid @RequestBody StaffSaleRequest request, Authentication authentication) {
+        User staff = (User) authentication.getPrincipal();
+        StaffSaleResponse sale = staffService.createPayosSale(staff.getId(), request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(ApiResponse.ok("Tạo link thanh toán PayOS thành công", sale));
+    }
+
     @GetMapping("/bookings")
     public ResponseEntity<ApiResponse<List<BookingResponse>>> bookings(
             @RequestParam(required = false) String q) {

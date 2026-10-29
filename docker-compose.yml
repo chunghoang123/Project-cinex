@@ -42,6 +42,12 @@ services:
       APP_JWT_SECRET: ${JWT_SECRET:-cinex-secret-key-change-in-production}
       APP_JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
       TMDB_API_KEY: ${TMDB_API_KEY:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      PAYOS_CLIENT_ID: ${PAYOS_CLIENT_ID:-}
+      PAYOS_API_KEY: ${PAYOS_API_KEY:-}
+      PAYOS_CHECKSUM_KEY: ${PAYOS_CHECKSUM_KEY:-}
+      PAYOS_RETURN_URL: ${PAYOS_RETURN_URL:-https://chung-ai.io.vn/payment/return}
+      PAYOS_CANCEL_URL: ${PAYOS_CANCEL_URL:-https://chung-ai.io.vn/payment/cancel}
     depends_on:
       mysql:
         condition: service_healthy
@@ -61,6 +67,7 @@ services:
       dockerfile: Dockerfile
       args:
         VITE_API_URL: ${VITE_API_URL:-http://localhost:8080/api}
+        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID:-}
     container_name: cinex-frontend
     restart: unless-stopped
     ports:
