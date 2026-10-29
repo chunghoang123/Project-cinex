@@ -4,7 +4,6 @@ services:
   # ===== MySQL Database =====
   mysql:
     image: mysql:8.0
-    container_name: cinex-mysql
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
@@ -15,7 +14,6 @@ services:
       - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./backend/src/main/resources/db/migration:/docker-entrypoint-initdb.d
     networks:
       - cinex-network
     healthcheck:
@@ -32,8 +30,8 @@ services:
       dockerfile: Dockerfile
     container_name: cinex-backend
     restart: unless-stopped
-    ports:
-      - "8080:8080"
+    expose:
+      - "8080"
     environment:
       SPRING_PROFILES_ACTIVE: prod
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-cinex_db}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
@@ -58,7 +56,8 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 60s
+      # Lần khởi động đầu cần tạo schema (Hibernate update) nên cho nạp dài hơn
+      start_period: 90s
 
   # ===== Frontend (React + Nginx) =====
   frontend:
@@ -68,10 +67,9 @@ services:
       args:
         VITE_API_URL: ${VITE_API_URL:-http://localhost:8080/api}
         VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID:-}
-    container_name: cinex-frontend
     restart: unless-stopped
     ports:
-      - "3000:80"
+      - "127.0.0.1:3000:80"
     depends_on:
       - backend
     networks:
