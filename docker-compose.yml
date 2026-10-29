@@ -52,6 +52,7 @@ services:
       PAYOS_CHECKSUM_KEY: ${PAYOS_CHECKSUM_KEY:-}
       PAYOS_RETURN_URL: ${PAYOS_RETURN_URL:-https://chung-ai.io.vn/payment/return}
       PAYOS_CANCEL_URL: ${PAYOS_CANCEL_URL:-https://chung-ai.io.vn/payment/cancel}
+      TZ: Asia/Ho_Chi_Minh
     depends_on:
       mysql:
         condition: service_healthy
@@ -71,7 +72,8 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: ${VITE_API_URL:-http://localhost:8080/api}
+        # Build arg quan trọng: bundle SPA phải gọi đúng domain production
+        VITE_API_URL: ${VITE_API_URL:-https://chung-ai.io.vn/api}
         VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID:-}
     restart: unless-stopped
     ports:
@@ -86,11 +88,10 @@ services:
     image: nginx:alpine
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
+      # Cloudflare Tunnel hiện trỏ về localhost:8090
+      - "8090:80"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/ssl:/etc/nginx/ssl:ro
     depends_on:
       - frontend
       - backend

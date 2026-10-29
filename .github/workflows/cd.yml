@@ -66,13 +66,20 @@ jobs:
           username: ${{ secrets.SERVER_USER || secrets.SSH_USERNAME }}
           key_path: deploy_key
           script: |
-            cd /opt/cinex
-            git pull origin main
-            docker-compose down
-            docker-compose up -d --build
-            docker system prune -f
+            cd /home/chunghoang/cinex
+            git fetch origin main
+            git reset --hard origin/main
+            docker compose up -d --build
+            docker image prune -f
 
       - name: Health check
         run: |
-          sleep 30
-          curl -f ${{ secrets.HEALTH_CHECK_URL }} || exit 1
+          for i in $(seq 1 12); do
+            if curl -fsS "${{ secrets.HEALTH_CHECK_URL || 'https://chung-ai.io.vn/actuator/health' }}" > /dev/null; then
+              echo "Health check OK"
+              exit 0
+            fi
+            echo "Retry $i/12: chờ backend khởi động..."
+            sleep 10
+          done
+          exit 1
