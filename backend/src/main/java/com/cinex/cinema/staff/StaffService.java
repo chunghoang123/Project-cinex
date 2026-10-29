@@ -277,13 +277,17 @@ public class StaffService {
     public TicketValidationResponse validateTicket(String code) {
         try {
             Ticket ticket = ticketService.validate(code);
+            // Ticket trả về từ transaction con (REQUIRES_NEW) đã detached,
+            // load lại booking trong transaction hiện tại để mapper truy cập an toàn.
+            Booking booking = bookingRepository.findById(ticket.getBooking().getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking không tồn tại"));
             return TicketValidationResponse.builder()
                 .valid(true)
                 .message("Vé hợp lệ")
                 .ticketCode(ticket.getTicketCode())
                 .ticketStatus(ticket.getStatus().name())
                 .scannedAt(ticket.getScannedAt())
-                .booking(bookingMapper.toResponse(ticket.getBooking()))
+                .booking(bookingMapper.toResponse(booking))
                 .build();
         } catch (ResponseStatusException ex) {
             return TicketValidationResponse.builder()
