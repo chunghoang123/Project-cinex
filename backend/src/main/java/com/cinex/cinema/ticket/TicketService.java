@@ -1,12 +1,9 @@
 package com.cinex.cinema.ticket;
 
 import com.cinex.cinema.booking.Booking;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
-import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Service
@@ -20,49 +17,67 @@ public class TicketService {
     }
 
     public Ticket issue(Booking booking) {
-        return ticketRepository.findByBookingId(booking.getId()).orElseGet(() -> {
-            String code = "TK" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-            Ticket ticket = Ticket.builder()
-                .booking(booking)
-                .ticketCode(code)
-                .qrCode(code)
-                .status(TicketStatus.UNUSED)
-                .build();
-            return ticketRepository.save(ticket);
-        });
-    }
+        String ticketCode = "TKT-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        String qrContent = "CINEX|" + ticketCode + "|" + booking.getBookingCode();
 
-    @Transactional(noRollbackFor = ResponseStatusException.class)
-    public Ticket validate(String code) {
-        String normalized = code == null ? "" : code.trim();
-        Ticket ticket = ticketRepository.findByTicketCode(normalized)
-            .or(() -> ticketRepository.findByQrCode(normalized))
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Vé không tồn tại"));
+        Ticket ticket = Ticket.builder()
+            .booking(booking)
+            .ticketCode(ticketCode)
+            .qrCode(qrContent)
+            .status(TicketStatus.UNUSED)
+            .build();
 
-        if (ticket.getStatus() == TicketStatus.SCANNED) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                "Vé đã được soát lúc " + ticket.getScannedAt());
-        }
-        if (ticket.getStatus() == TicketStatus.CANCELLED) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Vé đã bị hủy");
-        }
-
-        ticket.setStatus(TicketStatus.SCANNED);
-        ticket.setScannedAt(LocalDateTime.now());
         return ticketRepository.save(ticket);
     }
 
-    public void cancel(Booking booking) {
-        ticketRepository.findByBookingId(booking.getId()).ifPresent(ticket -> {
-            ticket.setStatus(TicketStatus.CANCELLED);
-            ticketRepository.save(ticket);
-        });
+    public Ticket findByTicketCode(String ticketCode) {
+        return ticketRepository.findByTicketCode(normalizeCode(ticketCode))
+            .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.NOT_FOUND, "Vé không tồn tại"));
     }
 
-    public Ticket findByCode(String code) {
-        String normalized = code == null ? "" : code.trim();
-        return ticketRepository.findByTicketCode(normalized)
-            .or(() -> ticketRepository.findByQrCode(normalized))
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Vé không tồn tại"));
+    /** Chấp nhận cả mã vé và nội dung QR đầy đủ dạng CINEX|TKT-...|BK... khi quét. */
+    private String normalizeCode(String ticketCode) {
+        if (ticketCode == null) {
+            return null;
+        }
+        String value = ticketCode.trim();
+        if (value.startsWith("CINEX|")) {
+            String[] parts = value.split("\\|");
+            if (parts.length >= 2 && !parts[1].isBlank()) {
+                return parts[1].trim();
+            }
+        }
+        return value;
+    }
+
+    public Ticket validate(String ticketCode) {
+        return validateTicket(ticketCode);
+    }
+
+    public void cancel(Booking booking) {
+        Ticket ticket = ticketRepository.findByBookingId(booking.getId()).orElse(null);
+        if (ticket != null) {
+            ticket.setStatus(TicketStatus.CANCELLED);
+            ticketRepository.save(ticket);
+        }
+    }
+
+    public Ticket validateTicket(String ticketCode) {
+        Ticket ticket = findByTicketCode(ticketCode);
+
+        if (ticket.getStatus() == TicketStatus.SCANNED) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.BAD_REQUEST, "Vé đã được soát, không thể dùng lại");
+        }
+
+        if (ticket.getStatus() == TicketStatus.CANCELLED) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.BAD_REQUEST, "Vé đã bị hủy");
+        }
+
+        ticket.setStatus(TicketStatus.SCANNED);
+        ticket.setScannedAt(java.time.LocalDateTime.now());
+        return ticketRepository.save(ticket);
     }
 }

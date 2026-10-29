@@ -32,9 +32,35 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.ok("Đăng nhập thành công", response));
     }
 
+    @PostMapping("/google")
+    public ResponseEntity<ApiResponse<AuthResponse>> google(
+            @RequestBody java.util.Map<String, String> request) {
+        AuthResponse response = authService.googleLogin(request.get("credential"));
+        return ResponseEntity.ok(ApiResponse.ok("Đăng nhập Google thành công", response));
+    }
+
     @GetMapping("/me")
-    public ResponseEntity<ApiResponse<UserResponse>> me(Authentication authentication) {
-        User user = (User) authentication.getPrincipal();
-        return ResponseEntity.ok(ApiResponse.ok(authService.me(user)));
+    public ResponseEntity<ApiResponse<UserResponse>> getMe(Authentication authentication) {
+        return ResponseEntity.ok(ApiResponse.ok(authService.me(currentUser(authentication))));
+    }
+
+    @PutMapping("/me")
+    public ResponseEntity<ApiResponse<UserResponse>> updateMe(
+            Authentication authentication,
+            @Valid @RequestBody UpdateProfileRequest request) {
+        UserResponse response = authService.updateProfile(currentUser(authentication), request);
+        return ResponseEntity.ok(ApiResponse.ok("Cập nhật thông tin thành công", response));
+    }
+
+    @PutMapping("/password")
+    public ResponseEntity<ApiResponse<Void>> changePassword(
+            Authentication authentication,
+            @Valid @RequestBody ChangePasswordRequest request) {
+        authService.changePassword(currentUser(authentication), request);
+        return ResponseEntity.ok(ApiResponse.ok("Đổi mật khẩu thành công", null));
+    }
+
+    private User currentUser(Authentication authentication) {
+        return (User) authentication.getPrincipal();
     }
 }

@@ -10,5 +10,6 @@ public class AuthResponse {
     private String username;
     private String email;
     private String fullName;
+    private String avatarUrl;
     private java.util.Set<String> roles;
 }

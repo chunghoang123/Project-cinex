@@ -11,6 +11,7 @@ import com.cinex.cinema.booking.BookingService;
 import com.cinex.cinema.booking.BookingStatus;
 import com.cinex.cinema.common.SeatPricing;
 import com.cinex.cinema.payment.Payment;
+import com.cinex.cinema.payment.PayOSService;
 import com.cinex.cinema.payment.PaymentService;
 import com.cinex.cinema.showtime.SeatStatus;
 import com.cinex.cinema.showtime.Showtime;
@@ -41,7 +42,7 @@ import java.util.stream.Collectors;
 @Transactional
 public class StaffService {
 
-    private static final Set<String> PAYMENT_METHODS = Set.of("CASH", "CARD", "TRANSFER");
+    private static final Set<String> PAYMENT_METHODS = Set.of("CASH", "CARD", "TRANSFER", "PAYOS");
 
     private final UserRepository userRepository;
     private final ShowtimeRepository showtimeRepository;
@@ -53,12 +54,20 @@ public class StaffService {
     private final ShowtimeService showtimeService;
     private final PaymentService paymentService;
     private final TicketService ticketService;
+    private final PayOSService payOSService;
+
+    @org.springframework.beans.factory.annotation.Value("${payos.return-url:http://localhost:5173/payment/return}")
+    private String payosReturnUrl;
+
+    @org.springframework.beans.factory.annotation.Value("${payos.cancel-url:http://localhost:5173/payment/cancel}")
+    private String payosCancelUrl;
 
     public StaffService(UserRepository userRepository, ShowtimeRepository showtimeRepository,
                         ShowtimeSeatRepository showtimeSeatRepository, BookingRepository bookingRepository,
                         BookingSeatRepository bookingSeatRepository, BookingService bookingService,
                         BookingMapper bookingMapper, ShowtimeService showtimeService,
-                        PaymentService paymentService, TicketService ticketService) {
+                        PaymentService paymentService, TicketService ticketService,
+                        PayOSService payOSService) {
         this.userRepository = userRepository;
         this.showtimeRepository = showtimeRepository;
         this.showtimeSeatRepository = showtimeSeatRepository;
@@ -69,6 +78,7 @@ public class StaffService {
         this.showtimeService = showtimeService;
         this.paymentService = paymentService;
         this.ticketService = ticketService;
+        this.payOSService = payOSService;
     }
 
     @Transactional(readOnly = true)
@@ -79,6 +89,87 @@ public class StaffService {
     @Transactional(readOnly = true)
     public List<ShowtimeSeatResponse> getSeats(Long showtimeId) {
         return showtimeService.getSeatMap(showtimeId);
+    }
+
+    public StaffSaleResponse createPayosSale(Long staffId, StaffSaleRequest request) {
+        User staff = userRepository.findById(staffId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Nhân viên không tồn tại"));
+        User walkIn = userRepository.findByUsername("walkin")
+            .orElseThrow(() -> new ResponseStatusException(
+                HttpStatus.INTERNAL_SERVER_ERROR, "Chưa có tài khoản khách vãng lai"));
+
+        Showtime showtime = showtimeRepository.findById(request.getShowtimeId())
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Suất chiếu không tồn tại"));
+        if (!showtime.isActive() || showtime.getStartTime().isBefore(LocalDateTime.now())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Suất chiếu không còn khả dụng");
+        }
+
+        List<ShowtimeSeat> seats = showtimeSeatRepository.findAllById(request.getSeatIds());
+        if (seats.size() != request.getSeatIds().size()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Một số ghế không tồn tại");
+        }
+        validateSeats(showtime, seats);
+
+        BigDecimal snackAmount = request.getSnackAmount() == null
+            ? BigDecimal.ZERO : request.getSnackAmount();
+        if (snackAmount.signum() < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tiền bắp nước không hợp lệ");
+        }
+
+        BigDecimal seatAmount = seats.stream()
+            .map(seat -> SeatPricing.priceFor(showtime.getBasePrice(), seat.getSeat().getSeatType()))
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalAmount = seatAmount.add(snackAmount);
+
+        String bookingCode = "BK" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        String customerName = request.getCustomerName() == null || request.getCustomerName().isBlank()
+            ? "Khách lẻ" : request.getCustomerName().trim();
+
+        LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(15);
+        // Không khoá ghế: ghế chỉ chuyển BOOKED khi PayOS xác nhận đã nhận tiền
+
+        Booking booking = Booking.builder()
+            .bookingCode(bookingCode)
+            .user(walkIn)
+            .showtime(showtime)
+            .totalAmount(totalAmount)
+            .seatAmount(seatAmount)
+            .snackAmount(snackAmount)
+            .snackNote(request.getSnackNote())
+            .customerName(customerName)
+            .customerPhone(request.getCustomerPhone())
+            .channel(BookingChannel.COUNTER)
+            .staff(staff)
+            .status(BookingStatus.PENDING)
+            .expiresAt(expiresAt)
+            .build();
+        booking = bookingRepository.save(booking);
+
+        for (ShowtimeSeat seat : seats) {
+            bookingSeatRepository.save(BookingSeat.builder()
+                .booking(booking)
+                .showtimeSeat(seat)
+                .price(SeatPricing.priceFor(showtime.getBasePrice(), seat.getSeat().getSeatType()))
+                .build());
+        }
+
+        PayOSService.PayOSLink link = payOSService.createPaymentLink(
+            PayOSService.generateOrderCode(),
+            totalAmount.longValue(),
+            "Cinex POS " + bookingCode,
+            payosReturnUrl,
+            payosCancelUrl
+        );
+
+        paymentService.recordProcessing(booking, "PAYOS", totalAmount, link.paymentLinkId);
+
+        return StaffSaleResponse.builder()
+            .booking(bookingMapper.toResponse(booking))
+            .ticketCode(null)
+            .qrCode(link.qrCode)
+            .checkoutUrl(link.checkoutUrl)
+            .paymentLinkId(link.paymentLinkId)
+            .build();
     }
 
     public StaffSaleResponse createSale(Long staffId, StaffSaleRequest request) {
