@@ -18,6 +18,8 @@ public class Seat extends BaseEntity {
     private String seatType;
 
     // MySQL 8 chặn tên cột trùng từ khoá window function (row_number/column_number)
+    // nên đặt tên cột tường minh, an toàn
+    @Column(name = "row_num", nullable = false)
     private Integer rowNumber;
 
     @Column(name = "column_num", nullable = false)
