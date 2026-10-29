@@ -17,7 +17,7 @@ public class Seat extends BaseEntity {
     @Column(nullable = false, length = 20)
     private String seatType;
 
-    @Column(nullable = false)
+    // MySQL 8 chặn tên cột trùng từ khoá window function (row_number/column_number)
     private Integer rowNumber;
 
     @Column(name = "column_num", nullable = false)
