@@ -14,4 +14,6 @@ public class StaffSaleResponse {
     private BookingResponse booking;
     private String ticketCode;
     private String qrCode;
+    private String checkoutUrl;
+    private String paymentLinkId;
 }

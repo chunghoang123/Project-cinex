@@ -21,13 +21,17 @@ public class ShowtimeController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<ShowtimeResponse>>> search(
-            @RequestParam Long movieId,
-            @RequestParam String from,
-            @RequestParam String to) {
-        LocalDateTime fromDate = LocalDateTime.parse(from);
-        LocalDateTime toDate = LocalDateTime.parse(to);
-        return ResponseEntity.ok(ApiResponse.ok(
-            showtimeService.findByMovieAndDate(movieId, fromDate, toDate)));
+            @RequestParam(required = false) Long movieId,
+            @RequestParam(required = false) String from,
+            @RequestParam(required = false) String to) {
+        LocalDateTime fromDate = from == null ? LocalDateTime.now() : LocalDateTime.parse(from);
+        LocalDateTime toDate = to == null
+            ? fromDate.plusDays(7)
+            : LocalDateTime.parse(to);
+        List<ShowtimeResponse> result = movieId == null
+            ? showtimeService.findInRange(fromDate, toDate)
+            : showtimeService.findByMovieAndDate(movieId, fromDate, toDate);
+        return ResponseEntity.ok(ApiResponse.ok(result));
     }
 
     @GetMapping("/{id}")

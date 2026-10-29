@@ -72,7 +72,9 @@ public class SecurityConfig {
             )
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/login", "/api/auth/register").permitAll()
+                .requestMatchers("/actuator/health").permitAll()
+                .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/google").permitAll()
+                .requestMatchers("/api/payments/payos/webhook").permitAll()
                 .requestMatchers("/api/auth/me").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/movies/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/cinemas/**").permitAll()
@@ -81,18 +83,32 @@ public class SecurityConfig {
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/staff/**").hasAnyRole("STAFF", "ADMIN")
                 .anyRequest().authenticated()
+            )
+            // Trả 401 khi chưa đăng nhập/phiên hết hạn để frontend tự đăng xuất,
+            // 403 chỉ dành cho trường hợp đã đăng nhập nhưng không đủ quyền.
+            .exceptionHandling(ex -> ex
+                .authenticationEntryPoint((request, response, authException) ->
+                    writeError(response, 401, "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại"))
+                .accessDeniedHandler((request, response, accessDeniedException) ->
+                    writeError(response, 403, "Bạn không có quyền thực hiện thao tác này"))
             );
         return http.build();
+    }
+
+    /** Ghi lỗi xác thực dưới dạng JSON thống nhất với ApiResponse. */
+    private static void writeError(jakarta.servlet.http.HttpServletResponse response,
+                                   int status, String message) throws java.io.IOException {
+        response.setStatus(status);
+        response.setContentType("application/json;charset=UTF-8");
+        response.getWriter().write("{\"success\":false,\"message\":\"" + message + "\",\"data\":null}");
     }
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of(
-            "http://localhost:5173",
-            "http://127.0.0.1:5173",
-            "http://localhost:3000",
-            "http://127.0.0.1:3000",
+        config.setAllowedOriginPatterns(List.of(
+            "http://localhost:*",
+            "http://127.0.0.1:*",
             "https://chung-ai.io.vn"
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
