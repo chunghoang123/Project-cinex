@@ -42,6 +42,23 @@ jobs:
         # Biến môi trường production lấy từ frontend/.env.production đã commit,
         # tránh inject secret rỗng đè lên giá trị đã cấu hình.
 
+      - name: Prepare SSH key
+        env:
+          SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          # Chuẩn hóa private key: nếu secret không chứa header PEM thì bọc lại
+          KEY=$(printf '%s' "$SSH_KEY" | tr -d ' \t\r\n')
+          if printf '%s' "$KEY" | grep -q 'BEGIN'; then
+            printf '%s\n' "$KEY" > deploy_key
+          else
+            {
+              echo '-----BEGIN OPENSSH PRIVATE KEY-----'
+              printf '%s\n' "$KEY" | fold -w 64
+              echo '-----END OPENSSH PRIVATE KEY-----'
+            } > deploy_key
+          fi
+          chmod 600 deploy_key
+
       - name: Deploy to server
         uses: appleboy/ssh-action@v1.0.3
         with:

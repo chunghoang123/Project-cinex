@@ -1,4 +1,12 @@
-version: '3.8'
+# =============================================================================
+#  docker-compose.yml - CineX production (React SPA + Spring Boot API)
+#  Topology server hiện tại:
+#    - Cloudflare Tunnel (cloudflared) trỏ https://chung-ai.io.vn về http://localhost:8090
+#    - Port 8080 đã có project khác (hoangvanchung-de001) dùng -> backend KHÔNG publish raft host
+#    - Port 3306 đã bị bind 127.0.0.1 -> MySQL chỉ chạy trong mạng nội bộ
+#  So khớp biến môi trường: file .env cùng thư mục (xem .env.example)
+# =============================================================================
+name: cinex-web
 
 services:
   # ===== MySQL Database =====
@@ -10,8 +18,7 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE:-cinex_db}
       MYSQL_USER: ${MYSQL_USER:-cinex}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-cinex123}
-    ports:
-      - "3306:3306"
+      TZ: Asia/Ho_Chi_Minh
     volumes:
       - mysql_data:/var/lib/mysql
     networks:
@@ -20,7 +27,7 @@ services:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootpassword}"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 8
       start_period: 30s
 
   # ===== Backend (Spring Boot) =====
@@ -28,7 +35,6 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: cinex-backend
     restart: unless-stopped
     expose:
       - "8080"
@@ -75,10 +81,9 @@ services:
     networks:
       - cinex-network
 
-  # ===== Nginx (Reverse Proxy + SSL) =====
+  # ===== Nginx Reverse Proxy (entry chính qua Cloudflare Tunnel) =====
   nginx:
     image: nginx:alpine
-    container_name: cinex-nginx
     restart: unless-stopped
     ports:
       - "80:80"
