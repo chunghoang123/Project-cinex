@@ -82,7 +82,8 @@ export function StaffValidatePage() {
       setCameraError('')
       setCameraOn(true)
     } catch (err) {
-      setCameraError(errorMessage(err, 'Không mở được camera để quét mã QR'))
+      const detail = err instanceof Error ? `${err.name}: ${err.message}` : ''
+      setCameraError(detail ? `${errorMessage(err, 'Không mở được camera để quét mã QR')} (${detail})` : errorMessage(err, 'Không mở được camera để quét mã QR'))
     }
   }
 
