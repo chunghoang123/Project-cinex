@@ -67,18 +67,21 @@ jobs:
           authkey: ${{ secrets.TAILSCALE_AUTH_KEY }}
           hostname: cinex-gh-runner
 
+      # SSH CLI thuần thay vì appleboy/ssh-action vì action đó chạy trong container
+      # (key_path tương đối ở workspace không nhìn thấy được trong container)
       - name: Deploy to server
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SERVER_HOST || secrets.SSH_HOST }}
-          username: ${{ secrets.SERVER_USER || secrets.SSH_USERNAME }}
-          key_path: deploy_key
-          script: |
-            cd /home/chunghoang/cinex
-            git fetch origin main
-            git reset --hard origin/main
-            docker compose up -d --build
-            docker image prune -f
+        env:
+          SSH_HOST: ${{ secrets.SERVER_HOST || secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SERVER_USER || secrets.SSH_USERNAME }}
+        run: |
+          ssh -i deploy_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new "$SSH_USER@$SSH_HOST" 'bash -s' <<'EOF'
+          set -e
+          cd /home/chunghoang/cinex
+          git fetch origin main
+          git reset --hard origin/main
+          docker compose up -d --build
+          docker image prune -f
+          EOF
 
       - name: Health check
         run: |
