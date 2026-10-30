@@ -17,10 +17,12 @@ public class Seat extends BaseEntity {
     @Column(nullable = false, length = 20)
     private String seatType;
 
-    @Column(nullable = false)
+    // MySQL 8 chặn tên cột trùng từ khoá window function (row_number/column_number)
+    // nên đặt tên cột tường minh, an toàn
+    @Column(name = "row_num", nullable = false)
     private Integer rowNumber;
 
-    @Column(nullable = false)
+    @Column(name = "column_num", nullable = false)
     private Integer columnNumber;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
