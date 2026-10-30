@@ -62,6 +62,7 @@ jobs:
       # SERVER_HOST là IP Tailscale (100.x.y.z) nên runner phải tham gia tailnet
       - name: Join Tailscale network
         uses: tailscale/github-action@v3
+      # trước khi SSH được tới server
         with:
           authkey: ${{ secrets.TAILSCALE_AUTH_KEY }}
           hostname: cinex-gh-runner
