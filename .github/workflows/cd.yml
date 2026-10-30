@@ -66,6 +66,15 @@ jobs:
           hostname: cinex-gh-runner
 
       # SSH CLI thuần thay vì appleboy/ssh-action vì action đó chạy trong container
+        run: |
+          ssh -i deploy_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new "$SSH_USER@$SSH_HOST" 'bash -s' <<'EOF'
+          set -e
+          cd /home/chunghoang/cinex
+          git fetch origin main
+          git reset --hard origin/main
+          docker compose up -d --build
+          docker image prune -f
+          EOF
 
       - name: Health check
         run: |
