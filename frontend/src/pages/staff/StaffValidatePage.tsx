@@ -73,7 +73,11 @@ export function StaffValidatePage() {
       const video = videoRef.current
       if (video) {
         video.srcObject = stream
-        await video.play()
+        try {
+          await video.play()
+        } catch {
+          // Trình duyệt có thể chặn autoplay; srcObject vẫn được gán
+        }
       }
       setCameraError('')
       setCameraOn(true)
