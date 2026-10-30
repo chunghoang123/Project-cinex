@@ -52,7 +52,23 @@ export function StaffValidatePage() {
 
   const startCamera = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+      let stream: MediaStream | null = null
+      const constraints: MediaStreamConstraints[] = [
+        { video: { facingMode: 'environment' } },
+        { video: { facingMode: 'user' } },
+        { video: true },
+      ]
+      for (const c of constraints) {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia(c)
+          break
+        } catch (innerErr) {
+          // Thử ràng buộc tiếp theo (ví dụ desktop không có camera sau)
+        }
+      }
+      if (!stream) {
+        throw new Error('Không tìm thấy camera phù hợp')
+      }
       streamRef.current = stream
       const video = videoRef.current
       if (video) {
