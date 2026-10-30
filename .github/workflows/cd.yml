@@ -75,6 +75,11 @@ jobs:
           docker compose up -d --build
           docker image prune -f
           EOF
+      # (key_path tương đối ở workspace không nhìn thấy được trong container)
+      - name: Deploy to server
+        env:
+          SSH_HOST: ${{ secrets.SERVER_HOST || secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SERVER_USER || secrets.SSH_USERNAME }}
 
       - name: Health check
         run: |
