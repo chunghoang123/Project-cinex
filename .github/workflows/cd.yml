@@ -60,6 +60,8 @@ jobs:
           chmod 600 deploy_key
 
       # SERVER_HOST là IP Tailscale (100.x.y.z) nên runner phải tham gia tailnet
+      - name: Join Tailscale network
+        uses: tailscale/github-action@v3
         with:
           authkey: ${{ secrets.TAILSCALE_AUTH_KEY }}
           hostname: cinex-gh-runner
