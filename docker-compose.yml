@@ -1,0 +1,107 @@
+# =============================================================================
+#  docker-compose.yml - CineX production (React SPA + Spring Boot API)
+#  Topology server hiện tại:
+#    - Cloudflare Tunnel (cloudflared) trỏ https://chung-ai.io.vn về http://localhost:8090
+#    - Port 8080 đã có project khác (hoangvanchung-de001) dùng -> backend KHÔNG publish raft host
+#    - Port 3306 đã bị bind 127.0.0.1 -> MySQL chỉ chạy trong mạng nội bộ
+#  So khớp biến môi trường: file .env cùng thư mục (xem .env.example)
+# =============================================================================
+name: cinex-web
+
+services:
+  # ===== MySQL Database =====
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-cinex_db}
+      MYSQL_USER: ${MYSQL_USER:-cinex}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-cinex123}
+      TZ: Asia/Ho_Chi_Minh
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - cinex-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootpassword}"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+      start_period: 30s
+
+  # ===== Backend (Spring Boot) =====
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    expose:
+      - "8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-cinex_db}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-cinex}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-cinex123}
+      APP_JWT_SECRET: ${JWT_SECRET:-cinex-secret-key-change-in-production}
+      APP_JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
+      TMDB_API_KEY: ${TMDB_API_KEY:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      PAYOS_CLIENT_ID: ${PAYOS_CLIENT_ID:-}
+      PAYOS_API_KEY: ${PAYOS_API_KEY:-}
+      PAYOS_CHECKSUM_KEY: ${PAYOS_CHECKSUM_KEY:-}
+      PAYOS_RETURN_URL: ${PAYOS_RETURN_URL:-https://chung-ai.io.vn/payment/return}
+      PAYOS_CANCEL_URL: ${PAYOS_CANCEL_URL:-https://chung-ai.io.vn/payment/cancel}
+      TZ: Asia/Ho_Chi_Minh
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - cinex-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      # Lần khởi động đầu cần tạo schema (Hibernate update) nên cho nạp dài hơn
+      start_period: 90s
+
+  # ===== Frontend (React + Nginx) =====
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # Build arg quan trọng: bundle SPA phải gọi đúng domain production
+        VITE_API_URL: ${VITE_API_URL:-https://chung-ai.io.vn/api}
+        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID:-}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:80"
+    depends_on:
+      - backend
+    networks:
+      - cinex-network
+
+  # ===== Nginx Reverse Proxy (entry chính qua Cloudflare Tunnel) =====
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      # Cloudflare Tunnel hiện trỏ về localhost:8090
+      - "8090:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - cinex-network
+
+volumes:
+  mysql_data:
+    driver: local
+
+networks:
+  cinex-network:
+    driver: bridge
