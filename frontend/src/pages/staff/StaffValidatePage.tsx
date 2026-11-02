@@ -98,12 +98,7 @@ export function StaffValidatePage() {
     }
     type DetectorCtor = new (options?: { formats?: string[] }) => DetectorInstance
     const DetectorCtor = (window as unknown as { BarcodeDetector?: DetectorCtor }).BarcodeDetector
-    if (!DetectorCtor) {
-      setCameraError('Trình duyệt hiện chưa hỗ trợ camera quét mã QR')
-      setCameraOn(false)
-      return
-    }
-    const detector = new DetectorCtor({ formats: ['qr_code'] })
+    const detector = DetectorCtor ? new DetectorCtor({ formats: ['qr_code'] }) : null
     cancelledRef.current = false
     const tick = async () => {
       const width = video.videoWidth
@@ -201,7 +196,7 @@ export function StaffValidatePage() {
           </button>
           {cameraError && <div className="form-error" style={{ marginTop: 10 }}>{cameraError}</div>}
           {cameraOn && (
-            <video ref={videoRef} className="scan-video" muted playsInline style={{ width: '100%', borderRadius: 12, background: '#000', marginTop: 10 }} />
+            <video ref={videoRef} className="scan-video" muted playsInline autoPlay style={{ width: '100%', borderRadius: 12, background: '#000', marginTop: 10, minHeight: 200 }} />
           )}
 
           {error && <div className="form-error" style={{ marginTop: 14 }}>{error}</div>}
