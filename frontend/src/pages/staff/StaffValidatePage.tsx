@@ -116,16 +116,29 @@ export function StaffValidatePage() {
         const canvas = document.createElement('canvas')
         canvas.width = width
         canvas.height = height
-        canvas.getContext('2d')?.drawImage(video, 0, 0, width, height)
-        const codes = await detector.detect(canvas)
-        if (cancelledRef.current) return
-        if (codes && codes.length > 0) {
-          const raw = String(codes[0].rawValue || '')
-          cancelAnimationFrame(rafRef.current)
-          const ticketCode = raw.startsWith('CINEX|') ? raw.split('|')[1] || raw : raw
-          stopCamera()
-          void runValidate(ticketCode)
-          return
+        const ctx = canvas.getContext('2d')
+        if (ctx) {
+          ctx.drawImage(video, 0, 0, width, height)
+          let raw = ''
+          if (detector) {
+            const codes = await detector.detect(canvas)
+            if (cancelledRef.current) return
+            if (codes && codes.length > 0) {
+              raw = String(codes[0].rawValue || '')
+            }
+          } else {
+            const imageData = ctx.getImageData(0, 0, width, height)
+            const code = jsQR(imageData.data, width, height)
+            if (code && code.data) raw = code.data
+          }
+          if (cancelledRef.current) return
+          if (raw) {
+            cancelAnimationFrame(rafRef.current)
+            const ticketCode = raw.startsWith('CINEX|') ? raw.split('|')[1] || raw : raw
+            stopCamera()
+            void runValidate(ticketCode)
+            return
+          }
         }
       }
       rafRef.current = requestAnimationFrame(tick)
