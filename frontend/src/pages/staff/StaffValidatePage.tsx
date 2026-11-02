@@ -71,15 +71,6 @@ export function StaffValidatePage() {
         throw new Error('Không tìm thấy camera phù hợp')
       }
       streamRef.current = stream
-      const video = videoRef.current
-      if (video) {
-        video.srcObject = stream
-        try {
-          await video.play()
-        } catch {
-          // Trình duyệt có thể chặn autoplay; srcObject vẫn được gán
-        }
-      }
       setCameraError('')
       setCameraOn(true)
     } catch (err) {
@@ -97,6 +88,11 @@ export function StaffValidatePage() {
     if (!cameraOn) return
     const video = videoRef.current
     if (!video) return
+    const stream = streamRef.current
+    if (stream && video.srcObject !== stream) {
+      video.srcObject = stream
+      video.play().catch(() => {})
+    }
     type DetectorInstance = {
       detect: (source: CanvasImageSource) => Promise<Array<{ rawValue?: string }>>
     }
@@ -200,7 +196,7 @@ export function StaffValidatePage() {
           </button>
           {cameraError && <div className="form-error" style={{ marginTop: 10 }}>{cameraError}</div>}
           {cameraOn && (
-            <video ref={videoRef} className="scan-video" muted playsInline style={{ width: '100%', borderRadius: 12, background: '#000', marginTop: 10 }} />
+            <video ref={videoRef} className="scan-video" muted playsInline autoPlay style={{ width: '100%', borderRadius: 12, background: '#000', marginTop: 10, minHeight: 200 }} />
           )}
 
           {error && <div className="form-error" style={{ marginTop: 14 }}>{error}</div>}
