@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import jsQR from 'jsqr'
 import { ConsolePageHeader } from '../../components/console/ConsolePageHeader'
 import { StatusBadge } from '../../components/console/StatusBadge'
 import { Icon } from '../../components/ui/Icon'
