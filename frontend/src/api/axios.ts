@@ -8,6 +8,14 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token')
   if (token) {
+    if (isTokenExpired(token)) {
+      localStorage.removeItem('token')
+      localStorage.removeItem('cinex_session')
+      if (!['/login', '/register'].includes(window.location.pathname)) {
+        window.location.href = '/login'
+      }
+      return Promise.reject(new Error('Token expired'))
+    }
     config.headers.Authorization = `Bearer ${token}`
   }
   return config
