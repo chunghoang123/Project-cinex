@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
+import axios from 'axios'
 import { Icon } from '../ui/Icon'
 
 interface Message {
@@ -76,7 +77,7 @@ export function ChatWidget() {
     window.setTimeout(() => {
       setMessages((current) => [
         ...current,
-        { id: Date.now() + 1, role: 'ai', text: replyFor(value), time: now() },
+        { id: Date.now(), role: 'user', text: value, time: now() },
       ])
       setTyping(false)
     }, 850)
@@ -96,13 +97,16 @@ export function ChatWidget() {
               <Icon name="sparkles" size={21} />
             </span>
             <div>
-              <div className="chat-head__name">Cinex AI Companion</div>
+              <div className="chat-head__name">CineX AI</div>
               <div className="chat-head__status">Đang trực tuyến</div>
             </div>
-            <span className="badge badge-accent" style={{ marginLeft: 'auto' }}>
-              Beta
-            </span>
-            <button type="button" className="input-action" onClick={() => setOpen(false)} aria-label="Đóng chat">
+            <button
+              type="button"
+              className="input-action"
+              style={{ marginLeft: 'auto' }}
+              onClick={() => setOpen(false)}
+              aria-label="Đóng chat"
+            >
               <Icon name="close" size={17} />
             </button>
           </div>
@@ -116,7 +120,7 @@ export function ChatWidget() {
             ))}
             {typing && (
               <div className="chat-msg is-ai">
-                <span className="muted">Cinex AI đang nhập...</span>
+                <span className="muted">CineX AI đang trả lời...</span>
               </div>
             )}
           </div>
