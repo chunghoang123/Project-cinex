@@ -42,7 +42,7 @@ export function Search() {
             Tìm kiếm
           </h1>
         </div>
-        <Link to="/ai-chat" className="header-icon" aria-label="Trợ lý AI">
+        <button type="button" className="header-icon" aria-label="Trợ lý AI" onClick={openChat}>
           <Icon name="sparkles" size={19} />
         </button>
       </div>
