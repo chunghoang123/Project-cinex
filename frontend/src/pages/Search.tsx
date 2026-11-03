@@ -43,7 +43,7 @@ export function Search() {
         </div>
         <Link to="/ai-chat" className="header-icon" aria-label="Trợ lý AI">
           <Icon name="sparkles" size={19} />
-        </Link>
+        </button>
       </div>
 
       <form className="search-bar" onSubmit={submit} role="search">

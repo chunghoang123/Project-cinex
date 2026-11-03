@@ -10,20 +10,18 @@ interface Message {
 }
 
 const suggestions = [
-  'Phim nào đang chiếu tối nay?',
-  'Gợi ý phim sci-fi hay',
-  'Rạp nào gần tôi nhất?',
-  'Cách đổi điểm Cinex?',
+  'Phim nào đang chiếu?',
+  'Suất chiếu hôm nay',
+  'Gợi ý phim hay cho tối nay',
+  'Giá vé ở CineX',
 ]
 
-const initialMessages: Message[] = [
-  {
-    id: 1,
-    role: 'ai',
-    text: 'Xin chào! Mình là Cinex AI. Mình có thể gợi ý phim, tìm suất chiếu và giải đáp thắc mắc về đặt vé cho bạn. Bạn muốn xem gì hôm nay?',
-    time: '20:12',
-  },
-]
+const greeting: Message = {
+  id: 1,
+  role: 'ai',
+  text: 'Xin chào! Mình là CineX AI. Mình có thể gợi ý phim, tra suất chiếu và giải đáp thắc mắc về đặt vé. Bạn muốn xem gì hôm nay?',
+  time: now(),
+}
 
 function now() {
   return new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit' }).format(new Date())
@@ -52,7 +50,7 @@ export function openChat() {
 
 export function ChatWidget() {
   const [open, setOpen] = useState(false)
-  const [messages, setMessages] = useState<Message[]>(initialMessages)
+  const [messages, setMessages] = useState<Message[]>([greeting])
   const [input, setInput] = useState('')
   const [typing, setTyping] = useState(false)
   const bodyRef = useRef<HTMLDivElement>(null)
@@ -92,7 +90,7 @@ export function ChatWidget() {
   return (
     <>
       {open && (
-        <div className="chat-widget__panel" role="dialog" aria-label="Cinex AI">
+        <div className="chat-widget__panel" role="dialog" aria-label="CineX AI">
           <div className="chat-head">
             <span className="chat-head__avatar">
               <Icon name="sparkles" size={21} />
@@ -112,7 +110,7 @@ export function ChatWidget() {
           <div className="chat-body" ref={bodyRef}>
             {messages.map((message) => (
               <div key={message.id} className={`chat-msg ${message.role === 'ai' ? 'is-ai' : 'is-user'}`}>
-                {message.text}
+                {formatText(message.text)}
                 <div className="chat-time">{message.time}</div>
               </div>
             ))}
@@ -137,6 +135,7 @@ export function ChatWidget() {
               onChange={(event) => setInput(event.target.value)}
               placeholder="Hỏi Cinex AI bất cứ điều gì..."
               aria-label="Tin nhắn"
+              maxLength={2000}
             />
             <button type="submit" aria-label="Gửi tin nhắn" disabled={!input.trim() || typing}>
               <Icon name="send" size={17} />
@@ -150,7 +149,7 @@ export function ChatWidget() {
         className="chat-widget__bubble"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
-        aria-label={open ? 'Đóng Cinex AI' : 'Mở Cinex AI'}
+        aria-label={open ? 'Đóng CineX AI' : 'Mở CineX AI'}
       >
         <Icon name={open ? 'close' : 'chat'} size={24} />
       </button>
