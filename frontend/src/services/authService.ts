@@ -115,7 +115,11 @@ export const authService = {
   },
   getRoles: (): string[] => authService.getUser()?.roles ?? [],
   hasRole: (role: string): boolean => authService.getRoles().includes(role),
-  isAuthenticated: (): boolean => Boolean(authService.getToken()),
+  isAuthenticated: (): boolean => {
+    const token = authService.getToken()
+    if (!token) return false
+    return !isTokenExpired(token)
+  },
   isStaffOrAdmin: (): boolean =>
     authService.hasRole('ROLE_ADMIN') || authService.hasRole('ROLE_STAFF'),
   homePath: (): string => {

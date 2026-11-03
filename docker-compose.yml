@@ -52,6 +52,9 @@ services:
       PAYOS_CHECKSUM_KEY: ${PAYOS_CHECKSUM_KEY:-}
       PAYOS_RETURN_URL: ${PAYOS_RETURN_URL:-https://chung-ai.io.vn/payment/return}
       PAYOS_CANCEL_URL: ${PAYOS_CANCEL_URL:-https://chung-ai.io.vn/payment/cancel}
+      NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
+      NVIDIA_MODEL: ${NVIDIA_MODEL:-meta/llama-3.1-8b-instruct}
+      NVIDIA_VISION_MODEL: ${NVIDIA_VISION_MODEL:-meta/llama-3.2-11b-vision-instruct}
       TZ: Asia/Ho_Chi_Minh
     depends_on:
       mysql:
