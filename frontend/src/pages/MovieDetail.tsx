@@ -28,7 +28,7 @@ export function MovieDetail() {
     }
     const timer = window.setTimeout(() => {
       if (!trailerLoaded) setTrailerTimedOut(true)
-    }, 8000)
+    }, 3000)
     return () => window.clearTimeout(timer)
   }, [trailerOpen, trailerLoaded])
 
@@ -134,6 +134,18 @@ export function MovieDetail() {
                 <Icon name="play" size={16} />
                 {trailerAvailable ? 'Xem trailer' : 'Trailer sắp có'}
               </button>
+              {trailerAvailable && (
+                <a
+                  href={trailerWatchUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-ghost"
+                  title="Mở trailer trực tiếp trên YouTube (tab mới)"
+                >
+                  <Icon name="share" size={16} />
+                  Mở trên YouTube
+                </a>
+              )}
             </div>
           </div>
         </div>
