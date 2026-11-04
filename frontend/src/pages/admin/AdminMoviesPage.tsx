@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type { FormEvent } from 'react'
 import { ConsolePageHeader } from '../../components/console/ConsolePageHeader'
 import { Modal } from '../../components/console/Modal'
 import { StatusBadge } from '../../components/console/StatusBadge'
@@ -74,6 +75,9 @@ export function AdminMoviesPage() {
       status: movie.status,
     })
     setFormError('')
+    setTrailerQuery(movie.title)
+    setTrailerResults([])
+    setTrailerError('')
     setModalOpen(true)
   }
 
