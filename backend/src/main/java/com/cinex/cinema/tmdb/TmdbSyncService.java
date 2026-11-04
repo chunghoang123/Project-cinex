@@ -130,7 +130,8 @@ public class TmdbSyncService {
         return videos.stream()
             .filter(v -> "YouTube".equalsIgnoreCase(v.site()) && v.key() != null)
             .min(byImportance)
-            .map(v -> "https://www.youtube.com/watch?v=" + v.key())
+            // Lưu dạng embed để iframe nhúng được (link watch bị YouTube chặn)
+            .map(v -> "https://www.youtube.com/embed/" + v.key())
             .orElse(null);
     }
 
