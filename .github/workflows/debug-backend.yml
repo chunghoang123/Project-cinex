@@ -52,12 +52,16 @@ jobs:
           grep -n '^NVIDIA_API_KEY=' .env | sed 's/=.*/=<REDACTED>/'
           grep -n '^NVIDIA_MODEL=' .env || echo "(không có NVIDIA_MODEL trong .env)"
           echo "===== egress từ container backend ra NVIDIA ====="
-          docker compose -p cinex-web exec -T backend sh -lc 'wget --spider -S https://integrate.api.nvidia.com/v1/chat/completions 2>&1 | head -25'
+          docker compose -p cinex-web exec -T backend sh -lc 'wget --spider -S https://integrate.api.nvidia.com/v1/chat/completions 2>&1 | head -25' < /dev/null
+          echo "===== gọi chat TRỰC TIẾP vào JVM trong container (bỏ qua nginx) ====="
+          docker compose -p cinex-web exec -T backend sh -lc 'wget -S --header="Content-Type: application/json" --post-data="{\"message\":\"Hi\"}" -O /dev/null http://localhost:8080/api/ai/chat 2>&1 | head -20' < /dev/null
           echo "===== curl chat qua nginx (localhost:8090) ====="
           curl -s -i --max-time 90 -H "Content-Type: application/json" --data-binary '{"message":"Hi"}' http://localhost:8090/api/ai/chat
           echo
-          echo "===== backend logs (tail 200) ====="
-          docker compose -p cinex-web logs --tail 200 backend
+          echo "===== backend logs liên quan lỗi (20 phút gần nhất) ====="
+          docker compose -p cinex-web logs --since 20m backend 2>&1 | grep -iE -A6 -B2 'nvidia|exception|error' | head -160
+          echo "===== backend logs (tail 120) ====="
+          docker compose -p cinex-web logs --tail 120 backend 2>&1 | head -200
           echo "===== END REPORT ====="
           EOF
 
