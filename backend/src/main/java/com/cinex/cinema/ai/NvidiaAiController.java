@@ -5,6 +5,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -64,6 +65,15 @@ public class NvidiaAiController {
 
         return ResponseEntity.ok(ApiResponse.ok(
             new AiChatResponse(reply, nvidiaAiService.getModel())
+        ));
+    }
+
+    // DEBUG: kiểm tra request có vào được controller và key đã nạp chưa. Sẽ xoá sau khi chẩn đoán xong.
+    @GetMapping("/chat")
+    public ResponseEntity<ApiResponse<String>> chatProbe() {
+        return ResponseEntity.ok(ApiResponse.ok(
+            "chat-endpoint-alive, nvidiaConfigured=" + nvidiaAiService.isConfigured()
+                + ", model=" + nvidiaAiService.getModel()
         ));
     }
 
