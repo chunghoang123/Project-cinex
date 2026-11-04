@@ -168,7 +168,6 @@ public class CatalogSeeder implements CommandLineRunner {
             .title(title)
             .description(description)
             .posterUrl(posterUrl)
-            .trailerUrl("https://www.youtube.com")
             .durationMinutes(duration)
             .ageRating(ageRating)
             .genre(genre)

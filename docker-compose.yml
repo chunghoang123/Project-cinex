@@ -46,6 +46,7 @@ services:
       APP_JWT_SECRET: ${JWT_SECRET:-cinex-secret-key-change-in-production}
       APP_JWT_EXPIRATION: ${JWT_EXPIRATION:-3600000}
       TMDB_API_KEY: ${TMDB_API_KEY:-}
+      YOUTUBE_API_KEY: ${YOUTUBE_API_KEY:-}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       PAYOS_CLIENT_ID: ${PAYOS_CLIENT_ID:-}
       PAYOS_API_KEY: ${PAYOS_API_KEY:-}
