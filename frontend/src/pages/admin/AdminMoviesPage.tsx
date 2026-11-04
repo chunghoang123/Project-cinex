@@ -4,7 +4,8 @@ import { ConsolePageHeader } from '../../components/console/ConsolePageHeader'
 import { Modal } from '../../components/console/Modal'
 import { StatusBadge } from '../../components/console/StatusBadge'
 import { Icon } from '../../components/ui/Icon'
-import { adminService } from '../../services/adminService'
+import { adminService, youtubeService } from '../../services/adminService'
+import type { YoutubeTrailer } from '../../services/adminService'
 import type { Movie } from '../../types/Movie'
 import { formatDuration } from '../../utils/format'
 import { errorMessage } from '../../utils/consoleFormat'
@@ -41,6 +42,10 @@ export function AdminMoviesPage() {
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
   const [search, setSearch] = useState('')
+  const [trailerQuery, setTrailerQuery] = useState('')
+  const [trailerResults, setTrailerResults] = useState<YoutubeTrailer[]>([])
+  const [trailerLoading, setTrailerLoading] = useState(false)
+  const [trailerError, setTrailerError] = useState('')
 
   const load = () => {
     setLoading(true)
@@ -83,6 +88,35 @@ export function AdminMoviesPage() {
 
   const updateForm = <K extends keyof MovieForm>(key: K, value: MovieForm[K]) => {
     setForm((current) => ({ ...current, [key]: value }))
+  }
+
+  const searchTrailers = async (event: FormEvent) => {
+    event.preventDefault()
+    const query = trailerQuery.trim()
+    if (!query) return
+    setTrailerLoading(true)
+    setTrailerError('')
+    setTrailerResults([])
+    try {
+      const results = await youtubeService.searchTrailers(query, 8)
+      if (results.length === 0) {
+        setTrailerError('Không tìm thấy video YouTube nào phù hợp. Thử từ khoá khác.')
+      } else {
+        setTrailerResults(results)
+      }
+    } catch (err) {
+      setTrailerError(
+        errorMessage(err, 'Không tìm được trailer. Kiểm tra YOUTUBE_API_KEY đã cấu hình trên server chưa?'),
+      )
+    } finally {
+      setTrailerLoading(false)
+    }
+  }
+
+  const selectTrailer = (trailer: YoutubeTrailer) => {
+    updateForm('trailerUrl', trailer.embedUrl)
+    setTrailerResults([])
+    setTrailerError('')
   }
 
   const save = async () => {

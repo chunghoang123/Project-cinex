@@ -67,9 +67,9 @@ jobs:
           authkey: ${{ secrets.TAILSCALE_AUTH_KEY }}
           hostname: cinex-gh-runner
 
-      # Ghi NVIDIA_API_KEY từ GitHub Secret vào .env trên server (không lộ key ra log/commit).
-      # Nếu chưa cấu hình secret, bỏ qua và box AI sẽ trả lỗi 503 cho tới khi có key.
-      - name: Sync NVIDIA API key to server
+      # Ghi API key từ GitHub Secret vào .env trên server (không lộ key ra log/commit).
+      # Nếu chưa cấu hình secret, bỏ qua và tính năng tương ứng sẽ trả lỗi 503 cho tới khi có key.
+      - name: Sync API keys to server
         env:
           SSH_HOST: ${{ secrets.SERVER_HOST || secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SERVER_USER || secrets.SSH_USERNAME }}
