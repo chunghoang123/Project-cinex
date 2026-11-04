@@ -64,6 +64,9 @@ export function AdminMoviesPage() {
     setEditing(null)
     setForm(EMPTY_FORM)
     setFormError('')
+    setTrailerQuery('')
+    setTrailerResults([])
+    setTrailerError('')
     setModalOpen(true)
   }
 
@@ -315,9 +318,54 @@ export function AdminMoviesPage() {
             <input className="input" value={form.posterUrl} onChange={(e) => updateForm('posterUrl', e.target.value)} placeholder="https://…" />
           </div>
           <div className="field field--full">
-            <label>URL trailer</label>
-            <input className="input" value={form.trailerUrl} onChange={(e) => updateForm('trailerUrl', e.target.value)} placeholder="https://…" />
+            <label>URL trailer (dán watch/shorts/youtu.be đều được, hệ thống tự đổi sang embed)</label>
+            <input className="input" value={form.trailerUrl} onChange={(e) => updateForm('trailerUrl', e.target.value)} placeholder="https://www.youtube.com/embed/…" />
           </div>
+          <form className="field field--full" onSubmit={searchTrailers}>
+            <label>Tìm trailer trên YouTube</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                className="input"
+                value={trailerQuery}
+                onChange={(e) => setTrailerQuery(e.target.value)}
+                placeholder="Tên phim + official trailer"
+                style={{ flex: 1 }}
+              />
+              <button type="submit" className="btn btn-ghost btn-sm" disabled={trailerLoading || !trailerQuery.trim()}>
+                {trailerLoading ? 'Đang tìm…' : 'Tìm trailer'}
+              </button>
+            </div>
+            {trailerError && <p className="field-error" style={{ marginTop: 8 }}>{trailerError}</p>}
+            {trailerResults.length > 0 && (
+              <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
+                {trailerResults.map((trailer) => (
+                  <button
+                    key={trailer.videoId}
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    style={{ justifyContent: 'flex-start', textAlign: 'left', alignItems: 'center' }}
+                    onClick={() => selectTrailer(trailer)}
+                    title={`Dùng trailer này: ${trailer.title}`}
+                  >
+                    <img
+                      src={trailer.thumbnailUrl}
+                      alt=""
+                      width={72}
+                      height={40}
+                      style={{ borderRadius: 6, objectFit: 'cover', flex: 'none' }}
+                      loading="lazy"
+                    />
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {trailer.title}
+                      </span>
+                      <small className="muted">{trailer.channelTitle} · Bấm để dùng</small>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </form>
           <div className="field field--full">
             <label>Mô tả</label>
             <textarea className="textarea" value={form.description} onChange={(e) => updateForm('description', e.target.value)} placeholder="Nội dung ngắn về phim…" />

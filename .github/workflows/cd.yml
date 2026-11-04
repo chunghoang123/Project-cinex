@@ -79,9 +79,17 @@ jobs:
           if [ -z "$NVIDIA_API_KEY" ]; then
             echo "::warning::Chưa có GitHub Secret NVIDIA_API_KEY - box AI sẽ báo chưa cấu hình"
           fi
-          ENCODED_KEY=$(printf '%s' "$NVIDIA_API_KEY" | base64 | tr -d '\n')
-          ssh -i deploy_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new "$SSH_USER@$SSH_HOST" \
-            "cd /home/chunghoang/cinex && touch .env && sed -i '/^NVIDIA_API_KEY=/d' .env && printf 'NVIDIA_API_KEY=' >> .env && printf '%s' '$ENCODED_KEY' | base64 -d >> .env && printf '\n' >> .env"
+          if [ -z "$YOUTUBE_API_KEY" ]; then
+            echo "::warning::Chưa có GitHub Secret YOUTUBE_API_KEY - tính năng trailer sẽ báo chưa cấu hình"
+          fi
+          for KEY_NAME in NVIDIA_API_KEY YOUTUBE_API_KEY; do
+            eval KEY_VALUE=\$$KEY_NAME
+            if [ -n "$KEY_VALUE" ]; then
+              ENCODED_KEY=$(printf '%s' "$KEY_VALUE" | base64 | tr -d '\n')
+              ssh -i deploy_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new "$SSH_USER@$SSH_HOST" \
+                "cd /home/chunghoang/cinex && touch .env && sed -i '/^$KEY_NAME=/d' .env && printf '$KEY_NAME=' >> .env && printf '%s' '$ENCODED_KEY' | base64 -d >> .env && printf '\n' >> .env"
+            fi
+          done
 
       # SSH CLI thuần thay vì appleboy/ssh-action vì action đó chạy trong container
       # (key_path tương đối ở workspace không nhìn thấy được trong container)
