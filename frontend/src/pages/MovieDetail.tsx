@@ -64,9 +64,6 @@ export function MovieDetail() {
   const related = movies.filter((item) => item.id !== movie.id).slice(0, 5)
   const trailerEmbedUrl = toYouTubeEmbed(movie.trailerUrl)
   const trailerAvailable = Boolean(trailerEmbedUrl)
-  const trailerWatchUrl = trailerEmbedUrl
-    ? trailerEmbedUrl.replace('/embed/', '/watch?v=').replace('?rel=0', '')
-    : ''
 
   function toYouTubeEmbed(url: string): string {
     if (!url) return ''
@@ -134,18 +131,6 @@ export function MovieDetail() {
                 <Icon name="play" size={16} />
                 {trailerAvailable ? 'Xem trailer' : 'Trailer sắp có'}
               </button>
-              {trailerAvailable && (
-                <a
-                  href={trailerWatchUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn btn-ghost"
-                  title="Mở trailer trực tiếp trên YouTube (tab mới)"
-                >
-                  <Icon name="share" size={16} />
-                  Mở trên YouTube
-                </a>
-              )}
             </div>
           </div>
         </div>
@@ -300,30 +285,10 @@ export function MovieDetail() {
                 >
                   <Icon name="alert" size={32} />
                   <p style={{ margin: 0, fontSize: 14 }}>
-                    Không tải được trailer ngay trong trang (có thể do mạng hoặc trình duyệt chặn).
+                    Không tải được trailer trong trình duyệt hiện tại.
                   </p>
-                  <a
-                    href={trailerWatchUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn btn-primary btn-sm"
-                  >
-                    <Icon name="play" size={16} />
-                    Mở trailer trên YouTube
-                  </a>
                 </div>
               )}
-            </div>
-            <div style={{ marginTop: 10, textAlign: 'center' }}>
-              <a
-                href={trailerWatchUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn-link"
-                style={{ fontSize: 13 }}
-              >
-                Không xem được? Mở trailer trực tiếp trên YouTube ↗
-              </a>
             </div>
           </div>
         </div>
