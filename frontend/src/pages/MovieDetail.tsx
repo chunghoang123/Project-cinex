@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMovie, useMovies } from '../hooks/useMovies'
 import { useShowtimes } from '../hooks/useShowtimes'
@@ -17,6 +17,20 @@ export function MovieDetail() {
   const { showtimes } = useShowtimes(movie?.id)
   const [expanded, setExpanded] = useState(false)
   const [trailerOpen, setTrailerOpen] = useState(false)
+  const [trailerLoaded, setTrailerLoaded] = useState(false)
+  const [trailerTimedOut, setTrailerTimedOut] = useState(false)
+
+  useEffect(() => {
+    if (!trailerOpen) {
+      setTrailerLoaded(false)
+      setTrailerTimedOut(false)
+      return
+    }
+    const timer = window.setTimeout(() => {
+      if (!trailerLoaded) setTrailerTimedOut(true)
+    }, 8000)
+    return () => window.clearTimeout(timer)
+  }, [trailerOpen, trailerLoaded])
 
   if (loading) {
     return (
@@ -50,6 +64,9 @@ export function MovieDetail() {
   const related = movies.filter((item) => item.id !== movie.id).slice(0, 5)
   const trailerEmbedUrl = toYouTubeEmbed(movie.trailerUrl)
   const trailerAvailable = Boolean(trailerEmbedUrl)
+  const trailerWatchUrl = trailerEmbedUrl
+    ? trailerEmbedUrl.replace('/embed/', '/watch?v=').replace('?rel=0', '')
+    : ''
 
   function toYouTubeEmbed(url: string): string {
     if (!url) return ''
@@ -241,15 +258,60 @@ export function MovieDetail() {
             <button type="button" className="modal__close" onClick={() => setTrailerOpen(false)} aria-label="Đóng">
               <Icon name="close" size={20} />
             </button>
-            <div className="trailer-frame" style={{ borderRadius: 16 }}>
+            <div className="trailer-frame" style={{ borderRadius: 16, position: 'relative' }}>
               <iframe
                 src={trailerEmbedUrl}
                 title={`Trailer ${movie.title}`}
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
-                loading="lazy"
+                loading="eager"
+                referrerPolicy="strict-origin-when-cross-origin"
+                onLoad={() => setTrailerLoaded(true)}
+                onError={() => setTrailerTimedOut(true)}
                 style={{ width: '100%', height: '100%', border: 0 }}
               />
+              {trailerTimedOut && !trailerLoaded && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 12,
+                    background: 'rgba(0,0,0,0.75)',
+                    color: '#fff',
+                    padding: 24,
+                    textAlign: 'center',
+                  }}
+                >
+                  <Icon name="alert" size={32} />
+                  <p style={{ margin: 0, fontSize: 14 }}>
+                    Không tải được trailer ngay trong trang (có thể do mạng hoặc trình duyệt chặn).
+                  </p>
+                  <a
+                    href={trailerWatchUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-primary btn-sm"
+                  >
+                    <Icon name="play" size={16} />
+                    Mở trailer trên YouTube
+                  </a>
+                </div>
+              )}
+            </div>
+            <div style={{ marginTop: 10, textAlign: 'center' }}>
+              <a
+                href={trailerWatchUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-link"
+                style={{ fontSize: 13 }}
+              >
+                Không xem được? Mở trailer trực tiếp trên YouTube ↗
+              </a>
             </div>
           </div>
         </div>
