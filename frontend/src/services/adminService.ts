@@ -20,6 +20,36 @@ interface Envelope<T> {
   data: T
 }
 
+export interface YoutubeTrailer {
+  videoId: string
+  title: string
+  channelTitle: string
+  thumbnailUrl: string
+  embedUrl: string
+  watchUrl: string
+  duration: string
+}
+
+export const youtubeService = {
+  searchTrailers: async (query: string, maxResults = 10): Promise<YoutubeTrailer[]> => {
+    const res = await api.get<Envelope<YoutubeTrailer[]>>('/youtube/trailers', {
+      params: { q: query, maxResults },
+    })
+    return res.data.data
+  },
+
+  fetchVideos: async (ids: string[]): Promise<YoutubeTrailer[]> => {
+    const res = await api.get<Envelope<YoutubeTrailer[]>>('/youtube/videos', {
+      params: { ids: ids.join(',') },
+    })
+    return res.data.data
+  },
+
+  syncMovieTrailer: async (movieId: number): Promise<void> => {
+    await api.post(`/youtube/sync/${movieId}`)
+  },
+}
+
 export const adminService = {
   getDashboard: async (): Promise<AdminDashboard> => {
     const res = await api.get<Envelope<AdminDashboard>>('/admin/dashboard')

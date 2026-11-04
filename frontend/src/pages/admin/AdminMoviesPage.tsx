@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
+import type { FormEvent } from 'react'
 import { ConsolePageHeader } from '../../components/console/ConsolePageHeader'
 import { Modal } from '../../components/console/Modal'
 import { StatusBadge } from '../../components/console/StatusBadge'
 import { Icon } from '../../components/ui/Icon'
-import { adminService } from '../../services/adminService'
+import { adminService, youtubeService } from '../../services/adminService'
+import type { YoutubeTrailer } from '../../services/adminService'
 import type { Movie } from '../../types/Movie'
 import { formatDuration } from '../../utils/format'
 import { errorMessage } from '../../utils/consoleFormat'
@@ -40,6 +42,10 @@ export function AdminMoviesPage() {
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
   const [search, setSearch] = useState('')
+  const [trailerQuery, setTrailerQuery] = useState('')
+  const [trailerResults, setTrailerResults] = useState<YoutubeTrailer[]>([])
+  const [trailerLoading, setTrailerLoading] = useState(false)
+  const [trailerError, setTrailerError] = useState('')
 
   const load = () => {
     setLoading(true)
@@ -58,6 +64,9 @@ export function AdminMoviesPage() {
     setEditing(null)
     setForm(EMPTY_FORM)
     setFormError('')
+    setTrailerQuery('')
+    setTrailerResults([])
+    setTrailerError('')
     setModalOpen(true)
   }
 
@@ -74,11 +83,43 @@ export function AdminMoviesPage() {
       status: movie.status,
     })
     setFormError('')
+    setTrailerQuery(movie.title)
+    setTrailerResults([])
+    setTrailerError('')
     setModalOpen(true)
   }
 
   const updateForm = <K extends keyof MovieForm>(key: K, value: MovieForm[K]) => {
     setForm((current) => ({ ...current, [key]: value }))
+  }
+
+  const searchTrailers = async (event: FormEvent) => {
+    event.preventDefault()
+    const query = trailerQuery.trim()
+    if (!query) return
+    setTrailerLoading(true)
+    setTrailerError('')
+    setTrailerResults([])
+    try {
+      const results = await youtubeService.searchTrailers(query, 8)
+      if (results.length === 0) {
+        setTrailerError('Không tìm thấy video YouTube nào phù hợp. Thử từ khoá khác.')
+      } else {
+        setTrailerResults(results)
+      }
+    } catch (err) {
+      setTrailerError(
+        errorMessage(err, 'Không tìm được trailer. Kiểm tra YOUTUBE_API_KEY đã cấu hình trên server chưa?'),
+      )
+    } finally {
+      setTrailerLoading(false)
+    }
+  }
+
+  const selectTrailer = (trailer: YoutubeTrailer) => {
+    updateForm('trailerUrl', trailer.embedUrl)
+    setTrailerResults([])
+    setTrailerError('')
   }
 
   const save = async () => {
@@ -277,9 +318,54 @@ export function AdminMoviesPage() {
             <input className="input" value={form.posterUrl} onChange={(e) => updateForm('posterUrl', e.target.value)} placeholder="https://…" />
           </div>
           <div className="field field--full">
-            <label>URL trailer</label>
-            <input className="input" value={form.trailerUrl} onChange={(e) => updateForm('trailerUrl', e.target.value)} placeholder="https://…" />
+            <label>URL trailer (dán watch/shorts/youtu.be đều được, hệ thống tự đổi sang embed)</label>
+            <input className="input" value={form.trailerUrl} onChange={(e) => updateForm('trailerUrl', e.target.value)} placeholder="https://www.youtube.com/embed/…" />
           </div>
+          <form className="field field--full" onSubmit={searchTrailers}>
+            <label>Tìm trailer trên YouTube</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                className="input"
+                value={trailerQuery}
+                onChange={(e) => setTrailerQuery(e.target.value)}
+                placeholder="Tên phim + official trailer"
+                style={{ flex: 1 }}
+              />
+              <button type="submit" className="btn btn-ghost btn-sm" disabled={trailerLoading || !trailerQuery.trim()}>
+                {trailerLoading ? 'Đang tìm…' : 'Tìm trailer'}
+              </button>
+            </div>
+            {trailerError && <p className="field-error" style={{ marginTop: 8 }}>{trailerError}</p>}
+            {trailerResults.length > 0 && (
+              <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
+                {trailerResults.map((trailer) => (
+                  <button
+                    key={trailer.videoId}
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    style={{ justifyContent: 'flex-start', textAlign: 'left', alignItems: 'center' }}
+                    onClick={() => selectTrailer(trailer)}
+                    title={`Dùng trailer này: ${trailer.title}`}
+                  >
+                    <img
+                      src={trailer.thumbnailUrl}
+                      alt=""
+                      width={72}
+                      height={40}
+                      style={{ borderRadius: 6, objectFit: 'cover', flex: 'none' }}
+                      loading="lazy"
+                    />
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {trailer.title}
+                      </span>
+                      <small className="muted">{trailer.channelTitle} · Bấm để dùng</small>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </form>
           <div className="field field--full">
             <label>Mô tả</label>
             <textarea className="textarea" value={form.description} onChange={(e) => updateForm('description', e.target.value)} placeholder="Nội dung ngắn về phim…" />
