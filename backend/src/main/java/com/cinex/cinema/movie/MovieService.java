@@ -1,5 +1,6 @@
 package com.cinex.cinema.movie;
 
+import com.cinex.cinema.trailer.YoutubeEmbedUrlNormalizer;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -11,9 +12,12 @@ import java.util.stream.Collectors;
 public class MovieService {
 
     private final MovieRepository movieRepository;
+    private final YoutubeEmbedUrlNormalizer youtubeEmbedUrlNormalizer;
 
-    public MovieService(MovieRepository movieRepository) {
+    public MovieService(MovieRepository movieRepository,
+                        YoutubeEmbedUrlNormalizer youtubeEmbedUrlNormalizer) {
         this.movieRepository = movieRepository;
+        this.youtubeEmbedUrlNormalizer = youtubeEmbedUrlNormalizer;
     }
 
     public List<MovieResponse> findAll(MovieStatus status) {
@@ -41,7 +45,8 @@ public class MovieService {
             .title(request.getTitle())
             .description(request.getDescription())
             .posterUrl(request.getPosterUrl())
-            .trailerUrl(request.getTrailerUrl())
+            // Chuẩn hoá trailer YouTube về embed để nhúng iframe (tránh lỗi "đã từ chối kết nối")
+            .trailerUrl(normalizeTrailer(request.getTrailerUrl()))
             .durationMinutes(request.getDurationMinutes())
             .ageRating(request.getAgeRating())
             .genre(request.getGenre())
@@ -59,7 +64,8 @@ public class MovieService {
         movie.setTitle(request.getTitle());
         movie.setDescription(request.getDescription());
         movie.setPosterUrl(request.getPosterUrl());
-        movie.setTrailerUrl(request.getTrailerUrl());
+        // Chuẩn hoá trailer YouTube về embed để nhúng iframe (tránh lỗi "đã từ chối kết nối")
+        movie.setTrailerUrl(normalizeTrailer(request.getTrailerUrl()));
         movie.setDurationMinutes(request.getDurationMinutes());
         movie.setAgeRating(request.getAgeRating());
         movie.setGenre(request.getGenre());
@@ -74,6 +80,10 @@ public class MovieService {
                 org.springframework.http.HttpStatus.NOT_FOUND, "Phim không tồn tại"));
         movie.setActive(false);
         movieRepository.save(movie);
+    }
+
+    private String normalizeTrailer(String trailerUrl) {
+        return youtubeEmbedUrlNormalizer.toEmbed(trailerUrl);
     }
 
     private MovieResponse toResponse(Movie movie) {
