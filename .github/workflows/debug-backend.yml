@@ -1,0 +1,76 @@
+name: Debug Backend
+
+# Workflow chẩn đoán tạm: thu thập trạng thái container, log backend và thử gọi
+# endpoint chat ngay trên server, lưu report vào repository để dễ đọc.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  debug:
+    name: Collect backend diagnostics
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Prepare SSH key
+        env:
+          SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          KEY=$(printf '%s' "$SSH_KEY" | tr -d ' \t\r\n')
+          if printf '%s' "$KEY" | grep -q 'BEGIN'; then
+            printf '%s\n' "$KEY" > deploy_key
+          else
+            {
+              echo '-----BEGIN OPENSSH PRIVATE KEY-----'
+              printf '%s\n' "$KEY" | fold -w 64
+              echo '-----END OPENSSH PRIVATE KEY-----'
+            } > deploy_key
+          fi
+          chmod 600 deploy_key
+
+      - name: Join Tailscale network
+        uses: tailscale/github-action@v3
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTH_KEY }}
+          hostname: cinex-gh-runner
+
+      - name: Collect diagnostics from server
+        env:
+          SSH_HOST: ${{ secrets.SERVER_HOST || secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SERVER_USER || secrets.SSH_USERNAME }}
+        run: |
+          ssh -i deploy_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new "$SSH_USER@$SSH_HOST" 'bash -s' <<'EOF' > debug-report.txt
+          set +e
+          cd /home/chunghoang/cinex
+          echo "===== docker compose ps ====="
+          docker compose -p cinex-web ps
+          echo "===== .env keys (NVIDIA đã che) ====="
+          grep -n '^NVIDIA_API_KEY=' .env | sed 's/=.*/=<REDACTED>/'
+          grep -n '^NVIDIA_MODEL=' .env || echo "(không có NVIDIA_MODEL trong .env)"
+          echo "===== egress từ container backend ra NVIDIA ====="
+          docker compose -p cinex-web exec -T backend sh -lc 'wget --spider -S https://integrate.api.nvidia.com/v1/chat/completions 2>&1 | head -25'
+          echo "===== curl chat qua nginx (localhost:8090) ====="
+          curl -s -i --max-time 90 -H "Content-Type: application/json" --data-binary '{"message":"Hi"}' http://localhost:8090/api/ai/chat
+          echo
+          echo "===== backend logs (tail 200) ====="
+          docker compose -p cinex-web logs --tail 200 backend
+          echo "===== END REPORT ====="
+          EOF
+
+      - name: Save report to repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p debug-reports
+          FILE="debug-reports/backend-$(date +%Y%m%d-%H%M%S).txt"
+          mv debug-report.txt "$FILE"
+          git config user.name "cinex-debug-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+          git add debug-reports
+          git commit -m "chore: backend debug report [skip ci]" || echo "no changes to commit"
+          git push origin HEAD:main || echo "PUSH FAILED - báo cáo chỉ nằm trong log Actions"
