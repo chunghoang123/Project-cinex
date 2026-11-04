@@ -245,9 +245,9 @@ export function Login() {
                 <input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} />
                 Ghi nhớ đăng nhập
               </label>
-              <a href="#forgot" className="btn-link">
-                Quên mật khẩu?
-              </a>
+               <Link to="/forgot-password" className="btn-link">
+                 Quên mật khẩu?
+               </Link>
             </div>
 
             <button type="submit" className="btn btn-gradient btn-block btn-lg" disabled={loading}>

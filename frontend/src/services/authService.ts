@@ -99,6 +99,14 @@ export const authService = {
     const res = await api.put<Envelope<null>>('/auth/password', payload)
     return res.data.message
   },
+  forgotPassword: async (email: string): Promise<{ message: string; resetToken: string | null }> => {
+    const res = await api.post<Envelope<{ message: string; resetToken: string | null }>>('/auth/forgot-password', { email })
+    return res.data.data
+  },
+  resetPassword: async (token: string, newPassword: string): Promise<string> => {
+    const res = await api.post<Envelope<null>>('/auth/reset-password', { token, newPassword })
+    return res.data.message
+  },
   logout: () => {
     localStorage.removeItem('token')
     localStorage.removeItem(SESSION_KEY)

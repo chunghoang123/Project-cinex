@@ -73,7 +73,8 @@ public class SecurityConfig {
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/actuator/health").permitAll()
-                .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/google").permitAll()
+                .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/google",
+                    "/api/auth/forgot-password", "/api/auth/reset-password").permitAll()
                 .requestMatchers("/api/payments/payos/webhook").permitAll()
                 // Box AI công khai cho khách chưa đăng nhập; đã giới hạn lượt gọi theo IP ở controller
                 .requestMatchers(HttpMethod.POST, "/api/ai/chat").permitAll()
