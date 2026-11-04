@@ -46,6 +46,7 @@ services:
       APP_JWT_SECRET: ${JWT_SECRET:-cinex-secret-key-change-in-production}
       APP_JWT_EXPIRATION: ${JWT_EXPIRATION:-3600000}
       TMDB_API_KEY: ${TMDB_API_KEY:-}
+      YOUTUBE_API_KEY: ${YOUTUBE_API_KEY:-}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       PAYOS_CLIENT_ID: ${PAYOS_CLIENT_ID:-}
       PAYOS_API_KEY: ${PAYOS_API_KEY:-}
@@ -53,8 +54,8 @@ services:
       PAYOS_RETURN_URL: ${PAYOS_RETURN_URL:-https://chung-ai.io.vn/payment/return}
       PAYOS_CANCEL_URL: ${PAYOS_CANCEL_URL:-https://chung-ai.io.vn/payment/cancel}
       NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
-      NVIDIA_MODEL: ${NVIDIA_MODEL:-meta/llama-3.1-8b-instruct}
-      NVIDIA_VISION_MODEL: ${NVIDIA_VISION_MODEL:-meta/llama-3.2-11b-vision-instruct}
+      NVIDIA_MODEL: ${NVIDIA_MODEL:-nvidia/nemotron-3.5-bolt-e4b}
+      NVIDIA_VISION_MODEL: ${NVIDIA_VISION_MODEL:-nvidia/nemotron-3.5-super-vl-120b-a12b}
       TZ: Asia/Ho_Chi_Minh
     depends_on:
       mysql:

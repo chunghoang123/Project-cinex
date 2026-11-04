@@ -81,7 +81,7 @@ public class NvidiaAiService {
             "messages", messages,
             "temperature", 0.5,
             "top_p", 0.9,
-            "max_tokens", 800,
+            "max_tokens", 1024,
             "stream", false
         );
 
@@ -139,8 +139,9 @@ public class NvidiaAiService {
                 throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
                     "NVIDIA đang giới hạn lượt gọi, vui lòng thử lại sau ít phút");
             }
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
-                "NVIDIA trả về lỗi HTTP " + status);
+            // Trả 503 thay vì 502/504 để Cloudflare không chèn trang lỗi và người dùng vẫn thấy message
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                "NVIDIA chưa phục vụ model hiện tại (" + status + "), thử lại ít phút nữa");
         } catch (ResourceAccessException ex) {
             log.warn("Không kết nối được NVIDIA cho {}", feature, ex);
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
@@ -149,8 +150,8 @@ public class NvidiaAiService {
             throw ex;
         } catch (Exception ex) {
             log.error("Lỗi khi gọi NVIDIA cho {}", feature, ex);
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
-                "Không xử lý được phản hồi từ NVIDIA");
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                "Không xử lý được phản hồi từ NVIDIA, vui lòng thử lại");
         }
     }
 
