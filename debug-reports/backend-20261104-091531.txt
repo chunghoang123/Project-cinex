@@ -1,0 +1,13 @@
+===== docker compose ps =====
+NAME                   IMAGE                                                                     COMMAND                  SERVICE    CREATED         STATUS                   PORTS
+cinex-web-backend-1    cinex-web-backend                                                         "java -jar app.jar"      backend    3 minutes ago   Up 3 minutes (healthy)   8080/tcp
+cinex-web-frontend-1   sha256:1cddb673b43e7004760b8f8c9ea8419ebc45ff6f3fd890a8c3a6519da2424e09   "/docker-entrypoint.…"   frontend   3 hours ago     Up 3 hours (healthy)     127.0.0.1:3000->80/tcp
+cinex-web-mysql-1      mysql:8.0                                                                 "docker-entrypoint.s…"   mysql      5 days ago      Up 5 days (healthy)      3306/tcp, 33060/tcp
+cinex-web-nginx-1      nginx:alpine                                                              "/docker-entrypoint.…"   nginx      5 days ago      Up 5 days                0.0.0.0:8090->80/tcp, [::]:8090->80/tcp
+===== .env keys (NVIDIA đã che) =====
+47:NVIDIA_API_KEY=<REDACTED>
+(không có NVIDIA_MODEL trong .env)
+===== egress từ container backend ra NVIDIA =====
+Connecting to integrate.api.nvidia.com (75.2.113.119:443)
+  HTTP/1.1 405 Method Not Allowed
+wget: server returned error: HTTP/1.1 405 Method Not Allowed
