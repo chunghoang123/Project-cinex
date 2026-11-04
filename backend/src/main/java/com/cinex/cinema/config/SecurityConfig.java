@@ -76,7 +76,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/google").permitAll()
                 .requestMatchers("/api/payments/payos/webhook").permitAll()
                 // Box AI công khai cho khách chưa đăng nhập; đã giới hạn lượt gọi theo IP ở controller
-                .requestMatchers("/api/ai/chat").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/ai/chat").permitAll()
                 .requestMatchers("/api/auth/me").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/movies/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/cinemas/**").permitAll()

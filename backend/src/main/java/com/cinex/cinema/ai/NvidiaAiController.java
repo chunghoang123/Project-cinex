@@ -5,7 +5,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -15,7 +14,6 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Base64;
-import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -66,47 +64,6 @@ public class NvidiaAiController {
 
         return ResponseEntity.ok(ApiResponse.ok(
             new AiChatResponse(reply, nvidiaAiService.getModel())
-        ));
-    }
-
-    // DEBUG: bắt Throwable trả nguyên exception + stack về JSON để chẩn đoán 502 connection reset.
-    // Chỉ ADMIN gọi được, sẽ xoá sau khi tìm ra nguyên nhân.
-    @PostMapping("/chat-debug")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> chatDebug(
-            @Valid @RequestBody AiChatRequest request) {
-
-        Map<String, Object> out = new LinkedHashMap<>();
-        out.put("nvidiaConfigured", nvidiaAiService.isConfigured());
-        out.put("model", nvidiaAiService.getModel());
-        try {
-            String prompt = SYSTEM_PROMPT + "\n\nDỮ LIỆU CINEX:\n"
-                + cinemaAiContextService.buildContext();
-            out.put("contextLength", prompt.length());
-            long started = System.currentTimeMillis();
-            String reply = nvidiaAiService.chat(prompt, request.history(), request.message());
-            out.put("elapsedMs", System.currentTimeMillis() - started);
-            out.put("reply", reply);
-            out.put("outcome", "OK");
-        } catch (Throwable t) {
-            out.put("outcome", "THREW");
-            out.put("exceptionClass", t.getClass().getName());
-            out.put("exceptionMessage", String.valueOf(t.getMessage()));
-            out.put("exceptionStatus", t instanceof ResponseStatusException rse
-                ? String.valueOf(rse.getStatusCode()) : "n/a");
-            java.io.StringWriter buffer = new java.io.StringWriter();
-            t.printStackTrace(new java.io.PrintWriter(buffer));
-            String stack = buffer.toString();
-            out.put("stack", stack.length() > 5000 ? stack.substring(0, 5000) : stack);
-        }
-        return ResponseEntity.ok(ApiResponse.ok(out));
-    }
-
-    // DEBUG: kiểm tra request có vào được controller và key đã nạp chưa. Sẽ xoá sau khi chẩn đoán xong.
-    @GetMapping("/chat")
-    public ResponseEntity<ApiResponse<String>> chatProbe() {
-        return ResponseEntity.ok(ApiResponse.ok(
-            "chat-endpoint-alive, nvidiaConfigured=" + nvidiaAiService.isConfigured()
-                + ", model=" + nvidiaAiService.getModel()
         ));
     }
 
