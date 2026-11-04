@@ -40,7 +40,7 @@ public class NvidiaAiService {
     @Value("${app.nvidia.model:nvidia/nemotron-3.5-bolt-e4b}")
     private String model;
 
-    @Value("${app.nvidia.vision-model:meta/llama-3.2-11b-vision-instruct}")
+    @Value("${app.nvidia.vision-model:nvidia/nemotron-3.5-super-vl-120b-a12b}")
     private String visionModel;
 
     public NvidiaAiService(RestTemplate restTemplate, ObjectMapper objectMapper) {
@@ -132,8 +132,8 @@ public class NvidiaAiService {
             log.warn("NVIDIA {} thất bại: HTTP {} - {}", feature, status,
                 ex.getResponseBodyAsString());
             if (status == 401 || status == 403) {
-                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
-                    "NVIDIA API key không hợp lệ hoặc không có quyền dùng model");
+                throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "NVIDIA API key không hợp lệ hoặc không có quyền dùng model, liên hệ quản trị");
             }
             if (status == 429) {
                 throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
@@ -164,8 +164,9 @@ public class NvidiaAiService {
         }
         String content = choices.get(0).path("message").path("content").asText("");
         if (content.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
-                "NVIDIA trả về câu trả lời rỗng");
+            // Model có thể tiêu max_tokens vào reasoning_content mà chưa sinh nội dung
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                "NVIDIA trả về câu trả lời trống, vui lòng thử lại");
         }
         return content.trim();
     }
