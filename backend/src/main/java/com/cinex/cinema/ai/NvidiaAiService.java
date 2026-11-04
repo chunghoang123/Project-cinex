@@ -37,10 +37,10 @@ public class NvidiaAiService {
     @Value("${app.nvidia.api-key:}")
     private String apiKey;
 
-    @Value("${app.nvidia.model:meta/llama-3.1-8b-instruct}")
+    @Value("${app.nvidia.model:nvidia/nemotron-3.5-bolt-e4b}")
     private String model;
 
-    @Value("${app.nvidia.vision-model:meta/llama-3.2-11b-vision-instruct}")
+    @Value("${app.nvidia.vision-model:nvidia/nemotron-3.5-super-vl-120b-a12b}")
     private String visionModel;
 
     public NvidiaAiService(RestTemplate restTemplate, ObjectMapper objectMapper) {
@@ -81,7 +81,7 @@ public class NvidiaAiService {
             "messages", messages,
             "temperature", 0.5,
             "top_p", 0.9,
-            "max_tokens", 800,
+            "max_tokens", 1024,
             "stream", false
         );
 
@@ -132,25 +132,26 @@ public class NvidiaAiService {
             log.warn("NVIDIA {} thất bại: HTTP {} - {}", feature, status,
                 ex.getResponseBodyAsString());
             if (status == 401 || status == 403) {
-                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
-                    "NVIDIA API key không hợp lệ hoặc không có quyền dùng model");
+                throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "NVIDIA API key không hợp lệ hoặc không có quyền dùng model, liên hệ quản trị");
             }
             if (status == 429) {
                 throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
                     "NVIDIA đang giới hạn lượt gọi, vui lòng thử lại sau ít phút");
             }
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
-                "NVIDIA trả về lỗi HTTP " + status);
+            // Trả 503 thay vì 502/504 để Cloudflare không chèn trang lỗi và người dùng vẫn thấy message
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                "NVIDIA chưa phục vụ model hiện tại (" + status + "), thử lại ít phút nữa");
         } catch (ResourceAccessException ex) {
             log.warn("Không kết nối được NVIDIA cho {}", feature, ex);
-            throw new ResponseStatusException(HttpStatus.GATEWAY_TIMEOUT,
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
                 "Không kết nối được NVIDIA, vui lòng thử lại sau");
         } catch (ResponseStatusException ex) {
             throw ex;
         } catch (Exception ex) {
             log.error("Lỗi khi gọi NVIDIA cho {}", feature, ex);
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
-                "Không xử lý được phản hồi từ NVIDIA");
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                "Không xử lý được phản hồi từ NVIDIA, vui lòng thử lại");
         }
     }
 
@@ -159,13 +160,14 @@ public class NvidiaAiService {
         JsonNode choices = node.path("choices");
         if (!choices.isArray() || choices.isEmpty()) {
             log.warn("NVIDIA {} trả về JSON không có choices: {}", feature, json);
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
-                "NVIDIA trả về dữ liệu không hợp lệ");
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                "NVIDIA trả về dữ liệu không hợp lệ, vui lòng thử lại");
         }
         String content = choices.get(0).path("message").path("content").asText("");
         if (content.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
-                "NVIDIA trả về câu trả lời rỗng");
+            // Model có thể tiêu max_tokens vào reasoning_content mà chưa sinh nội dung
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                "NVIDIA trả về câu trả lời trống, vui lòng thử lại");
         }
         return content.trim();
     }
