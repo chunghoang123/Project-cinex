@@ -37,7 +37,7 @@ public class NvidiaAiService {
     @Value("${app.nvidia.api-key:}")
     private String apiKey;
 
-    @Value("${app.nvidia.model:meta/llama-3.1-8b-instruct}")
+    @Value("${app.nvidia.model:nvidia/nemotron-3.5-bolt-e4b}")
     private String model;
 
     @Value("${app.nvidia.vision-model:meta/llama-3.2-11b-vision-instruct}")
@@ -143,7 +143,7 @@ public class NvidiaAiService {
                 "NVIDIA trả về lỗi HTTP " + status);
         } catch (ResourceAccessException ex) {
             log.warn("Không kết nối được NVIDIA cho {}", feature, ex);
-            throw new ResponseStatusException(HttpStatus.GATEWAY_TIMEOUT,
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
                 "Không kết nối được NVIDIA, vui lòng thử lại sau");
         } catch (ResponseStatusException ex) {
             throw ex;
@@ -159,8 +159,8 @@ public class NvidiaAiService {
         JsonNode choices = node.path("choices");
         if (!choices.isArray() || choices.isEmpty()) {
             log.warn("NVIDIA {} trả về JSON không có choices: {}", feature, json);
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
-                "NVIDIA trả về dữ liệu không hợp lệ");
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                "NVIDIA trả về dữ liệu không hợp lệ, vui lòng thử lại");
         }
         String content = choices.get(0).path("message").path("content").asText("");
         if (content.isBlank()) {
