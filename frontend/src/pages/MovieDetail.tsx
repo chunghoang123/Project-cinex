@@ -48,6 +48,26 @@ export function MovieDetail() {
 
   const slots = showtimes.slice(0, 4)
   const related = movies.filter((item) => item.id !== movie.id).slice(0, 5)
+  const trailerEmbedUrl = toYouTubeEmbed(movie.trailerUrl)
+  const trailerAvailable = Boolean(trailerEmbedUrl)
+
+  function toYouTubeEmbed(url: string): string {
+    if (!url) return ''
+    const watch = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/)
+    if (watch) return `https://www.youtube.com/embed/${watch[1]}?rel=0`
+    const short = url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/)
+    if (short) return `https://www.youtube.com/embed/${short[1]}?rel=0`
+    const embed = url.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/)
+    if (embed) return `https://www.youtube.com/embed/${embed[1]}?rel=0`
+    const bare = url.match(/^(https?:\/\/)?(www\.)?youtube\.com\/?$/)
+    if (bare) return ''
+    return url
+  }
+
+  const openTrailer = () => {
+    if (!trailerAvailable) return
+    setTrailerOpen(true)
+  }
 
   return (
     <div className="container">
@@ -93,9 +113,9 @@ export function MovieDetail() {
                 <Icon name="ticket" size={17} />
                 Đặt vé
               </Link>
-              <button type="button" className="btn btn-ghost" onClick={() => setTrailerOpen(true)}>
+              <button type="button" className="btn btn-ghost" onClick={openTrailer} disabled={!trailerAvailable} title={trailerAvailable ? 'Xem trailer' : 'Trailer chưa được cập nhật'}>
                 <Icon name="play" size={16} />
-                Xem trailer
+                {trailerAvailable ? 'Xem trailer' : 'Trailer sắp có'}
               </button>
             </div>
           </div>
@@ -114,12 +134,21 @@ export function MovieDetail() {
 
           <section className="detail-section">
             <h2>Official Trailer</h2>
-            <button type="button" className="trailer-frame" onClick={() => setTrailerOpen(true)} aria-label="Xem trailer">
-              <img src={movie.backdropUrl} alt="" />
-              <span className="trailer-frame__play">
-                <Icon name="play" size={22} filled />
-              </span>
-            </button>
+            {trailerAvailable ? (
+              <button type="button" className="trailer-frame" onClick={openTrailer} aria-label="Xem trailer">
+                <img src={movie.backdropUrl} alt="" />
+                <span className="trailer-frame__play">
+                  <Icon name="play" size={22} filled />
+                </span>
+              </button>
+            ) : (
+              <div className="empty-state" style={{ padding: '20px 16px' }}>
+                <Icon name="film" size={28} />
+                <p className="muted" style={{ marginTop: 8 }}>
+                  Trailer của phim này đang được cập nhật. Hãy quay lại sau.
+                </p>
+              </div>
+            )}
           </section>
 
           <section className="detail-section">
@@ -206,7 +235,7 @@ export function MovieDetail() {
         </div>
       </section>
 
-      {trailerOpen && (
+      {trailerOpen && trailerAvailable && (
         <div className="modal-backdrop" onClick={() => setTrailerOpen(false)}>
           <div className="modal" onClick={(event) => event.stopPropagation()}>
             <button type="button" className="modal__close" onClick={() => setTrailerOpen(false)} aria-label="Đóng">
@@ -214,10 +243,11 @@ export function MovieDetail() {
             </button>
             <div className="trailer-frame" style={{ borderRadius: 16 }}>
               <iframe
-                src={movie.trailerUrl}
+                src={trailerEmbedUrl}
                 title={`Trailer ${movie.title}`}
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
+                loading="lazy"
                 style={{ width: '100%', height: '100%', border: 0 }}
               />
             </div>
