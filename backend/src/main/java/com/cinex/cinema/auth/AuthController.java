@@ -39,6 +39,20 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.ok("Đăng nhập Google thành công", response));
     }
 
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ApiResponse<PasswordResetResponse>> forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest request) {
+        PasswordResetResponse response = authService.forgotPassword(request.getEmail());
+        return ResponseEntity.ok(ApiResponse.ok(response.message(), response));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<ApiResponse<Void>> resetPassword(
+            @Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request.getToken(), request.getNewPassword());
+        return ResponseEntity.ok(ApiResponse.ok("Đặt lại mật khẩu thành công", null));
+    }
+
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<UserResponse>> getMe(Authentication authentication) {
         return ResponseEntity.ok(ApiResponse.ok(authService.me(currentUser(authentication))));
