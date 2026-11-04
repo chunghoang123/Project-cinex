@@ -78,7 +78,6 @@ jobs:
         run: |
           if [ -z "$NVIDIA_API_KEY" ]; then
             echo "::warning::Chưa có GitHub Secret NVIDIA_API_KEY - box AI sẽ báo chưa cấu hình"
-            exit 0
           fi
           ENCODED_KEY=$(printf '%s' "$NVIDIA_API_KEY" | base64 | tr -d '\n')
           ssh -i deploy_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new "$SSH_USER@$SSH_HOST" \
