@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { useMovies } from '../hooks/useMovies'
 import { cinemas, genres, quickGenres } from '../data/mockData'
 import { EmptyState } from '../components/ui/EmptyState'
 import { Icon } from '../components/ui/Icon'
 import { MovieCard } from '../components/ui/MovieCard'
 import { SectionHeader } from '../components/ui/SectionHeader'
+import { openChat } from '../components/chat/ChatWidget'
 
 export function Search() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -41,9 +42,9 @@ export function Search() {
             Tìm kiếm
           </h1>
         </div>
-        <Link to="/ai-chat" className="header-icon" aria-label="Trợ lý AI">
+        <button type="button" className="header-icon" aria-label="Trợ lý AI" onClick={openChat}>
           <Icon name="sparkles" size={19} />
-        </Link>
+        </button>
       </div>
 
       <form className="search-bar" onSubmit={submit} role="search">
