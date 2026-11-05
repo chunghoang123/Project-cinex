@@ -93,7 +93,7 @@ export function MovieDetail() {
                 <Icon name="ticket" size={17} />
                 Đặt vé
               </Link>
-              <button type="button" className="btn btn-ghost" onClick={() => setTrailerOpen(true)}>
+              <button type="button" className="btn btn-ghost" onClick={openTrailer} disabled={!trailerAvailable} title={trailerAvailable ? 'Xem trailer' : 'Trailer chưa được cập nhật'}>
                 <Icon name="play" size={16} />
                 Xem trailer
               </button>
