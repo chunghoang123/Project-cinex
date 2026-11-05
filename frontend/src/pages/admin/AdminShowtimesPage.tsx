@@ -84,7 +84,7 @@ export function AdminShowtimesPage() {
           if (current.auditoriumId !== '' && items.some((item) => item.id === current.auditoriumId)) {
             return current
           }
-          return { ...current, auditoriumId: items[0]?.id ?? '' }
+          return { ...current, auditoriumId: items.find((item) => item.active)?.id ?? '' }
         })
       })
       .catch((err) => setFormError(errorMessage(err, 'Không tải được phòng chiếu')))
@@ -94,8 +94,8 @@ export function AdminShowtimesPage() {
     setEditing(null)
     setForm({
       ...emptyForm(date),
-      movieId: movies[0]?.id ?? '',
-      cinemaId: cinemas[0]?.id ?? '',
+      movieId: movies.find((movie) => movie.active)?.id ?? '',
+      cinemaId: cinemas.find((cinema) => cinema.active)?.id ?? '',
     })
     setFormError('')
     setModalOpen(true)
@@ -136,7 +136,12 @@ export function AdminShowtimesPage() {
         await adminService.createShowtime(payload)
       }
       setModalOpen(false)
-      loadShowtimes()
+      // Đồng bộ bộ lọc ngày về ngày của suất vừa lưu để suất mới/đã sửa hiển thị ngay
+      if (form.date !== date) {
+        setDate(form.date)
+      } else {
+        loadShowtimes()
+      }
     } catch (err) {
       setFormError(errorMessage(err, 'Không lưu được suất chiếu'))
     } finally {
@@ -267,7 +272,7 @@ export function AdminShowtimesPage() {
       <Modal
         open={modalOpen}
         title={editing ? 'Cập nhật suất chiếu' : 'Thêm suất chiếu'}
-        subtitle={editing ? 'Chỉ có thể sửa suất chiếu chưa có đơn đặt vé' : 'Chọn phim, phòng chiếu và khung giờ'}
+        subtitle={editing ? 'Suất chiếu đang chờ thanh toán hoặc đã bán vé không thể sửa' : 'Chọn phim, phòng chiếu và khung giờ'}
         onClose={() => setModalOpen(false)}
         footer={
           <>
@@ -284,21 +289,39 @@ export function AdminShowtimesPage() {
             <label>Phim</label>
             <select className="select" value={form.movieId} onChange={(e) => setForm({ ...form, movieId: Number(e.target.value) })}>
               <option value="">Chọn phim</option>
-              {movies.map((movie) => <option key={movie.id} value={movie.id}>{movie.title}</option>)}
+              {movies
+                .filter((movie) => movie.active || movie.id === form.movieId)
+                .map((movie) => (
+                  <option key={movie.id} value={movie.id}>
+                    {movie.title}{movie.active ? '' : ' (đã ẩn)'}
+                  </option>
+                ))}
             </select>
           </div>
           <div className="field">
             <label>Rạp</label>
             <select className="select" value={form.cinemaId} onChange={(e) => setForm({ ...form, cinemaId: Number(e.target.value), auditoriumId: '' })}>
               <option value="">Chọn rạp</option>
-              {cinemas.map((cinema) => <option key={cinema.id} value={cinema.id}>{cinema.name}</option>)}
+              {cinemas
+                .filter((cinema) => cinema.active || cinema.id === form.cinemaId)
+                .map((cinema) => (
+                  <option key={cinema.id} value={cinema.id}>
+                    {cinema.name}{cinema.active ? '' : ' (ngừng hoạt động)'}
+                  </option>
+                ))}
             </select>
           </div>
           <div className="field">
             <label>Phòng chiếu</label>
             <select className="select" value={form.auditoriumId} onChange={(e) => setForm({ ...form, auditoriumId: Number(e.target.value) })}>
               <option value="">Chọn phòng</option>
-              {auditoriums.map((auditorium) => <option key={auditorium.id} value={auditorium.id}>{auditorium.name} ({auditorium.seatCount} ghế)</option>)}
+              {auditoriums
+                .filter((auditorium) => auditorium.active || auditorium.id === form.auditoriumId)
+                .map((auditorium) => (
+                  <option key={auditorium.id} value={auditorium.id}>
+                    {auditorium.name} ({auditorium.seatCount} ghế){auditorium.active ? '' : ' (ngừng hoạt động)'}
+                  </option>
+                ))}
             </select>
           </div>
           <div className="field">
