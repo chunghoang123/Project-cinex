@@ -13,18 +13,40 @@ interface Message {
   error?: boolean
 }
 
+interface QuickLink {
+  label: string
+  to: string
+}
+
 const suggestions = [
   'Phim nào đang chiếu?',
   'Suất chiếu hôm nay',
   'Gợi ý phim hay cho tối nay',
   'Giá vé ở CineX',
+  'Thanh toán PayOS thế nào?',
+]
+
+const quickLinks: QuickLink[] = [
+  { label: 'Xem phim', to: '/movies' },
+  { label: 'Lịch chiếu', to: '/showtimes' },
+  { label: 'Vé của tôi', to: '/history' },
 ]
 
 const greeting: Message = {
   id: 1,
   role: 'ai',
-  text: 'Xin chào! Mình là CineX AI. Mình có thể gợi ý phim, tra suất chiếu và giải đáp thắc mắc về đặt vé. Bạn muốn xem gì hôm nay?',
-  time: now(),
+  text: 'Xin chào! Mình là CineX AI. Mình chỉ hỗ trợ đúng việc đặt vé xem phim: gợi ý phim, tra suất chiếu, giá vé, thanh toán PayOS và vé của bạn. Bạn muốn xem phim gì hôm nay?',
+  time: '',
+}
+
+function linkForMessage(text: string): QuickLink | null {
+  const low = text.toLowerCase()
+  if (low.includes('suất chiếu') || low.includes('suất')) return { label: 'Mở lịch chiếu', to: '/showtimes' }
+  if (low.includes('giá vé') || low.includes('gia ve')) return { label: 'Xem lịch chiếu & giá', to: '/showtimes' }
+  if (low.includes('thanh toán') || low.includes('payos') || low.includes('thanh toan')) return { label: 'Cách đặt vé & thanh toán', to: '/showtimes' }
+  if (low.includes('vé của tôi') || low.includes('tra vé') || low.includes('lịch sử vé')) return { label: 'Mở vé của tôi', to: '/history' }
+  if (low.includes('phim')) return { label: 'Khám phá phim', to: '/movies' }
+  return null
 }
 
 function now() {
@@ -35,7 +57,7 @@ function errorText(error: unknown) {
   if (axios.isAxiosError(error)) {
     const apiMessage = (error.response?.data as { message?: string } | undefined)?.message
     if (apiMessage) return apiMessage
-    if (error.code === 'ECONNABORTED') return 'Trợ lý AI phản hồi quá lâu, bạn thử lại nhé.'
+    if (error.code === 'ECONNABORTED') return 'CineX AI trả lời quá lâu, bạn thử lại nhé.'
     if (!error.response) return 'Không kết nối được máy chủ CineX, bạn kiểm tra mạng giúp mình nhé.'
   }
   return error instanceof Error ? error.message : 'Có lỗi khi gọi trợ lý AI.'
@@ -67,6 +89,7 @@ export function ChatWidget() {
   const [input, setInput] = useState('')
   const [typing, setTyping] = useState(false)
   const bodyRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const handler = () => setOpen(true)
@@ -80,9 +103,19 @@ export function ChatWidget() {
     }
   }, [open, messages, typing])
 
+  useEffect(() => {
+    if (!open) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('keydown', onKey)
+    inputRef.current?.focus()
+    return () => document.removeEventListener('keydown', onKey)
+  }, [open])
+
   const send = useCallback(
-    async (text: string) => {
-      const value = text.trim()
+    async (rawText: string) => {
+      const value = rawText.trim()
       if (!value || typing) return
 
       const history: AiChatMessage[] = messages
@@ -102,7 +135,7 @@ export function ChatWidget() {
       try {
         const result = await aiService.chat(value, history)
         const reply = result?.reply?.trim()
-        if (!reply) throw new Error('Trợ lý AI không trả về nội dung.')
+        if (!reply) throw new Error('CineX AI không trả về nội dung.')
         setMessages((current) => [
           ...current,
           { id: Date.now() + 1, role: 'ai', text: reply, time: now() },
@@ -113,13 +146,14 @@ export function ChatWidget() {
           {
             id: Date.now() + 1,
             role: 'ai',
-            text: `⚠️ ${errorText(error)}`,
+            text: `Rất tiếc, ${errorText(error)}`,
             time: now(),
             error: true,
           },
         ])
       } finally {
         setTyping(false)
+        inputRef.current?.focus()
       }
     },
     [messages, typing],
@@ -133,41 +167,60 @@ export function ChatWidget() {
   return (
     <>
       {open && (
-        <div className="chat-widget__panel" role="dialog" aria-label="CineX AI">
-          <div className="chat-head">
-            <span className="chat-head__avatar">
-              <Icon name="sparkles" size={21} />
+        <section className="chat-widget__panel" role="dialog" aria-label="CineX AI">
+          <header className="chat-head chat-head--panel">
+            <span className="chat-head__avatar" aria-hidden="true">
+              <Icon name="sparkles" size={20} />
             </span>
-            <div>
+            <div className="chat-head__text">
               <div className="chat-head__name">CineX AI</div>
-              <div className="chat-head__status">Đang trực tuyến</div>
+              <div className="chat-head__status">Hỗ trợ đặt vé · đang trực tuyến</div>
             </div>
             <button
               type="button"
-              className="input-action"
-              style={{ marginLeft: 'auto' }}
+              className="chat-head__close"
               onClick={() => setOpen(false)}
-              aria-label="Đóng chat"
+              aria-label="Đóng trợ lý"
             >
               <Icon name="close" size={17} />
             </button>
-          </div>
+          </header>
 
           <div className="chat-body" ref={bodyRef} aria-live="polite">
-            {messages.map((message) => (
-              <div key={message.id} className={`chat-msg ${message.role === 'ai' ? 'is-ai' : 'is-user'}`}>
-                {formatText(message.text)}
-                <div className="chat-time">{message.time}</div>
-              </div>
-            ))}
+            {messages.map((message) => {
+              const link = message.role === 'ai' && !message.error ? linkForMessage(message.text) : null
+              return (
+                <div key={message.id} className={`chat-msg ${message.role === 'ai' ? 'is-ai' : 'is-user'}`}>
+                  <div className="chat-msg__text">{formatText(message.text)}</div>
+                  {link && (
+                    <a className="chat-msg__link" href={link.to}>
+                      {link.label}
+                      <Icon name="arrow-right" size={14} />
+                    </a>
+                  )}
+                  {message.time && <div className="chat-time">{message.time}</div>}
+                </div>
+              )
+            })}
             {typing && (
               <div className="chat-msg is-ai">
-                <span className="muted">CineX AI đang trả lời...</span>
+                <div className="chat-typing" aria-label="CineX AI đang trả lời">
+                  <span /><span /><span />
+                </div>
               </div>
             )}
           </div>
 
-          <div className="chat-suggestions">
+          <div className="chat-quicklinks" aria-label="Lối tắt đặt vé">
+            {quickLinks.map((link) => (
+              <a key={link.to} className="chip" href={link.to}>
+                <Icon name={link.to === '/movies' ? 'film' : link.to === '/showtimes' ? 'calendar' : 'ticket'} size={14} />
+                {link.label}
+              </a>
+            ))}
+          </div>
+
+          <div className="chat-suggestions" aria-label="Gợi ý câu hỏi">
             {suggestions.map((suggestion) => (
               <button
                 key={suggestion}
@@ -183,17 +236,20 @@ export function ChatWidget() {
 
           <form className="chat-compose" onSubmit={handleSubmit}>
             <input
+              ref={inputRef}
               value={input}
               onChange={(event) => setInput(event.target.value)}
-              placeholder="Hỏi CineX AI bất cứ điều gì..."
+              placeholder="Hỏi về phim, suất chiếu, giá vé..."
               aria-label="Tin nhắn"
               maxLength={2000}
+              autoComplete="off"
             />
             <button type="submit" aria-label="Gửi tin nhắn" disabled={!input.trim() || typing}>
               <Icon name="send" size={17} />
             </button>
           </form>
-        </div>
+          <p className="chat-note">Chỉ trả lời về phim &amp; đặt vé tại CineX.</p>
+        </section>
       )}
 
       <button
