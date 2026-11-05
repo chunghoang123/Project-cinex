@@ -23,6 +23,7 @@ import com.google.api.client.json.gson.GsonFactory;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
@@ -40,27 +41,29 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
+    private final EmailService emailService;
 
     /** Google OAuth Client ID, cấu hình qua biến môi trường GOOGLE_CLIENT_ID */
     @Value("${app.oauth2.google.client-id:}")
     private String googleClientId;
 
-    /** Thời gian hiệu lực (phút) của token đặt lại mật khẩu */
-    @Value("${app.auth.reset-token-ttl-minutes:30}")
-    private int resetTokenTtlMinutes;
+    /** Thời gian hiệu lực (phút) của mã OTP đặt lại mật khẩu */
+    @Value("${app.auth.otp-expire-minutes:5}")
+    private int otpExpireMinutes;
 
-    /** Dev mode: trả token trong response để test khi chưa có SMTP. Production nên set false. */
+    /** Dev mode: trả mã OTP trong response để test khi chưa có SMTP. Production nên set false. */
     @Value("${app.auth.expose-reset-token:true}")
     private boolean exposeResetToken;
 
     public AuthService(UserRepository userRepository, RoleRepository roleRepository,
                        PasswordEncoder passwordEncoder, JwtService jwtService,
-                       AuthenticationManager authenticationManager) {
+                       AuthenticationManager authenticationManager, EmailService emailService) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.authenticationManager = authenticationManager;
+        this.emailService = emailService;
     }
 
     public AuthResponse register(RegisterRequest request) {
@@ -175,41 +178,47 @@ public class AuthService {
     }
 
     /**
-     * Yêu cầu đặt lại mật khẩu: nếu email tồn tại, tạo token (hash lưu DB, raw trả về để test
-     * khi chưa có SMTP). Luôn trả thông báo chung để không lộ email có tồn tại hay không.
+     * Yêu cầu đặt lại mật khẩu: nếu email tồn tại, sinh mã OTP 6 số, lưu vào DB (hash + hạn
+     * hiệu lực) và gửi mã qua SMTP tới email do người dùng nhập. Luôn trả thông báo chung để không
+     * lộ email có tồn tại hay không.
      */
     @Transactional
     public PasswordResetResponse forgotPassword(String email) {
         String generic = "Nếu email tồn tại trong hệ thống, hướng dẫn đặt lại mật khẩu đã được gửi.";
         return userRepository.findByEmail(email == null ? "" : email.trim().toLowerCase(Locale.ROOT))
             .map(user -> {
-                String rawToken = UUID.randomUUID().toString();
-                user.setPasswordResetToken(hashToken(rawToken));
-                user.setPasswordResetExpires(LocalDateTime.now().plusMinutes(resetTokenTtlMinutes));
+                String otp = generateOtp();
+                user.setPasswordResetToken(hashToken(otp));
+                user.setPasswordResetExpires(LocalDateTime.now().plusMinutes(otpExpireMinutes));
                 userRepository.save(user);
-                log.info("Đã tạo token đặt lại mật khẩu cho {}", user.getEmail());
-                String tokenToReturn = exposeResetToken ? rawToken : null;
-                return new PasswordResetResponse(generic, tokenToReturn);
+                log.info("Đã tạo mã OTP đặt lại mật khẩu cho {}", user.getEmail());
+                if (exposeResetToken) {
+                    log.info("Dev mode: bỏ qua gửi email OTP, trả mã để test");
+                } else {
+                    emailService.sendOtpEmail(user.getEmail(), otp);
+                }
+                String otpToReturn = exposeResetToken ? otp : null;
+                return new PasswordResetResponse(generic, otpToReturn);
             })
             .orElse(new PasswordResetResponse(generic, null));
     }
 
     /**
-     * Đặt lại mật khẩu bằng token: kiểm tra token + hạn, sau đó cập nhật mật khẩu mới
-     * và xoá token để không tái sử dụng.
+     * Đặt lại mật khẩu bằng mã OTP: kiểm tra mã + hạn, sau đó cập nhật mật khẩu mới
+     * và xoá mã để không tái sử dụng.
      */
     @Transactional
-    public void resetPassword(String rawToken, String newPassword) {
-        if (rawToken == null || rawToken.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Token đặt lại mật khẩu không hợp lệ");
+    public void resetPassword(String otp, String newPassword) {
+        if (otp == null || otp.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mã OTP đặt lại mật khẩu không hợp lệ");
         }
-        User user = userRepository.findByPasswordResetToken(hashToken(rawToken))
+        User user = userRepository.findByPasswordResetToken(hashToken(otp))
             .orElseThrow(() -> new ResponseStatusException(
-                HttpStatus.BAD_REQUEST, "Token đặt lại mật khẩu không hợp lệ"));
+                HttpStatus.BAD_REQUEST, "Mã OTP đặt lại mật khẩu không hợp lệ"));
 
         if (user.getPasswordResetExpires() == null
                 || user.getPasswordResetExpires().isBefore(LocalDateTime.now())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Token đặt lại mật khẩu đã hết hạn");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mã OTP đặt lại mật khẩu đã hết hạn");
         }
 
         user.setPassword(passwordEncoder.encode(newPassword));
@@ -217,6 +226,11 @@ public class AuthService {
         user.setPasswordResetExpires(null);
         userRepository.save(user);
         log.info("Tài khoản {} đã đặt lại mật khẩu", user.getUsername());
+    }
+
+    /** Sinh mã OTP gồm 6 chữ số ngẫu nhiên. */
+    private String generateOtp() {
+        return String.format("%06d", new SecureRandom().nextInt(1_000_000));
     }
 
     private static String hashToken(String raw) {
