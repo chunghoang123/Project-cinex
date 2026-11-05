@@ -17,6 +17,20 @@ export function MovieDetail() {
   const { showtimes } = useShowtimes(movie?.id)
   const [expanded, setExpanded] = useState(false)
   const [trailerOpen, setTrailerOpen] = useState(false)
+  const [trailerLoaded, setTrailerLoaded] = useState(false)
+  const [trailerTimedOut, setTrailerTimedOut] = useState(false)
+
+  useEffect(() => {
+    if (!trailerOpen) {
+      setTrailerLoaded(false)
+      setTrailerTimedOut(false)
+      return
+    }
+    const timer = window.setTimeout(() => {
+      if (!trailerLoaded) setTrailerTimedOut(true)
+    }, 3000)
+    return () => window.clearTimeout(timer)
+  }, [trailerOpen, trailerLoaded])
 
   if (loading) {
     return (
@@ -149,12 +163,21 @@ export function MovieDetail() {
 
           <section className="detail-section">
             <h2>Official Trailer</h2>
-            <button type="button" className="trailer-frame" onClick={() => setTrailerOpen(true)} aria-label="Xem trailer">
-              <img src={movie.backdropUrl} alt="" />
-              <span className="trailer-frame__play">
-                <Icon name="play" size={22} filled />
-              </span>
-            </button>
+            {trailerAvailable ? (
+              <button type="button" className="trailer-frame" onClick={openTrailer} aria-label="Xem trailer">
+                <img src={movie.backdropUrl} alt="" />
+                <span className="trailer-frame__play">
+                  <Icon name="play" size={22} filled />
+                </span>
+              </button>
+            ) : (
+              <div className="empty-state" style={{ padding: '20px 16px' }}>
+                <Icon name="film" size={28} />
+                <p className="muted" style={{ marginTop: 8 }}>
+                  Trailer của phim này đang được cập nhật. Hãy quay lại sau.
+                </p>
+              </div>
+            )}
           </section>
 
           <section className="detail-section">
@@ -247,9 +270,9 @@ export function MovieDetail() {
             <button type="button" className="modal__close" onClick={() => setTrailerOpen(false)} aria-label="Đóng">
               <Icon name="close" size={20} />
             </button>
-            <div className="trailer-frame" style={{ borderRadius: 16 }}>
+            <div className="trailer-frame" style={{ borderRadius: 16, position: 'relative' }}>
               <iframe
-                src={movie.trailerUrl}
+                src={trailerEmbedUrl}
                 title={`Trailer ${movie.title}`}
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
