@@ -264,7 +264,7 @@ export function MovieDetail() {
         </div>
       </section>
 
-      {trailerOpen && (
+      {trailerOpen && trailerAvailable && (
         <div className="modal-backdrop" onClick={() => setTrailerOpen(false)}>
           <div className="modal" onClick={(event) => event.stopPropagation()}>
             <button type="button" className="modal__close" onClick={() => setTrailerOpen(false)} aria-label="Đóng">
