@@ -99,6 +99,17 @@ export function Header() {
             <Icon name="bell" size={19} />
           </Link>
 
+          {token && (
+            <button
+              type="button"
+              className="header-icon mobile-only"
+              aria-label="Đăng xuất"
+              onClick={handleLogout}
+            >
+              <Icon name="logout" size={19} />
+            </button>
+          )}
+
           {token ? (
             <div className="header-user-wrap" ref={menuRef}>
               <button
