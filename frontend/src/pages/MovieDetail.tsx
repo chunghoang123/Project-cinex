@@ -220,6 +220,48 @@ export function MovieDetail() {
                 allowFullScreen
                 style={{ width: '100%', height: '100%', border: 0 }}
               />
+              {trailerTimedOut && !trailerLoaded && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 12,
+                    background: 'rgba(0,0,0,0.75)',
+                    color: '#fff',
+                    padding: 24,
+                    textAlign: 'center',
+                  }}
+                >
+                  <Icon name="alert" size={32} />
+                  <p style={{ margin: 0, fontSize: 14 }}>
+                    Không tải được trailer ngay trong trang (có thể do mạng hoặc trình duyệt chặn).
+                  </p>
+                  <a
+                    href={trailerWatchUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-primary btn-sm"
+                  >
+                    <Icon name="play" size={16} />
+                    Mở trailer trên YouTube
+                  </a>
+                </div>
+              )}
+            </div>
+            <div style={{ marginTop: 10, textAlign: 'center' }}>
+              <a
+                href={trailerWatchUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-link"
+                style={{ fontSize: 13 }}
+              >
+                Không xem được? Mở trailer trực tiếp trên YouTube ↗
+              </a>
             </div>
           </div>
         </div>
