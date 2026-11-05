@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { authService } from '../services/authService'
 import type { User } from '../types/User'
 import { Avatar } from '../components/ui/Avatar'
@@ -59,8 +59,6 @@ function focusField(id: string) {
 
 export function Profile() {
   const token = authService.getToken()
-  const navigate = useNavigate()
-  const [loggingOut, setLoggingOut] = useState(false)
 
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(Boolean(token))
@@ -213,14 +211,6 @@ export function Profile() {
     }
   }
 
-  const handleLogout = () => {
-    setLoggingOut(true)
-    window.setTimeout(() => {
-      authService.logout()
-      navigate('/login', { replace: true })
-    }, 250)
-  }
-
   if (!token) {
     return (
       <div className="container">
@@ -269,12 +259,6 @@ export function Profile() {
 
   return (
     <div className="container">
-      {loggingOut && (
-        <div className="auth-loading-overlay" role="status" aria-live="polite">
-          <div className="spinner" />
-          <p>Đang đăng xuất...</p>
-        </div>
-      )}
       <PageBar title="Tài khoản" backTo="/" />
 
       <div className="profile-layout">
@@ -327,10 +311,6 @@ export function Profile() {
                 <Icon name="chevron-right" size={16} className="menu-item__chevron" />
               </Link>
             )}
-            <button type="button" className="menu-item menu-item--danger" onClick={handleLogout}>
-              <Icon name="logout" size={17} />
-              <span className="grow">Đăng xuất</span>
-            </button>
           </nav>
         </aside>
 
