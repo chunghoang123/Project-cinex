@@ -15,6 +15,7 @@ export function StaffBookingsPage() {
   const [error, setError] = useState('')
   const [selected, setSelected] = useState<Booking | null>(null)
   const [cancelling, setCancelling] = useState(false)
+  const [alertModal, setAlertModal] = useState<{ title: string; message: string } | null>(null)
 
   const load = (keyword = q) => {
     setLoading(true)
@@ -43,7 +44,7 @@ export function StaffBookingsPage() {
       setSelected((current) => current?.bookingCode === updated.bookingCode ? updated : current)
       load()
     } catch (err) {
-      window.alert(errorMessage(err, 'Không thể hủy đơn'))
+      setAlertModal({ title: 'Không thể hủy đơn', message: errorMessage(err, 'Không thể hủy đơn') })
     } finally {
       setCancelling(false)
     }
@@ -213,6 +214,22 @@ export function StaffBookingsPage() {
             </div>
           </div>
         )}
+      </Modal>
+      <Modal
+        open={Boolean(alertModal)}
+        title={alertModal?.title ?? 'Thông báo'}
+        onClose={() => setAlertModal(null)}
+        size="sm"
+        footer={
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => setAlertModal(null)}>
+            Đã hiểu
+          </button>
+        }
+      >
+        <div className="row gap-8" style={{ alignItems: 'flex-start' }}>
+          <Icon name="alert" size={20} />
+          <p style={{ margin: 0 }}>{alertModal?.message}</p>
+        </div>
       </Modal>
     </div>
   )
