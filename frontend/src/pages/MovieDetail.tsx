@@ -132,7 +132,6 @@ export function MovieDetail() {
               </Link>
               <button type="button" className="btn btn-ghost" onClick={openTrailer} disabled={!trailerAvailable} title={trailerAvailable ? 'Xem trailer' : 'Trailer chưa được cập nhật'}>
                 <Icon name="play" size={16} />
-                Xem trailer
               </button>
               {trailerAvailable && (
                 <a
