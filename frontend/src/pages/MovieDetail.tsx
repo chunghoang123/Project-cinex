@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMovie, useMovies } from '../hooks/useMovies'
 import { useShowtimes } from '../hooks/useShowtimes'
