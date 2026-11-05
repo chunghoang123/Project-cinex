@@ -1,6 +1,7 @@
 package com.cinex.cinema.showtime;
 
 import com.cinex.cinema.booking.BookingRepository;
+import com.cinex.cinema.booking.BookingStatus;
 import com.cinex.cinema.cinema.Auditorium;
 import com.cinex.cinema.cinema.AuditoriumRepository;
 import com.cinex.cinema.cinema.Seat;
@@ -53,13 +54,20 @@ public class ShowtimeService {
     }
 
     public List<ShowtimeResponse> findAdmin(LocalDate date, Long cinemaId, Long movieId) {
-        LocalDate targetDate = date == null ? LocalDate.now() : date;
-        LocalDateTime from = targetDate.atStartOfDay();
-        LocalDateTime to = targetDate.plusDays(1).atStartOfDay();
-        List<Showtime> showtimes = cinemaId == null
-            ? showtimeRepository.findByStartTimeBetweenAndActiveTrueOrderByStartTimeAsc(from, to)
-            : showtimeRepository.findByAuditoriumCinemaIdAndStartTimeBetweenAndActiveTrueOrderByStartTimeAsc(
-                cinemaId, from, to);
+        List<Showtime> showtimes;
+        if (date == null) {
+            // Không lọc ngày: trả về toàn bộ suất chiếu còn hoạt động của rạp (hoặc toàn hệ thống)
+            showtimes = cinemaId == null
+                ? showtimeRepository.findByActiveTrueOrderByStartTimeAsc()
+                : showtimeRepository.findByAuditoriumCinemaIdAndActiveTrueOrderByStartTimeAsc(cinemaId);
+        } else {
+            LocalDateTime from = date.atStartOfDay();
+            LocalDateTime to = date.plusDays(1).atStartOfDay();
+            showtimes = cinemaId == null
+                ? showtimeRepository.findByStartTimeBetweenAndActiveTrueOrderByStartTimeAsc(from, to)
+                : showtimeRepository.findByAuditoriumCinemaIdAndStartTimeBetweenAndActiveTrueOrderByStartTimeAsc(
+                    cinemaId, from, to);
+        }
         return showtimes.stream()
             .filter(item -> movieId == null || item.getMovie().getId().equals(movieId))
             .map(this::toResponse)
@@ -99,6 +107,9 @@ public class ShowtimeService {
         if (!auditorium.isActive()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Phòng chiếu đã ngừng hoạt động");
         }
+        if (!auditorium.getCinema().isActive()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Rạp đã ngừng hoạt động");
+        }
 
         LocalDateTime endTime = request.getStartTime()
             .plusMinutes(movie.getDurationMinutes() == null ? 120 : movie.getDurationMinutes());
@@ -118,14 +129,23 @@ public class ShowtimeService {
 
     public ShowtimeResponse update(Long id, ShowtimeRequest request) {
         Showtime showtime = findById(id);
-        if (bookingRepository.existsByShowtimeId(id)) {
+        // Chỉ chặn khi suất chiếu còn đơn "sống" (chờ thanh toán hoặc đã bán vé);
+        // đơn đã hết hạn / đã hủy không cản trở việc chỉnh sửa.
+        if (bookingRepository.existsByShowtimeIdAndStatusIn(
+                id, List.of(BookingStatus.PENDING, BookingStatus.CONFIRMED))) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                "Không thể sửa suất chiếu đã có đơn đặt vé");
+                "Suất chiếu đang chờ thanh toán hoặc đã bán vé, không thể cập nhật");
         }
         Movie movie = movieRepository.findById(request.getMovieId())
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Phim không tồn tại"));
         Auditorium auditorium = auditoriumRepository.findById(request.getAuditoriumId())
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Phòng chiếu không tồn tại"));
+        if (!auditorium.isActive()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Phòng chiếu đã ngừng hoạt động");
+        }
+        if (!auditorium.getCinema().isActive()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Rạp đã ngừng hoạt động");
+        }
 
         showtime.setMovie(movie);
         showtime.setAuditorium(auditorium);
@@ -135,8 +155,12 @@ public class ShowtimeService {
         showtime.setBasePrice(request.getBasePrice());
         showtime = showtimeRepository.save(showtime);
 
-        showtimeSeatRepository.deleteAll(showtimeSeatRepository.findByShowtimeId(id));
-        generateShowtimeSeats(showtime, auditorium);
+        // Chỉ tái sinh sơ đồ ghế khi chưa có đơn nào từng đặt (tránh phá khoá ngoại
+        // với booking_seats cũ). Đơn hết hạn/hủy vẫn giữ ShowtimeSeat để tra cứu lịch sử.
+        if (!bookingRepository.existsByShowtimeId(id)) {
+            showtimeSeatRepository.deleteAll(showtimeSeatRepository.findByShowtimeId(id));
+            generateShowtimeSeats(showtime, auditorium);
+        }
         return toResponse(showtime);
     }
 
