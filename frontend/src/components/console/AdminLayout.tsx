@@ -7,6 +7,7 @@ const items: ConsoleNavItem[] = [
   { to: '/admin/showtimes', label: 'Suất chiếu', icon: 'calendar' },
   { to: '/admin/bookings', label: 'Đơn hàng', icon: 'receipt' },
   { to: '/admin/users', label: 'Người dùng', icon: 'users' },
+  { to: '/admin/reports', label: 'Báo cáo', icon: 'chart' },
 ]
 
 export function AdminLayout() {

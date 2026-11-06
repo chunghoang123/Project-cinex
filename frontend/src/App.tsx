@@ -30,6 +30,7 @@ import { AdminCinemasPage } from './pages/admin/AdminCinemasPage'
 import { AdminShowtimesPage } from './pages/admin/AdminShowtimesPage'
 import { AdminBookingsPage } from './pages/admin/AdminBookingsPage'
 import { AdminUsersPage } from './pages/admin/AdminUsersPage'
+import { AdminReportsPage } from './pages/admin/AdminReportsPage'
 import { StaffPosPage } from './pages/staff/StaffPosPage'
 import { StaffBookingsPage } from './pages/staff/StaffBookingsPage'
 import { StaffValidatePage } from './pages/staff/StaffValidatePage'
@@ -121,6 +122,7 @@ function Shell() {
             <Route path="showtimes" element={<AdminShowtimesPage />} />
             <Route path="bookings" element={<AdminBookingsPage />} />
             <Route path="users" element={<AdminUsersPage />} />
+<Route path="reports" element={<AdminReportsPage />} />
           </Route>
 
           <Route
