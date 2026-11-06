@@ -64,9 +64,6 @@ export function MovieDetail() {
   const related = movies.filter((item) => item.id !== movie.id).slice(0, 5)
   const trailerEmbedUrl = toYouTubeEmbed(movie.trailerUrl)
   const trailerAvailable = Boolean(trailerEmbedUrl)
-  const trailerWatchUrl = trailerEmbedUrl
-    ? trailerEmbedUrl.replace('/embed/', '/watch?v=').replace('?rel=0', '')
-    : ''
 
   function toYouTubeEmbed(url: string): string {
     if (!url) return ''
@@ -290,15 +287,6 @@ export function MovieDetail() {
                   <p style={{ margin: 0, fontSize: 14 }}>
                     Không tải được trailer trong trình duyệt hiện tại.
                   </p>
-                  <a
-                    href={trailerWatchUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn btn-primary btn-sm"
-                  >
-                    <Icon name="play" size={16} />
-                    Mở trailer trên YouTube
-                  </a>
                 </div>
               )}
             </div>
