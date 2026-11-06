@@ -146,11 +146,11 @@ export const adminService = {
     return res.data.data
   },
   updateUserRoles: async (id: number, roles: string[]): Promise<AdminUser> => {
-    const res = await api.patch<Envelope<AdminUser>>(`/admin/users/${id}/roles`, { roles })
+    const res = await api.put<Envelope<AdminUser>>(`/admin/users/${id}/roles`, { roles })
     return res.data.data
   },
   updateUserStatus: async (id: number, active: boolean): Promise<AdminUser> => {
-    const res = await api.patch<Envelope<AdminUser>>(`/admin/users/${id}/status`, { active })
+    const res = await api.put<Envelope<AdminUser>>(`/admin/users/${id}/status`, { active })
     return res.data.data
   },
 }
