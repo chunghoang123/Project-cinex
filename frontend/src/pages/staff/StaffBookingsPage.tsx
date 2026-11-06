@@ -15,6 +15,8 @@ export function StaffBookingsPage() {
   const [error, setError] = useState('')
   const [selected, setSelected] = useState<Booking | null>(null)
   const [cancelling, setCancelling] = useState(false)
+  const [alertModal, setAlertModal] = useState<{ title: string; message: string } | null>(null)
+  const [pendingCancel, setPendingCancel] = useState<Booking | null>(null)
 
   const load = (keyword = q) => {
     setLoading(true)
@@ -36,14 +38,20 @@ export function StaffBookingsPage() {
   }
 
   const cancelBooking = async (booking: Booking) => {
-    if (!window.confirm(`Hủy đơn ${booking.bookingCode}? Ghế sẽ được trả lại và vé bị vô hiệu hóa.`)) return
+    setPendingCancel(booking)
+  }
+
+  const confirmCancel = async () => {
+    if (!pendingCancel) return
+    const booking = pendingCancel
     setCancelling(true)
     try {
       const updated = await staffService.cancelBooking(booking.bookingCode)
       setSelected((current) => current?.bookingCode === updated.bookingCode ? updated : current)
       load()
+      setPendingCancel(null)
     } catch (err) {
-      window.alert(errorMessage(err, 'Không thể hủy đơn'))
+      setAlertModal({ title: 'Không thể hủy đơn', message: errorMessage(err, 'Không thể hủy đơn') })
     } finally {
       setCancelling(false)
     }
@@ -213,6 +221,44 @@ export function StaffBookingsPage() {
             </div>
           </div>
         )}
+      </Modal>
+      <Modal
+        open={Boolean(pendingCancel)}
+        title="Xác nhận hủy đơn"
+        subtitle={pendingCancel ? `Mã đơn ${pendingCancel.bookingCode}` : ''}
+        onClose={() => !cancelling && setPendingCancel(null)}
+        size="sm"
+        dismissible={!cancelling}
+        footer={
+          <>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setPendingCancel(null)} disabled={cancelling}>
+              Đóng
+            </button>
+            <button type="button" className="btn btn-danger btn-sm" onClick={confirmCancel} disabled={cancelling}>
+              {cancelling ? 'Đang hủy…' : 'Hủy đơn'}
+            </button>
+          </>
+        }
+      >
+        <p style={{ margin: 0 }}>
+          Hủy đơn <strong>{pendingCancel?.bookingCode}</strong>? Ghế sẽ được trả lại và vé bị vô hiệu hóa.
+        </p>
+      </Modal>
+      <Modal
+        open={Boolean(alertModal)}
+        title={alertModal?.title ?? 'Thông báo'}
+        onClose={() => setAlertModal(null)}
+        size="sm"
+        footer={
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => setAlertModal(null)}>
+            Đã hiểu
+          </button>
+        }
+      >
+        <div className="row gap-8" style={{ alignItems: 'flex-start' }}>
+          <Icon name="alert" size={20} />
+          <p style={{ margin: 0 }}>{alertModal?.message}</p>
+        </div>
       </Modal>
     </div>
   )

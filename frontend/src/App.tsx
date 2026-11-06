@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-route
 import { Header } from './components/layout/Header'
 import { Footer } from './components/layout/Footer'
 import { BottomNav } from './components/layout/BottomNav'
+import { authService } from './services/authService'
 import { Home } from './pages/Home'
 import { MovieList } from './pages/MovieList'
 import { MovieDetail } from './pages/MovieDetail'
@@ -42,10 +43,44 @@ function ScrollToTop() {
   return null
 }
 
+/** Tự kiểm tra phiên định kỳ: tài khoản bị khóa hoặc hết hạn sẽ bị đẩy về trang đăng nhập. */
+function useSessionWatch() {
+  useEffect(() => {
+    const redirectToLogin = () => {
+      if (!['/login', '/register'].includes(window.location.pathname)) {
+        window.location.href = '/login'
+      }
+    }
+    const check = () => {
+      if (!authService.isAuthenticated()) {
+        authService.logout()
+        redirectToLogin()
+        return
+      }
+      // Bị khóa phía server sẽ trả 401 ở đây; interceptor trong axios.ts tự đăng xuất + chuyển trang.
+      authService.me().catch(() => {})
+    }
+    if (!authService.getToken()) return
+    check()
+    const interval = window.setInterval(check, 60_000)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') check()
+    }
+    window.addEventListener('focus', onVisible)
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      window.clearInterval(interval)
+      window.removeEventListener('focus', onVisible)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [])
+}
+
 function Shell() {
   const location = useLocation()
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register'
   const isConsole = location.pathname.startsWith('/admin') || location.pathname.startsWith('/staff')
+  useSessionWatch()
 
   return (
     <div className={isConsole ? 'console-root' : 'app-shell'}>
