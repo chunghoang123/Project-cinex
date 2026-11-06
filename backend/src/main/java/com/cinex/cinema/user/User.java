@@ -50,6 +50,14 @@ public class User extends BaseEntity implements org.springframework.security.cor
     @Column(nullable = false)
     private boolean active = true;
 
+    /** Token đặt lại mật khẩu đã hash (SHA-256), null nếu không có yêu cầu đang hiệu lực. */
+    @Column(name = "password_reset_token", length = 128)
+    private String passwordResetToken;
+
+    /** Thời điểm hết hạn của token đặt lại mật khẩu, null nếu không có yêu cầu đang hiệu lực. */
+    @Column(name = "password_reset_expires")
+    private LocalDateTime passwordResetExpires;
+
     @Override
     public java.util.Collection<? extends org.springframework.security.core.GrantedAuthority> getAuthorities() {
         return roles.stream()

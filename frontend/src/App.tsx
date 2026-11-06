@@ -13,6 +13,7 @@ import { Payment } from './pages/Payment'
 import { PaymentReturn } from './pages/PaymentReturn'
 import { TicketView } from './pages/TicketView'
 import { Login } from './pages/Login'
+import { ResetPassword } from './pages/ResetPassword'
 import { Register } from './pages/Register'
 import { BookingHistory } from './pages/BookingHistory'
 import { Profile } from './pages/Profile'
@@ -63,6 +64,8 @@ function Shell() {
           <Route path="/ticket/:bookingId" element={<TicketView />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/history" element={<BookingHistory />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/search" element={<Search />} />
