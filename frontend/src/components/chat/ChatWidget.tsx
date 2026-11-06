@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import axios from 'axios'
 import { Icon } from '../ui/Icon'
 import { aiService } from '../../services/aiService'
@@ -165,6 +166,8 @@ export function ChatWidget() {
     void send(input)
   }
 
+  const closeChat = () => setOpen(false)
+
   return (
     <>
       {open && (
@@ -197,7 +200,7 @@ export function ChatWidget() {
                     <>
                       <div className="chat-posters">
                         {message.movies.map((movie) => (
-                          <a key={movie.movieId} href={`/movies/${movie.movieId}`} className="chat-poster" title={movie.title}>
+                          <Link key={movie.movieId} to={`/movies/${movie.movieId}`} className="chat-poster" title={movie.title} onClick={closeChat}>
                             {movie.posterUrl ? (
                               <img src={movie.posterUrl} alt={movie.title} loading="lazy" />
                             ) : (
@@ -207,24 +210,24 @@ export function ChatWidget() {
                             )}
                             <span className="chat-poster__title">{movie.title}</span>
                             {movie.genre && <span className="chat-poster__genre">{movie.genre}</span>}
-                          </a>
+                          </Link>
                         ))}
                       </div>
                       <div className="chat-posters-actions">
                         {message.movies.map((movie) => (
-                          <a key={movie.movieId} href={`/showtimes?movieId=${movie.movieId}`} className="chat-cta">
+                          <Link key={movie.movieId} to={`/showtimes?movieId=${movie.movieId}`} className="chat-cta" onClick={closeChat}>
                             <Icon name="calendar" size={15} />
                             Đặt vé · {movie.title}
-                          </a>
+                          </Link>
                         ))}
                       </div>
                     </>
                   )}
                   {link && (
-                    <a className="chat-msg__link" href={link.to}>
+                    <Link className="chat-msg__link" to={link.to} onClick={closeChat}>
                       {link.label}
                       <Icon name="arrow-right" size={14} />
-                    </a>
+                    </Link>
                   )}
                   {message.time && <div className="chat-time">{message.time}</div>}
                 </div>
@@ -241,10 +244,10 @@ export function ChatWidget() {
 
           <div className="chat-quicklinks" aria-label="Lối tắt đặt vé">
             {quickLinks.map((link) => (
-              <a key={link.to} className="chip" href={link.to}>
+              <Link key={link.to} className="chip" to={link.to} onClick={closeChat}>
                 <Icon name={link.to === '/movies' ? 'film' : link.to === '/showtimes' ? 'calendar' : 'ticket'} size={14} />
                 {link.label}
-              </a>
+              </Link>
             ))}
           </div>
 
