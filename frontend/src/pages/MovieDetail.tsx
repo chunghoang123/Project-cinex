@@ -288,7 +288,7 @@ export function MovieDetail() {
                 >
                   <Icon name="alert" size={32} />
                   <p style={{ margin: 0, fontSize: 14 }}>
-                    Không tải được trailer ngay trong trang (có thể do mạng hoặc trình duyệt chặn).
+                    Không tải được trailer trong trình duyệt hiện tại.
                   </p>
                   <a
                     href={trailerWatchUrl}
@@ -301,17 +301,6 @@ export function MovieDetail() {
                   </a>
                 </div>
               )}
-            </div>
-            <div style={{ marginTop: 10, textAlign: 'center' }}>
-              <a
-                href={trailerWatchUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn-link"
-                style={{ fontSize: 13 }}
-              >
-                Không xem được? Mở trailer trực tiếp trên YouTube ↗
-              </a>
             </div>
           </div>
         </div>
