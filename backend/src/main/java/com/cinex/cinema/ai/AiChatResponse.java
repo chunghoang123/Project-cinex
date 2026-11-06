@@ -1,4 +1,9 @@
 package com.cinex.cinema.ai;
 
-public record AiChatResponse(String reply, String model) {
+import java.util.List;
+
+public record AiChatResponse(String reply, String model, List<AiMovieSuggestion> movies) {
+    public AiChatResponse(String reply, String model) {
+        this(reply, model, List.of());
+    }
 }

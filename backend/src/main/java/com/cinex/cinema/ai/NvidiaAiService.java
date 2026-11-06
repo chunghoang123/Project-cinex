@@ -79,7 +79,7 @@ public class NvidiaAiService {
         Map<String, Object> body = Map.of(
             "model", model,
             "messages", messages,
-            "temperature", 0.5,
+            "temperature", 0.2,
             "top_p", 0.9,
             "max_tokens", 1024,
             "stream", false
@@ -139,7 +139,6 @@ public class NvidiaAiService {
                 throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
                     "NVIDIA đang giới hạn lượt gọi, vui lòng thử lại sau ít phút");
             }
-            // Trả 503 thay vì 502/504 để Cloudflare không chèn trang lỗi và người dùng vẫn thấy message
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
                 "NVIDIA chưa phục vụ model hiện tại (" + status + "), thử lại ít phút nữa");
         } catch (ResourceAccessException ex) {
@@ -165,7 +164,6 @@ public class NvidiaAiService {
         }
         String content = choices.get(0).path("message").path("content").asText("");
         if (content.isBlank()) {
-            // Model có thể tiêu max_tokens vào reasoning_content mà chưa sinh nội dung
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
                 "NVIDIA trả về câu trả lời trống, vui lòng thử lại");
         }

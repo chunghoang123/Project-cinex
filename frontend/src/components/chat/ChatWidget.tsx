@@ -3,7 +3,7 @@ import type { FormEvent } from 'react'
 import axios from 'axios'
 import { Icon } from '../ui/Icon'
 import { aiService } from '../../services/aiService'
-import type { AiChatMessage } from '../../services/aiService'
+import type { AiChatMessage, AiMovieSuggestion } from '../../services/aiService'
 
 interface Message {
   id: number
@@ -11,6 +11,7 @@ interface Message {
   text: string
   time: string
   error?: boolean
+  movies?: AiMovieSuggestion[]
 }
 
 interface QuickLink {
@@ -138,7 +139,7 @@ export function ChatWidget() {
         if (!reply) throw new Error('CineX AI không trả về nội dung.')
         setMessages((current) => [
           ...current,
-          { id: Date.now() + 1, role: 'ai', text: reply, time: now() },
+          { id: Date.now() + 1, role: 'ai', text: reply, time: now(), movies: result?.movies || [] },
         ])
       } catch (error) {
         setMessages((current) => [
@@ -192,6 +193,23 @@ export function ChatWidget() {
               return (
                 <div key={message.id} className={`chat-msg ${message.role === 'ai' ? 'is-ai' : 'is-user'}`}>
                   <div className="chat-msg__text">{formatText(message.text)}</div>
+                  {message.movies && message.movies.length > 0 && (
+                    <div className="chat-posters">
+                      {message.movies.map((movie) => (
+                        <a key={movie.movieId} href={`/movies/${movie.movieId}`} className="chat-poster" title={movie.title}>
+                          {movie.posterUrl ? (
+                            <img src={movie.posterUrl} alt={movie.title} loading="lazy" />
+                          ) : (
+                            <span className="chat-poster__fallback">
+                              <Icon name="film" size={20} />
+                            </span>
+                          )}
+                          <span className="chat-poster__title">{movie.title}</span>
+                          {movie.genre && <span className="chat-poster__genre">{movie.genre}</span>}
+                        </a>
+                      ))}
+                    </div>
+                  )}
                   {link && (
                     <a className="chat-msg__link" href={link.to}>
                       {link.label}

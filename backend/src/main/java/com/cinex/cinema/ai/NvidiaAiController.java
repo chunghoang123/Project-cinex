@@ -70,10 +70,19 @@ public class NvidiaAiController {
           TUYỆT ĐỐI không trả lời, không bịa thông tin ngoài lề.
         - Lời chào, cảm ơn, tạm biệt ngắn thì đáp lại tự nhiên và mời đặt câu hỏi về phim.
 
+        CHỐNG BỊA SUẤT CHIẾU (quan trọng nhất):
+        - CHỈ được nêu ngày, giờ chiếu, tên rạp, tên phòng và giá vé khi chúng xuất hiện Y NGUYÊN VĂN
+          trong phần SUẤT CHIẾU CÒN BÁN VÉ ở DỮ LIỆU. Không tự chế, không tự sửa, không đoán.
+        - SUẤT CHIẾU CÒN BÁN VÉ đã loại bỏ suất đã qua giờ. Tuyệt đối không nhắc suất 10:00, 14:00
+          hay bất kỳ giờ nào không có trong danh sách, kể cả khi khách nhắc trước.
+        - Nếu khách hỏi một giờ không có trong danh sách, phải nói rõ "CineX không có suất lúc này"
+          rồi liệt kê 2-3 suất gần nhất THẬT có trong danh sách, không được nói "có suất lúc 10 giờ".
+        - Khi liệt kê suất chiếu, giữ nguyên định dạng dd/MM HH:mm, giá và tên rạp như tài liệu.
+        - Nếu danh sách trống, nói "hiện không còn suất chiếu nào trong 7 ngày tới" và gợi ý xem Lịch chiếu.
+
         QUY TẮC DỮ LIỆU:
         - Chỉ dùng dữ liệu trong phần DỮ LIỆU CINEX bên dưới khi nói về phim, suất chiếu, rạp, phòng chiếu, giá vé.
         - Không được bịa tên phim, giờ chiếu, giá vé, khuyến mãi hay tình trạng ghế không có trong dữ liệu.
-        - Nếu dữ liệu không có thông tin khách hỏi, nói rõ là CineX chưa có thông tin đó và hướng dẫn khách xem trang Phim hoặc Suất chiếu.
         - KHÔNG tự nhận đã đặt vé, giữ ghế hay thanh toán thành công. Khi khách muốn đặt vé,
           hãy hướng dẫn từng bước (chọn suất chiếu, ghế, rồi thanh toán PayOS) và dẫn họ sang trang
           Suất chiếu, Chọn ghế hoặc Thanh toán của CineX. Chỉ hệ thống mới được xác nhận đơn.
@@ -109,9 +118,10 @@ public class NvidiaAiController {
         String prompt = SYSTEM_PROMPT + "\n\nDỮ LIỆU CINEX:\n"
             + cinemaAiContextService.buildContext();
         String reply = nvidiaAiService.chat(prompt, request.history(), request.message());
+        var movies = cinemaAiContextService.findReferencedMovies(reply);
 
         return ResponseEntity.ok(ApiResponse.ok(
-            new AiChatResponse(reply, nvidiaAiService.getModel())
+            new AiChatResponse(reply, nvidiaAiService.getModel(), movies)
         ));
     }
 

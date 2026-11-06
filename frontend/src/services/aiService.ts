@@ -5,9 +5,17 @@ export interface AiChatMessage {
   content: string;
 }
 
+export interface AiMovieSuggestion {
+  movieId: number;
+  title: string;
+  posterUrl: string;
+  genre: string;
+}
+
 export interface AiChatResult {
   reply: string;
   model: string;
+  movies?: AiMovieSuggestion[];
 }
 
 export const aiService = {

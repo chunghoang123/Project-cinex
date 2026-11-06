@@ -10,15 +10,15 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.text.NumberFormat;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
 
 /**
- * Dựng dữ liệu thật của CineX (phim đang chiếu + suất chiếu 7 ngày tới)
- * để đưa vào prompt, tránh việc AI bịa phim, rạp, giờ chiếu hay giá vé.
+ * Dựng dữ liệu thật của CineX (phim đang chiếu + suất chiếu từ thời điểm hiện tại)
+ * để mẫu AI chỉ nhắc suất còn bán vé, giống trang Lịch chiếu.
  */
 @Service
 public class CinemaAiContextService {
@@ -42,24 +42,26 @@ public class CinemaAiContextService {
 
     @Transactional(readOnly = true)
     public String buildContext() {
-        LocalDate today = LocalDate.now(CINEMA_ZONE);
+        LocalDateTime now = LocalDateTime.now(CINEMA_ZONE);
         List<Movie> movies = movieRepository.findByStatusAndActiveTrue(MovieStatus.NOW_SHOWING);
         List<Showtime> showtimes = showtimeRepository
             .findByStartTimeBetweenAndActiveTrueOrderByStartTimeAsc(
-                today.atStartOfDay(),
-                today.plusDays(7).atStartOfDay()
+                now,
+                now.plusDays(7)
             );
 
         StringBuilder builder = new StringBuilder(4096);
-        builder.append("Hôm nay là ").append(today.format(DATE_FORMAT))
-            .append(" (múi giờ Việt Nam).\n\n");
+        builder.append("Bây giờ là ").append(now.format(TIME_FORMAT))
+            .append(' ').append(now.format(DATE_FORMAT))
+            .append(" (giờ Việt Nam). Chỉ các suất TRONG DANH SÁCH dưới đây mới còn bán vé.\n\n");
 
         builder.append("PHIM ĐANG CHIẾU TẠI CINEX:\n");
         if (movies.isEmpty()) {
             builder.append("- Hiện chưa có phim nào đang chiếu trong hệ thống.\n");
         } else {
             for (Movie movie : movies) {
-                builder.append("- ").append(movie.getTitle());
+                builder.append("- [id=").append(movie.getId()).append("] ")
+                    .append(movie.getTitle());
                 if (movie.getGenre() != null && !movie.getGenre().isBlank()) {
                     builder.append(" | thể loại: ").append(movie.getGenre());
                 }
@@ -69,6 +71,9 @@ public class CinemaAiContextService {
                 if (movie.getAgeRating() != null) {
                     builder.append(" | giới hạn ").append(movie.getAgeRating()).append("+");
                 }
+                if (movie.getPosterUrl() != null && !movie.getPosterUrl().isBlank()) {
+                    builder.append("\n  poster: ").append(movie.getPosterUrl());
+                }
                 if (movie.getDescription() != null && !movie.getDescription().isBlank()) {
                     builder.append("\n  Nội dung: ").append(shorten(movie.getDescription()));
                 }
@@ -76,9 +81,9 @@ public class CinemaAiContextService {
             }
         }
 
-        builder.append("\nSUẤT CHIẾU 7 NGÀY TỚI:\n");
+        builder.append("\nSUẤT CHIẾU CÒN BÁN VÉ (từ bây giờ đến 7 ngày tới):\n");
         if (showtimes.isEmpty()) {
-            builder.append("- Chưa có suất chiếu nào trong 7 ngày tới.\n");
+            builder.append("- Không còn suất chiếu nào trong 7 ngày tới.\n");
         } else {
             showtimes.stream().limit(MAX_SHOWTIMES).forEach(showtime ->
                 builder.append("- ")
@@ -97,7 +102,7 @@ public class CinemaAiContextService {
         }
 
         builder.append("""
-
+ 
             QUY ĐỊNH CINEX:
             - Thanh toán trực tuyến chỉ qua PayOS; khách không tự huỷ vé sau khi đã thanh toán.
             - Ghế chỉ được giữ sau khi thanh toán thành công.
@@ -105,6 +110,31 @@ public class CinemaAiContextService {
             """);
 
         return builder.toString();
+    }
+
+    /**
+     * Tìm các phim thật được nhắc tới trong câu trả lời của AI để frontend hiển thị poster.
+     * Chỉ trả về tối đa 3 phim, theo thứ tự lần đầu xuất hiện trong câu trả lời.
+     */
+    @Transactional(readOnly = true)
+    public List<AiMovieSuggestion> findReferencedMovies(String reply) {
+        if (reply == null || reply.isBlank()) {
+            return List.of();
+        }
+        String lower = reply.toLowerCase(Locale.ROOT);
+        List<Movie> movies = movieRepository.findByStatusAndActiveTrue(MovieStatus.NOW_SHOWING);
+        return movies.stream()
+            .filter(movie -> movie.getTitle() != null
+                && !movie.getTitle().isBlank()
+                && lower.contains(movie.getTitle().toLowerCase(Locale.ROOT)))
+            .map(movie -> new AiMovieSuggestion(
+                movie.getId(),
+                movie.getTitle(),
+                movie.getPosterUrl(),
+                movie.getGenre()
+            ))
+            .limit(3)
+            .toList();
     }
 
     private static String shorten(String value) {
