@@ -194,21 +194,31 @@ export function ChatWidget() {
                 <div key={message.id} className={`chat-msg ${message.role === 'ai' ? 'is-ai' : 'is-user'}`}>
                   <div className="chat-msg__text">{formatText(message.text)}</div>
                   {message.movies && message.movies.length > 0 && (
-                    <div className="chat-posters">
-                      {message.movies.map((movie) => (
-                        <a key={movie.movieId} href={`/movies/${movie.movieId}`} className="chat-poster" title={movie.title}>
-                          {movie.posterUrl ? (
-                            <img src={movie.posterUrl} alt={movie.title} loading="lazy" />
-                          ) : (
-                            <span className="chat-poster__fallback">
-                              <Icon name="film" size={20} />
-                            </span>
-                          )}
-                          <span className="chat-poster__title">{movie.title}</span>
-                          {movie.genre && <span className="chat-poster__genre">{movie.genre}</span>}
-                        </a>
-                      ))}
-                    </div>
+                    <>
+                      <div className="chat-posters">
+                        {message.movies.map((movie) => (
+                          <a key={movie.movieId} href={`/movies/${movie.movieId}`} className="chat-poster" title={movie.title}>
+                            {movie.posterUrl ? (
+                              <img src={movie.posterUrl} alt={movie.title} loading="lazy" />
+                            ) : (
+                              <span className="chat-poster__fallback">
+                                <Icon name="film" size={20} />
+                              </span>
+                            )}
+                            <span className="chat-poster__title">{movie.title}</span>
+                            {movie.genre && <span className="chat-poster__genre">{movie.genre}</span>}
+                          </a>
+                        ))}
+                      </div>
+                      <div className="chat-posters-actions">
+                        {message.movies.map((movie) => (
+                          <a key={movie.movieId} href={`/showtimes?movieId=${movie.movieId}`} className="chat-cta">
+                            <Icon name="calendar" size={15} />
+                            Đặt vé · {movie.title}
+                          </a>
+                        ))}
+                      </div>
+                    </>
                   )}
                   {link && (
                     <a className="chat-msg__link" href={link.to}>

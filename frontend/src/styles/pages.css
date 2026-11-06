@@ -2044,6 +2044,34 @@
   text-overflow: ellipsis;
 }
 
+.chat-posters-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.chat-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--gradient);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: none;
+  box-shadow: 0 6px 14px rgba(34, 211, 238, 0.24);
+  transition: transform 0.16s ease;
+}
+
+.chat-cta:hover {
+  transform: translateY(-1px);
+  text-decoration: none;
+}
+
 .chat-msg__link {
   display: inline-flex;
   align-items: center;
