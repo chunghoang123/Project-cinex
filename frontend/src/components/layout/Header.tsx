@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import type { FormEvent } from 'react'
 import { authService } from '../../services/authService'
-import { Avatar } from '../ui/Avatar'
 import { Icon } from '../ui/Icon'
 import { Logo } from '../ui/Logo'
 
