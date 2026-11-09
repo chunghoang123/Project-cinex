@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import type { FormEvent } from 'react'
@@ -39,7 +39,6 @@ export function Header() {
   }
 
   const handleLogout = () => {
-    setMenuOpen(false)
     setLoggingOut(true)
     window.setTimeout(() => {
       authService.logout()
@@ -84,6 +83,12 @@ export function Header() {
               <Icon name="logout" size={19} />
             </button>
           ) : (
+            <Link to="/login" className="header-icon mobile-only" aria-label="Đăng nhập">
+              <Icon name="login" size={19} />
+            </Link>
+          )}
+
+          {!token && (
             <Link to="/login" className="btn btn-primary btn-sm">
               Đăng nhập
             </Link>
