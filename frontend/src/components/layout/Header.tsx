@@ -100,49 +100,15 @@ export function Header() {
           </Link>
 
           {token ? (
-            <div className="header-user-wrap" ref={menuRef}>
-              <button
-                type="button"
-                className="header-user"
-                onClick={() => setMenuOpen((value) => !value)}
-                aria-expanded={menuOpen}
-                aria-haspopup="menu"
-              >
-                <div>
-                  <div className="header-user__name">{displayName}</div>
-                  <div className="header-user__role">
-                    {isConsoleUser ? 'Vào console' : 'Thành viên Cinex'}
-                  </div>
-                </div>
-                {isConsoleUser ? (
-                  <span className="console-avatar" style={{ width: 30, height: 30, fontSize: 10 }}>
-                    {(user?.fullName || user?.username || 'CX').slice(0, 2).toUpperCase()}
-                  </span>
-                ) : (
-                  <Avatar alt={displayName} size="sm" />
-                )}
-                <Icon name="chevron-down" size={14} />
-              </button>
-
-              {menuOpen && (
-                <div className="header-dropdown" role="menu">
-                  <Link to="/profile" className="header-dropdown__item" role="menuitem" onClick={() => setMenuOpen(false)}>
-                    <Icon name="user" size={16} />
-                    <span>Hồ sơ cá nhân</span>
-                  </Link>
-                  {isConsoleUser && (
-                    <Link to={consolePath} className="header-dropdown__item" role="menuitem" onClick={() => setMenuOpen(false)}>
-                      <Icon name="dashboard" size={16} />
-                      <span>Cinex Console</span>
-                    </Link>
-                  )}
-                  <button type="button" className="header-dropdown__item header-dropdown__item--danger" role="menuitem" onClick={handleLogout}>
-                    <Icon name="logout" size={16} />
-                    <span>Đăng xuất</span>
-                  </button>
-                </div>
-              )}
-            </div>
+            <button
+              type="button"
+              className="header-icon mobile-only"
+              aria-label="Đăng xuất"
+              title="Đăng xuất"
+              onClick={handleLogout}
+            >
+              <Icon name="logout" size={19} />
+            </button>
           ) : (
             <Link to="/login" className="btn btn-primary btn-sm">
               Đăng nhập
