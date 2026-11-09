@@ -21,6 +21,7 @@ export type IconName =
   | 'share'
   | 'settings'
   | 'logout'
+  | 'login'
   | 'plus'
   | 'check'
   | 'close'
