@@ -17,32 +17,10 @@ export function Header() {
   const navigate = useNavigate()
   const location = useLocation()
   const token = authService.getToken()
-  const user = authService.getUser()
-  const isConsoleUser = authService.isStaffOrAdmin()
-  const consolePath = authService.hasRole('ROLE_ADMIN') ? '/admin' : '/staff/pos'
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register'
 
   const [menuOpen, setMenuOpen] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
-  const menuRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!menuOpen) return
-    const onClick = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setMenuOpen(false)
-      }
-    }
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setMenuOpen(false)
-    }
-    document.addEventListener('mousedown', onClick)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onClick)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [menuOpen])
 
   useEffect(() => {
     if (!loggingOut) return
@@ -70,8 +48,6 @@ export function Header() {
       navigate('/login')
     }, 300)
   }
-
-  const displayName = user?.fullName || user?.username || (isConsoleUser ? 'Cinex Console' : 'Khách')
 
   return (
     <header className="site-header">
