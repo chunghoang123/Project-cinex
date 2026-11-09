@@ -450,7 +450,7 @@
   width: min(520px, calc(100% - 24px));
   height: var(--bottom-nav-h);
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   align-items: center;
   padding: 6px 6px;
   border-radius: 22px;
@@ -465,7 +465,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 3px;
   height: 100%;
   border-radius: 16px;
   color: var(--muted);
