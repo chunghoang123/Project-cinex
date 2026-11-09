@@ -18,7 +18,6 @@ export function Header() {
   const token = authService.getToken()
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register'
 
-  const [menuOpen, setMenuOpen] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
 
   useEffect(() => {
