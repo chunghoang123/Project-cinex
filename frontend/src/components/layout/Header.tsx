@@ -19,6 +19,26 @@ export function Header() {
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register'
 
   const [loggingOut, setLoggingOut] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  // Đóng dropdown khi bấm ra ngoài hoặc bấm Esc
+  useEffect(() => {
+    if (!menuOpen) return
+    const onClick = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMenuOpen(false)
+    }
+    document.addEventListener('mousedown', onClick)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onClick)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [menuOpen])
 
   useEffect(() => {
     if (!loggingOut) return
