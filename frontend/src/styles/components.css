@@ -370,6 +370,8 @@
   display: block;
 }
 
+.header-icon.mobile-only {
+  display: grid;
 @media (min-width: 1024px) {
   .desktop-nav {
     display: flex;
