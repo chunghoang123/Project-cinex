@@ -1,8 +1,9 @@
-﻿import { useEffect, useState } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import type { FormEvent } from 'react'
 import { authService } from '../../services/authService'
+import { Avatar } from '../ui/Avatar'
 import { Icon } from '../ui/Icon'
 import { Logo } from '../ui/Logo'
 
@@ -16,8 +17,12 @@ export function Header() {
   const navigate = useNavigate()
   const location = useLocation()
   const token = authService.getToken()
+  const user = authService.getUser()
+  const isConsoleUser = authService.isStaffOrAdmin()
+  const consolePath = authService.hasRole('ROLE_ADMIN') ? '/admin' : '/staff/pos'
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register'
 
+  const [menuOpen, setMenuOpen] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -59,12 +64,15 @@ export function Header() {
   }
 
   const handleLogout = () => {
+    setMenuOpen(false)
     setLoggingOut(true)
     window.setTimeout(() => {
       authService.logout()
       navigate('/login')
     }, 300)
   }
+
+  const displayName = user?.fullName || user?.username || (isConsoleUser ? 'Cinex Console' : 'Khách')
 
   return (
     <header className="site-header">
@@ -92,7 +100,7 @@ export function Header() {
             <Icon name="bell" size={19} />
           </Link>
 
-          {token ? (
+          {token && (
             <button
               type="button"
               className="header-icon mobile-only"
@@ -102,7 +110,9 @@ export function Header() {
             >
               <Icon name="logout" size={19} />
             </button>
-          ) : (
+          )}
+
+          {!token && (
             <Link to="/login" className="header-icon mobile-only" aria-label="Đăng nhập">
               <Icon name="login" size={19} />
             </Link>

@@ -366,12 +366,12 @@
   display: initial;
 }
 
-.header-icon svg {
-  display: block;
-}
-
 .header-icon.mobile-only {
   display: grid;
+}
+
+.header-icon svg {
+  display: block;
 }
 
 @media (min-width: 1024px) {
