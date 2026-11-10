@@ -40,6 +40,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
+    private final EmailService emailService;
 
     /** Google OAuth Client ID, cấu hình qua biến môi trường GOOGLE_CLIENT_ID */
     @Value("${app.oauth2.google.client-id:}")
@@ -209,7 +210,7 @@ public class AuthService {
 
         if (user.getPasswordResetExpires() == null
                 || user.getPasswordResetExpires().isBefore(LocalDateTime.now())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Token đặt lại mật khẩu đã hết hạn");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mã OTP đặt lại mật khẩu đã hết hạn");
         }
 
         user.setPassword(passwordEncoder.encode(newPassword));

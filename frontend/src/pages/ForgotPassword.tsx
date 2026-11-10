@@ -60,7 +60,7 @@ export function ForgotPassword() {
               {result.resetToken && (
                 <div style={{ marginTop: 12 }}>
                   <p className="muted" style={{ fontSize: 13 }}>
-                    (Chế độ dev: không có SMTP, token đặt lại được trả trực tiếp để bạn test.)
+                    (Chế độ dev: không có SMTP, mã OTP đặt lại được trả trực tiếp để bạn test.)
                   </p>
                   <p style={{ marginTop: 8, wordBreak: 'break-all' }}>
                     <strong>Token:</strong> <code>{result.resetToken}</code>
