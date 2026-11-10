@@ -23,6 +23,7 @@ import com.google.api.client.json.gson.GsonFactory;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
@@ -46,9 +47,9 @@ public class AuthService {
     @Value("${app.oauth2.google.client-id:}")
     private String googleClientId;
 
-    /** Thời gian hiệu lực (phút) của token đặt lại mật khẩu */
-    @Value("${app.auth.reset-token-ttl-minutes:30}")
-    private int resetTokenTtlMinutes;
+    /** Thời gian hiệu lực (phút) của mã OTP đặt lại mật khẩu */
+    @Value("${app.auth.otp-expire-minutes:5}")
+    private int otpExpireMinutes;
 
     /** Dev mode: trả token trong response để test khi chưa có SMTP. Production nên set false. */
     @Value("${app.auth.expose-reset-token:true}")
@@ -56,12 +57,13 @@ public class AuthService {
 
     public AuthService(UserRepository userRepository, RoleRepository roleRepository,
                        PasswordEncoder passwordEncoder, JwtService jwtService,
-                       AuthenticationManager authenticationManager) {
+                       AuthenticationManager authenticationManager, EmailService emailService) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.authenticationManager = authenticationManager;
+        this.emailService = emailService;
     }
 
     public AuthResponse register(RegisterRequest request) {
@@ -200,13 +202,13 @@ public class AuthService {
      * và xoá token để không tái sử dụng.
      */
     @Transactional
-    public void resetPassword(String rawToken, String newPassword) {
-        if (rawToken == null || rawToken.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Token đặt lại mật khẩu không hợp lệ");
+    public void resetPassword(String otp, String newPassword) {
+        if (otp == null || otp.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mã OTP đặt lại mật khẩu không hợp lệ");
         }
         User user = userRepository.findByPasswordResetToken(hashToken(rawToken))
             .orElseThrow(() -> new ResponseStatusException(
-                HttpStatus.BAD_REQUEST, "Token đặt lại mật khẩu không hợp lệ"));
+                HttpStatus.BAD_REQUEST, "Mã OTP đặt lại mật khẩu không hợp lệ"));
 
         if (user.getPasswordResetExpires() == null
                 || user.getPasswordResetExpires().isBefore(LocalDateTime.now())) {
@@ -218,6 +220,11 @@ public class AuthService {
         user.setPasswordResetExpires(null);
         userRepository.save(user);
         log.info("Tài khoản {} đã đặt lại mật khẩu", user.getUsername());
+    }
+
+    /** Sinh mã OTP gồm 6 chữ số ngẫu nhiên. */
+    private String generateOtp() {
+        return String.format("%06d", new SecureRandom().nextInt(1_000_000));
     }
 
     private static String hashToken(String raw) {

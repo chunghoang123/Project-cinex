@@ -55,7 +55,7 @@ public class User extends BaseEntity implements org.springframework.security.cor
     @Column(name = "password_reset_token", length = 128)
     private String passwordResetToken;
 
-    /** Thời điểm hết hạn của token đặt lại mật khẩu, null nếu không có yêu cầu đang hiệu lực. */
+    /** Thời điểm hết hạn của mã OTP đặt lại mật khẩu, null nếu không có yêu cầu đang hiệu lực. */
     @Column(name = "password_reset_expires")
     private LocalDateTime passwordResetExpires;
 
