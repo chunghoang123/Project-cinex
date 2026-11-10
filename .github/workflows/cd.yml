@@ -75,6 +75,8 @@ jobs:
           SSH_USER: ${{ secrets.SERVER_USER || secrets.SSH_USERNAME }}
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
+          MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
         run: |
           if [ -z "$NVIDIA_API_KEY" ]; then
             echo "::warning::Chưa có GitHub Secret NVIDIA_API_KEY - box AI sẽ báo chưa cấu hình"

@@ -63,7 +63,7 @@ export function ForgotPassword() {
                     (Chế độ dev: không có SMTP, mã OTP đặt lại được trả trực tiếp để bạn test.)
                   </p>
                   <p style={{ marginTop: 8, wordBreak: 'break-all' }}>
-                    <strong>Token:</strong> <code>{result.resetToken}</code>
+                    <strong>Mã OTP:</strong> <code>{result.resetToken}</code>
                   </p>
                   <p style={{ marginTop: 8 }}>
                     <Link to={`/reset-password?token=${encodeURIComponent(result.resetToken)}`}>
