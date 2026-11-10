@@ -366,6 +366,10 @@
   display: initial;
 }
 
+.header-icon svg {
+  display: block;
+}
+
 @media (min-width: 1024px) {
   .desktop-nav {
     display: flex;
