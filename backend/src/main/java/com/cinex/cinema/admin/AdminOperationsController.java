@@ -27,11 +27,9 @@ public class AdminOperationsController {
     private final AdminUserService userService;
 
     public AdminOperationsController(AdminDashboardService dashboardService,
-                                     AdminBookingService bookingService,
-                                     AdminUserService userService) {
+                                     AdminBookingService bookingService) {
         this.dashboardService = dashboardService;
         this.bookingService = bookingService;
-        this.userService = userService;
     }
 
     @GetMapping("/dashboard")
@@ -50,30 +48,5 @@ public class AdminOperationsController {
     @PostMapping("/bookings/{code}/cancel")
     public ResponseEntity<ApiResponse<BookingResponse>> cancelBooking(@PathVariable String code) {
         return ResponseEntity.ok(ApiResponse.ok("Hủy đơn thành công", bookingService.cancel(code)));
-    }
-
-    @GetMapping("/users")
-    public ResponseEntity<ApiResponse<List<UserResponse>>> users() {
-        return ResponseEntity.ok(ApiResponse.ok(userService.list()));
-    }
-
-    @PostMapping("/users")
-    public ResponseEntity<ApiResponse<UserResponse>> createUser(@Valid @RequestBody CreateUserRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED)
-            .body(ApiResponse.ok("Tạo người dùng thành công", userService.create(request)));
-    }
-
-    @PatchMapping("/users/{id}/roles")
-    public ResponseEntity<ApiResponse<UserResponse>> updateRoles(
-            @PathVariable Long id, @Valid @RequestBody UpdateUserRolesRequest request) {
-        return ResponseEntity.ok(ApiResponse.ok("Cập nhật vai trò thành công",
-            userService.updateRoles(id, request)));
-    }
-
-    @PatchMapping("/users/{id}/status")
-    public ResponseEntity<ApiResponse<UserResponse>> updateStatus(
-            @PathVariable Long id, @Valid @RequestBody UpdateUserStatusRequest request) {
-        return ResponseEntity.ok(ApiResponse.ok("Cập nhật trạng thái thành công",
-            userService.updateStatus(id, request)));
     }
 }

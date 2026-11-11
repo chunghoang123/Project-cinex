@@ -19,6 +19,8 @@ export function AdminBookingsPage() {
   const [q, setQ] = useState(searchParams.get('q') ?? '')
   const [selected, setSelected] = useState<Booking | null>(null)
   const [cancelling, setCancelling] = useState(false)
+  const [alertModal, setAlertModal] = useState<{ title: string; message: string } | null>(null)
+  const [pendingCancel, setPendingCancel] = useState<Booking | null>(null)
 
   const load = () => {
     setLoading(true)
@@ -44,7 +46,12 @@ export function AdminBookingsPage() {
   }
 
   const cancelBooking = async (booking: Booking) => {
-    if (!window.confirm(`Hủy đơn ${booking.bookingCode}? Ghế sẽ được trả lại và vé bị vô hiệu hóa.`)) return
+    setPendingCancel(booking)
+  }
+
+  const confirmCancel = async () => {
+    if (!pendingCancel) return
+    const booking = pendingCancel
     setCancelling(true)
     try {
       const updated = await adminService.cancelBooking(booking.bookingCode)

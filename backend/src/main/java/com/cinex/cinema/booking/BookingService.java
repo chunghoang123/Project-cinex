@@ -1,6 +1,7 @@
 package com.cinex.cinema.booking;
 
 import com.cinex.cinema.common.SeatPricing;
+import com.cinex.cinema.movie.MovieStatus;
 import com.cinex.cinema.payment.PayOSService;
 import com.cinex.cinema.payment.Payment;
 import com.cinex.cinema.payment.PaymentService;
@@ -76,6 +77,10 @@ public class BookingService {
         if (!showtime.isActive() || showtime.getStartTime().isBefore(LocalDateTime.now())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Suất chiếu không còn khả dụng");
         }
+        if (showtime.getMovie().getStatus() == MovieStatus.COMING_SOON) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                "Phim chưa khởi chiếu, chưa thể đặt vé");
+        }
 
         BigDecimal extraAmount = snackAmount == null ? BigDecimal.ZERO : snackAmount;
         if (extraAmount.signum() < 0) {
@@ -116,12 +121,6 @@ public class BookingService {
         }
 
         return booking;
-    }
-
-    public List<Booking> findByUserId(Long userId) {
-        return bookingRepository.findAll().stream()
-            .filter(b -> b.getUser().getId().equals(userId))
-            .collect(Collectors.toList());
     }
 
     public List<Booking> findMyBookings(Long userId) {
@@ -312,6 +311,17 @@ public class BookingService {
         Booking booking = findByBookingCode(bookingCode);
         if (booking.getStatus() == BookingStatus.CANCELLED) {
             return booking;
+        }
+        // Khách đang ở giữa quá trình thanh toán: ghế vẫn bị giữ đến khi hết thời gian giữ chỗ.
+        // Sau cooldown (online 10 phút, quầy 15 phút) đơn tự chuyển EXPIRED thì cho phép hủy.
+        if (booking.getStatus() == BookingStatus.PENDING
+            && booking.getExpiresAt() != null
+            && booking.getExpiresAt().isAfter(LocalDateTime.now())) {
+            long remainingMinutes = Math.max(1, java.time.Duration.between(
+                LocalDateTime.now(), booking.getExpiresAt()).toMinutes());
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                "Khách đang thanh toán, ghế vẫn được giữ. Có thể hủy sau khi hết thời gian giữ chỗ (còn "
+                    + remainingMinutes + " phút).");
         }
 
         booking.setStatus(BookingStatus.CANCELLED);

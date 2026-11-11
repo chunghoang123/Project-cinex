@@ -170,7 +170,7 @@ export function AdminMoviesPage() {
       <ConsolePageHeader
         eyebrow="Danh mục phim"
         title="Quản lý phim"
-        description="Thêm, cập nhật và ẩn phim khỏi hệ thống. Suất chiếu sẽ sử dụng thông tin phim đang hoạt động."
+        description="Thêm, cập nhật và ẩn phim khỏi hệ thống. Bạn có thể dùng AI để thêm phim nhanh."
         actions={
           <button type="button" className="btn btn-primary btn-sm" onClick={openCreate}>
             <Icon name="plus" size={16} /> Thêm phim

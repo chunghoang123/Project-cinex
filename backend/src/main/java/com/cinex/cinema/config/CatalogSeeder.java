@@ -177,41 +177,7 @@ public class CatalogSeeder implements CommandLineRunner {
     }
 
     private void seedShowtimes() {
-        List<Movie> movies = movieRepository.findAll().stream()
-            .filter(movie -> movie.getStatus() == MovieStatus.NOW_SHOWING && movie.isActive())
-            .limit(2)
-            .collect(Collectors.toList());
-        List<Cinema> cinemas = cinemaRepository.findAll();
-        LocalDateTime base = LocalDateTime.now().plusHours(1).withMinute(0).withSecond(0).withNano(0);
-        LocalDate tomorrow = LocalDate.now().plusDays(1);
-        List<LocalDateTime> startTimes = new ArrayList<>(List.of(
-            base,
-            base.plusHours(3),
-            base.plusHours(6),
-            tomorrow.atTime(10, 0),
-            tomorrow.atTime(14, 0),
-            tomorrow.atTime(19, 30)
-        ));
-
-        for (Movie movie : movies) {
-            for (Cinema cinema : cinemas) {
-                List<Auditorium> auditoriums = auditoriumRepository.findByCinemaIdAndActiveTrue(cinema.getId());
-                for (Auditorium auditorium : auditoriums) {
-                    for (LocalDateTime startTime : startTimes) {
-                        Showtime showtime = showtimeRepository.save(Showtime.builder()
-                            .movie(movie)
-                            .auditorium(auditorium)
-                            .startTime(startTime)
-                            .endTime(startTime.plusMinutes(movie.getDurationMinutes()))
-                            .basePrice(new BigDecimal("90000"))
-                            .status(ShowtimeStatus.ACTIVE)
-                            .active(true)
-                            .build());
-                        showtimeService.generateShowtimeSeats(showtime, auditorium);
-                    }
-                }
-            }
-        }
+        showtimeService.autoGenerateShowtimes(10);
     }
 
     private void seedBookings() {

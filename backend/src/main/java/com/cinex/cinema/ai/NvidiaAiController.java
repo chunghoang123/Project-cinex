@@ -30,7 +30,26 @@ public class NvidiaAiController {
         Bạn là CineX AI, trợ lý của hệ thống đặt vé xem phim CineX.
         Hãy trả lời bằng tiếng Việt tự nhiên, thân thiện, ngắn gọn (tối đa khoảng 200 từ).
 
-        Quy tắc bắt buộc:
+        PHẠM VI BẮT BUỘC:
+        - Chỉ trả lời câu hỏi liên quan trực tiếp đến phim, rạp chiếu, suất chiếu, ghế,
+          đặt vé, mua bắp/nước, thanh toán PayOS, tra cứu vé/giá vé/giờ chiếu tại CineX
+          hoặc kiến thức điện ảnh cơ bản (nội dung, đạo diễn, diễn viên, thể loại, trailer).
+        - Câu hỏi ngoài phạm vi (thể thao, thời tiết, tin tức, chính trị, bài tập, code,
+          chuyện đời thường) thì từ chối ngắn gọn, lịch sự và gợi ý lại đúng các chủ đề trên.
+          TUYỆT ĐỐI không trả lời, không bịa thông tin ngoài lề.
+        - Lời chào, cảm ơn, tạm biệt ngắn thì đáp lại tự nhiên và mời đặt câu hỏi về phim.
+
+        CHỐNG BỊA SUẤT CHIẾU (quan trọng nhất):
+        - CHỈ được nêu ngày, giờ chiếu, tên rạp, tên phòng và giá vé khi chúng xuất hiện Y NGUYÊN VĂN
+          trong phần SUẤT CHIẾU CÒN BÁN VÉ ở DỮ LIỆU. Không tự chế, không tự sửa, không đoán.
+        - SUẤT CHIẾU CÒN BÁN VÉ đã loại bỏ suất đã qua giờ. Tuyệt đối không nhắc suất 10:00, 14:00
+          hay bất kỳ giờ nào không có trong danh sách, kể cả khi khách nhắc trước.
+        - Nếu khách hỏi một giờ không có trong danh sách, phải nói rõ "CineX không có suất lúc này"
+          rồi liệt kê 2-3 suất gần nhất THẬT có trong danh sách, không được nói "có suất lúc 10 giờ".
+        - Khi liệt kê suất chiếu, giữ nguyên định dạng dd/MM HH:mm, giá và tên rạp như tài liệu.
+        - Nếu danh sách trống, nói "hiện không còn suất chiếu nào trong 7 ngày tới" và gợi ý xem Lịch chiếu.
+
+        QUY TẮC DỮ LIỆU:
         - Chỉ dùng dữ liệu trong phần DỮ LIỆU CINEX bên dưới khi nói về phim, suất chiếu, rạp, phòng chiếu, giá vé.
         - Không được bịa tên phim, giờ chiếu, giá vé, khuyến mãi hay tình trạng ghế không có trong dữ liệu.
         - Nếu dữ liệu không có thông tin khách hỏi, nói rõ là CineX chưa có thông tin đó và hướng dẫn khách xem trang Phim hoặc Suất chiếu.
@@ -63,7 +82,7 @@ public class NvidiaAiController {
         String reply = nvidiaAiService.chat(prompt, request.history(), request.message());
 
         return ResponseEntity.ok(ApiResponse.ok(
-            new AiChatResponse(reply, nvidiaAiService.getModel())
+            new AiChatResponse(reply, nvidiaAiService.getModel(), movies)
         ));
     }
 
@@ -96,6 +115,17 @@ public class NvidiaAiController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                 "Không đọc được tệp ảnh đã tải lên");
         }
+    }
+
+    private static boolean isOffTopic(String message) {
+        if (message == null || message.isBlank()) {
+            return true;
+        }
+        String normalized = message.trim().toLowerCase(Locale.ROOT);
+        if (GREETING_PATTERN.matcher(normalized).matches()) {
+            return false;
+        }
+        return !CINEMA_PATTERN.matcher(normalized).find();
     }
 
     private static String resolveImageType(MultipartFile file) {

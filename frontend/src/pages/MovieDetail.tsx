@@ -204,8 +204,8 @@ export function MovieDetail() {
         <aside className="booking-side">
           <div className="surface card-pad">
             <div className="row between" style={{ marginBottom: 14 }}>
-              <h3 className="h3">Suất chiếu hôm nay</h3>
-              <span className="badge badge-success">Còn vé</span>
+              <h3 className="h3">{isComingSoon ? 'Suất chiếu' : 'Suất chiếu hôm nay'}</h3>
+              {!isComingSoon && <span className="badge badge-success">Còn vé</span>}
             </div>
             <div className="row gap-6" style={{ marginBottom: 14, color: 'var(--muted)', fontSize: 12 }}>
               <Icon name="location" size={14} />

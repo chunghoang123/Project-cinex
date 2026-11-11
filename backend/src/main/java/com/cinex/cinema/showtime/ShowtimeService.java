@@ -1,6 +1,7 @@
 package com.cinex.cinema.showtime;
 
 import com.cinex.cinema.booking.BookingRepository;
+import com.cinex.cinema.booking.BookingStatus;
 import com.cinex.cinema.cinema.Auditorium;
 import com.cinex.cinema.cinema.AuditoriumRepository;
 import com.cinex.cinema.cinema.Seat;
@@ -23,6 +24,20 @@ import java.util.stream.Collectors;
 @Service
 @Transactional
 public class ShowtimeService {
+    private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy");
+    private static final List<LocalTime> AUTO_SLOTS = List.of(
+        LocalTime.of(10, 0),
+        LocalTime.of(14, 30),
+        LocalTime.of(19, 30)
+    );
+
+    public record AutoScheduleResult(
+        int createdCount,
+        int completedCount,
+        LocalDate fromDate,
+        LocalDate toDate,
+        int daysAhead
+    ) {}
     private final ShowtimeRepository showtimeRepository;
     private final MovieRepository movieRepository;
     private final AuditoriumRepository auditoriumRepository;
@@ -44,7 +59,9 @@ public class ShowtimeService {
 
     public List<ShowtimeResponse> findByMovieAndDate(Long movieId, LocalDateTime from, LocalDateTime to) {
         return showtimeRepository.findByMovieIdAndStartTimeBetweenAndActiveTrue(movieId, from, to)
-            .stream().map(this::toResponse).collect(Collectors.toList());
+            .stream()
+            .filter(this::isBookable)
+            .map(this::toResponse).collect(Collectors.toList());
     }
 
     public List<ShowtimeResponse> findInRange(LocalDateTime from, LocalDateTime to) {
@@ -99,6 +116,9 @@ public class ShowtimeService {
         if (!auditorium.isActive()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Phòng chiếu đã ngừng hoạt động");
         }
+        if (!auditorium.getCinema().isActive()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Rạp đã ngừng hoạt động");
+        }
 
         LocalDateTime endTime = request.getStartTime()
             .plusMinutes(movie.getDurationMinutes() == null ? 120 : movie.getDurationMinutes());
@@ -118,9 +138,12 @@ public class ShowtimeService {
 
     public ShowtimeResponse update(Long id, ShowtimeRequest request) {
         Showtime showtime = findById(id);
-        if (bookingRepository.existsByShowtimeId(id)) {
+        // Chỉ chặn khi suất chiếu còn đơn "sống" (chờ thanh toán hoặc đã bán vé);
+        // đơn đã hết hạn / đã hủy không cản trở việc chỉnh sửa.
+        if (bookingRepository.existsByShowtimeIdAndStatusIn(
+                id, List.of(BookingStatus.PENDING, BookingStatus.CONFIRMED))) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                "Không thể sửa suất chiếu đã có đơn đặt vé");
+                "Suất chiếu đang chờ thanh toán hoặc đã bán vé, không thể cập nhật");
         }
         Movie movie = movieRepository.findById(request.getMovieId())
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Phim không tồn tại"));
@@ -135,9 +158,131 @@ public class ShowtimeService {
         showtime.setBasePrice(request.getBasePrice());
         showtime = showtimeRepository.save(showtime);
 
-        showtimeSeatRepository.deleteAll(showtimeSeatRepository.findByShowtimeId(id));
-        generateShowtimeSeats(showtime, auditorium);
+        // Chỉ tái sinh sơ đồ ghế khi chưa có đơn nào từng đặt (tránh phá khoá ngoại
+        // với booking_seats cũ). Đơn hết hạn/hủy vẫn giữ ShowtimeSeat để tra cứu lịch sử.
+        if (!bookingRepository.existsByShowtimeId(id)) {
+            showtimeSeatRepository.deleteAll(showtimeSeatRepository.findByShowtimeId(id));
+            generateShowtimeSeats(showtime, auditorium);
+        }
         return toResponse(showtime);
+    }
+
+    /**
+     * Kiểm tra chống trùng giờ chiếu trong cùng một phòng chiếu.
+     */
+    private void ensureNoOverlap(Auditorium auditorium, LocalDateTime startTime,
+                                 LocalDateTime endTime, Long excludeShowtimeId) {
+        List<Showtime> existingList = showtimeRepository.findByAuditoriumIdAndActiveTrue(auditorium.getId());
+        for (Showtime existing : existingList) {
+            if (excludeShowtimeId != null && excludeShowtimeId.equals(existing.getId())) {
+                continue;
+            }
+            if (existing.getStatus() == ShowtimeStatus.CANCELLED) {
+                continue;
+            }
+            if (existing.getStartTime().isBefore(endTime) && existing.getEndTime().isAfter(startTime)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    String.format("Phòng %s (%s) đã có suất chiếu \"%s\" từ %s đến %s",
+                        auditorium.getName(),
+                        auditorium.getCinema().getName(),
+                        existing.getMovie().getTitle(),
+                        existing.getStartTime().format(TIME_FMT),
+                        existing.getEndTime().format(TIME_FMT)));
+            }
+        }
+    }
+
+    /**
+     * Tự động chuyển các suất chiếu đã kết thúc (endTime < now) từ ACTIVE sang COMPLETED.
+     */
+    public int completeFinishedShowtimes() {
+        List<Showtime> finished = showtimeRepository.findByStatusAndEndTimeBefore(
+            ShowtimeStatus.ACTIVE, LocalDateTime.now());
+        for (Showtime showtime : finished) {
+            showtime.setStatus(ShowtimeStatus.COMPLETED);
+        }
+        if (!finished.isEmpty()) {
+            showtimeRepository.saveAll(finished);
+        }
+        return finished.size();
+    }
+
+    /**
+     * Tự động thêm và lấp đầy lịch chiếu cho `daysAhead` ngày tới (mặc định 10 ngày).
+     * Bỏ qua các khung giờ đã qua hoặc đã có suất chiếu trùng trong cùng phòng.
+     */
+    public AutoScheduleResult autoGenerateShowtimes(int daysAhead) {
+        int safeDays = Math.max(1, Math.min(30, daysAhead <= 0 ? 10 : daysAhead));
+        int completed = completeFinishedShowtimes();
+
+        LocalDate today = LocalDate.now();
+        LocalDate endDate = today.plusDays(safeDays - 1);
+
+        List<Movie> movies = movieRepository.findByStatusAndActiveTrue(MovieStatus.NOW_SHOWING);
+        if (movies.isEmpty()) {
+            return new AutoScheduleResult(0, completed, today, endDate, safeDays);
+        }
+
+        List<Auditorium> auditoriums = auditoriumRepository.findAll().stream()
+            .filter(a -> a.isActive() && a.getCinema() != null && a.getCinema().isActive())
+            .filter(a -> !seatRepository.findByAuditoriumIdAndActiveTrue(a.getId()).isEmpty())
+            .sorted(Comparator.comparing(Auditorium::getId))
+            .toList();
+
+        if (auditoriums.isEmpty()) {
+            return new AutoScheduleResult(0, completed, today, endDate, safeDays);
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        int created = 0;
+
+        for (int dayOffset = 0; dayOffset < safeDays; dayOffset++) {
+            LocalDate date = today.plusDays(dayOffset);
+            for (int audIndex = 0; audIndex < auditoriums.size(); audIndex++) {
+                Auditorium auditorium = auditoriums.get(audIndex);
+                List<Showtime> existingInAud = new ArrayList<>(
+                    showtimeRepository.findByAuditoriumIdAndActiveTrue(auditorium.getId())
+                );
+
+                for (int slotIndex = 0; slotIndex < AUTO_SLOTS.size(); slotIndex++) {
+                    LocalTime slotTime = AUTO_SLOTS.get(slotIndex);
+                    LocalDateTime startTime = date.atTime(slotTime);
+                    if (!startTime.isAfter(now.plusMinutes(10))) {
+                        continue;
+                    }
+
+                    Movie movie = movies.get((dayOffset + audIndex + slotIndex) % movies.size());
+                    int duration = movie.getDurationMinutes() == null ? 120 : movie.getDurationMinutes();
+                    LocalDateTime endTime = startTime.plusMinutes(duration);
+
+                    boolean overlaps = existingInAud.stream()
+                        .filter(ex -> ex.getStatus() != ShowtimeStatus.CANCELLED)
+                        .anyMatch(ex -> ex.getStartTime().isBefore(endTime) && ex.getEndTime().isAfter(startTime));
+                    if (overlaps) {
+                        continue;
+                    }
+
+                    BigDecimal basePrice = slotTime.getHour() >= 18
+                        ? new BigDecimal("95000")
+                        : new BigDecimal("90000");
+
+                    Showtime showtime = showtimeRepository.save(Showtime.builder()
+                        .movie(movie)
+                        .auditorium(auditorium)
+                        .startTime(startTime)
+                        .endTime(endTime)
+                        .basePrice(basePrice)
+                        .status(ShowtimeStatus.ACTIVE)
+                        .active(true)
+                        .build());
+                    generateShowtimeSeats(showtime, auditorium);
+                    existingInAud.add(showtime);
+                    created++;
+                }
+            }
+        }
+
+        return new AutoScheduleResult(created, completed, today, endDate, safeDays);
     }
 
     public void delete(Long id) {

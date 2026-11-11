@@ -18,6 +18,7 @@ const suggestions = [
   'Suất chiếu hôm nay',
   'Gợi ý phim hay cho tối nay',
   'Giá vé ở CineX',
+  'Thanh toán PayOS thế nào?',
 ]
 
 const greeting: Message = {
@@ -35,7 +36,7 @@ function errorText(error: unknown) {
   if (axios.isAxiosError(error)) {
     const apiMessage = (error.response?.data as { message?: string } | undefined)?.message
     if (apiMessage) return apiMessage
-    if (error.code === 'ECONNABORTED') return 'Trợ lý AI phản hồi quá lâu, bạn thử lại nhé.'
+    if (error.code === 'ECONNABORTED') return 'CineX AI trả lời quá lâu, bạn thử lại nhé.'
     if (!error.response) return 'Không kết nối được máy chủ CineX, bạn kiểm tra mạng giúp mình nhé.'
   }
   return error instanceof Error ? error.message : 'Có lỗi khi gọi trợ lý AI.'
@@ -80,9 +81,19 @@ export function ChatWidget() {
     }
   }, [open, messages, typing])
 
+  useEffect(() => {
+    if (!open) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('keydown', onKey)
+    inputRef.current?.focus()
+    return () => document.removeEventListener('keydown', onKey)
+  }, [open])
+
   const send = useCallback(
-    async (text: string) => {
-      const value = text.trim()
+    async (rawText: string) => {
+      const value = rawText.trim()
       if (!value || typing) return
 
       const history: AiChatMessage[] = messages
@@ -105,7 +116,7 @@ export function ChatWidget() {
         if (!reply) throw new Error('Trợ lý AI không trả về nội dung.')
         setMessages((current) => [
           ...current,
-          { id: Date.now() + 1, role: 'ai', text: reply, time: now() },
+          { id: Date.now() + 1, role: 'ai', text: reply, time: now(), movies: result?.movies || [] },
         ])
       } catch (error) {
         setMessages((current) => [
@@ -120,6 +131,7 @@ export function ChatWidget() {
         ])
       } finally {
         setTyping(false)
+        inputRef.current?.focus()
       }
     },
     [messages, typing],
@@ -130,36 +142,73 @@ export function ChatWidget() {
     void send(input)
   }
 
+  const closeChat = () => setOpen(false)
+
   return (
     <>
       {open && (
-        <div className="chat-widget__panel" role="dialog" aria-label="CineX AI">
-          <div className="chat-head">
-            <span className="chat-head__avatar">
-              <Icon name="sparkles" size={21} />
+        <section className="chat-widget__panel" role="dialog" aria-label="CineX AI">
+          <header className="chat-head chat-head--panel">
+            <span className="chat-head__avatar" aria-hidden="true">
+              <Icon name="sparkles" size={20} />
             </span>
             <div>
               <div className="chat-head__name">CineX AI</div>
-              <div className="chat-head__status">Đang trực tuyến</div>
+              <div className="chat-head__status">Hỗ trợ đặt vé · đang trực tuyến</div>
             </div>
             <button
               type="button"
-              className="input-action"
-              style={{ marginLeft: 'auto' }}
+              className="chat-head__close"
               onClick={() => setOpen(false)}
               aria-label="Đóng chat"
             >
               <Icon name="close" size={17} />
             </button>
-          </div>
+          </header>
 
           <div className="chat-body" ref={bodyRef} aria-live="polite">
-            {messages.map((message) => (
-              <div key={message.id} className={`chat-msg ${message.role === 'ai' ? 'is-ai' : 'is-user'}`}>
-                {formatText(message.text)}
-                <div className="chat-time">{message.time}</div>
-              </div>
-            ))}
+            {messages.map((message) => {
+              const link = message.role === 'ai' && !message.error ? linkForMessage(message.text) : null
+              return (
+                <div key={message.id} className={`chat-msg ${message.role === 'ai' ? 'is-ai' : 'is-user'}`}>
+                  <div className="chat-msg__text">{formatText(message.text)}</div>
+                  {message.movies && message.movies.length > 0 && (
+                    <>
+                      <div className="chat-posters">
+                        {message.movies.map((movie) => (
+                          <Link key={movie.movieId} to={`/movies/${movie.movieId}`} className="chat-poster" title={movie.title} onClick={closeChat}>
+                            {movie.posterUrl ? (
+                              <img src={movie.posterUrl} alt={movie.title} loading="lazy" />
+                            ) : (
+                              <span className="chat-poster__fallback">
+                                <Icon name="film" size={20} />
+                              </span>
+                            )}
+                            <span className="chat-poster__title">{movie.title}</span>
+                            {movie.genre && <span className="chat-poster__genre">{movie.genre}</span>}
+                          </Link>
+                        ))}
+                      </div>
+                      <div className="chat-posters-actions">
+                        {message.movies.map((movie) => (
+                          <Link key={movie.movieId} to={`/showtimes?movieId=${movie.movieId}`} className="chat-cta" onClick={closeChat}>
+                            <Icon name="calendar" size={15} />
+                            Đặt vé · {movie.title}
+                          </Link>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                  {link && (
+                    <Link className="chat-msg__link" to={link.to} onClick={closeChat}>
+                      {link.label}
+                      <Icon name="arrow-right" size={14} />
+                    </Link>
+                  )}
+                  {message.time && <div className="chat-time">{message.time}</div>}
+                </div>
+              )
+            })}
             {typing && (
               <div className="chat-msg is-ai">
                 <span className="muted">CineX AI đang trả lời...</span>
@@ -185,9 +234,10 @@ export function ChatWidget() {
             <input
               value={input}
               onChange={(event) => setInput(event.target.value)}
-              placeholder="Hỏi CineX AI bất cứ điều gì..."
+              placeholder="Hỏi về phim, suất chiếu, giá vé..."
               aria-label="Tin nhắn"
               maxLength={2000}
+              autoComplete="off"
             />
             <button type="submit" aria-label="Gửi tin nhắn" disabled={!input.trim() || typing}>
               <Icon name="send" size={17} />

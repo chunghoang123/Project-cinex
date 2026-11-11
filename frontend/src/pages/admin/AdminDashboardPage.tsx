@@ -24,6 +24,9 @@ export function AdminDashboardPage() {
 
   useEffect(() => {
     load()
+    const onRefresh = () => load()
+    window.addEventListener('cinex:admin-refresh', onRefresh)
+    return () => window.removeEventListener('cinex:admin-refresh', onRefresh)
   }, [])
 
   if (loading) {

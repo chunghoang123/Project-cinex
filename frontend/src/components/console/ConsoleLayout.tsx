@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-do
 import { Icon, type IconName } from '../ui/Icon'
 import { Logo } from '../ui/Logo'
 import { authService } from '../../services/authService'
+import { AdminAiWidget, openAdminAi } from './AdminAiWidget'
 
 export interface ConsoleNavItem {
   to: string

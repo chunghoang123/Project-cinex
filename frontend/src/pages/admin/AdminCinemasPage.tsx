@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ConsolePageHeader } from '../../components/console/ConsolePageHeader'
+import { openAdminAi } from '../../components/console/AdminAiWidget'
 import { Modal } from '../../components/console/Modal'
 import { Icon } from '../../components/ui/Icon'
 import { adminService } from '../../services/adminService'
@@ -40,7 +41,15 @@ export function AdminCinemasPage() {
 
   useEffect(() => {
     load()
-  }, [])
+    const onRefresh = () => {
+      load()
+      if (selectedCinema) {
+        void loadAuditoriums(selectedCinema.id)
+      }
+    }
+    window.addEventListener('cinex:admin-refresh', onRefresh)
+    return () => window.removeEventListener('cinex:admin-refresh', onRefresh)
+  }, [selectedCinema])
 
   const openCreateCinema = () => {
     setEditingCinema(null)
@@ -79,7 +88,7 @@ export function AdminCinemasPage() {
   }
 
   const deactivateCinema = async (cinema: Cinema) => {
-    if (!window.confirm(`Ngừng hoạt động rạp "${cinema.name}"?`)) return
+    if (!window.confirm(`Chuyển rạp "${cinema.name}" sang bảo trì?`)) return
     try {
       await adminService.deleteCinema(cinema.id)
       load()
@@ -152,12 +161,21 @@ export function AdminCinemasPage() {
   }
 
   const deactivateAuditorium = async (auditorium: Auditorium) => {
-    if (!window.confirm(`Ngừng hoạt động phòng "${auditorium.name}"?`)) return
+    if (!window.confirm(`Chuyển phòng "${auditorium.name}" sang bảo trì?`)) return
     try {
       await adminService.deleteAuditorium(auditorium.id)
       if (selectedCinema) await loadAuditoriums(selectedCinema.id)
     } catch (err) {
-      window.alert(errorMessage(err, 'Không thể ngừng hoạt động phòng chiếu'))
+      window.alert(errorMessage(err, 'Không thể chuyển phòng chiếu sang bảo trì'))
+    }
+  }
+
+  const restoreAuditorium = async (auditorium: Auditorium) => {
+    try {
+      await adminService.setAuditoriumStatus(auditorium.id, true)
+      if (selectedCinema) await loadAuditoriums(selectedCinema.id)
+    } catch (err) {
+      window.alert(errorMessage(err, 'Không thể mở lại phòng chiếu'))
     }
   }
 
@@ -168,9 +186,18 @@ export function AdminCinemasPage() {
         title="Rạp & phòng chiếu"
         description="Quản lý cụm rạp, phòng chiếu và sơ đồ ghế. Mỗi phòng chiếu được tạo ghế tự động theo số hàng và số cột."
         actions={
-          <button type="button" className="btn btn-primary btn-sm" onClick={openCreateCinema}>
-            <Icon name="plus" size={16} /> Thêm rạp
-          </button>
+          <>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => openAdminAi('Tạo phòng Screen 3 có 10 hàng 12 cột ở rạp Landmark 81')}
+            >
+              <Icon name="sparkles" size={15} /> AI tạo phòng chiếu
+            </button>
+            <button type="button" className="btn btn-primary btn-sm" onClick={openCreateCinema}>
+              <Icon name="plus" size={16} /> Thêm rạp
+            </button>
+          </>
         }
       />
 
@@ -198,8 +225,8 @@ export function AdminCinemasPage() {
                   <h2>{cinema.name}</h2>
                   <p>{cinema.address || 'Chưa cập nhật địa chỉ'}</p>
                 </div>
-                <span className={`badge ${cinema.active ? 'badge-success' : 'badge-muted'}`}>
-                  {cinema.active ? 'Đang hoạt động' : 'Đã ngừng'}
+                <span className={`badge ${cinema.active ? 'badge-success' : 'badge-warning'}`}>
+                  {cinema.active ? 'Đang hoạt động' : 'Bảo trì'}
                 </span>
               </div>
               <div className="pos-line">
@@ -217,9 +244,13 @@ export function AdminCinemasPage() {
                 <button type="button" className="btn btn-ghost btn-sm" onClick={() => openEditCinema(cinema)}>
                   <Icon name="edit" size={15} /> Sửa
                 </button>
-                {cinema.active && (
+                {cinema.active ? (
                   <button type="button" className="btn btn-danger btn-sm" onClick={() => deactivateCinema(cinema)}>
-                    <Icon name="trash" size={15} /> Ngừng
+                    <Icon name="trash" size={15} /> Bảo trì
+                  </button>
+                ) : (
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => restoreCinema(cinema)}>
+                    <Icon name="refresh" size={15} /> Mở lại
                   </button>
                 )}
               </div>
@@ -333,6 +364,16 @@ export function AdminCinemasPage() {
                   {auditorium.active && (
                     <button type="button" className="btn btn-danger btn-sm" onClick={() => deactivateAuditorium(auditorium)}>
                       <Icon name="trash" size={14} />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      title="Mở lại phòng chiếu"
+                      aria-label={`Mở lại phòng ${auditorium.name}`}
+                      onClick={() => restoreAuditorium(auditorium)}
+                    >
+                      <Icon name="refresh" size={14} />
                     </button>
                   )}
                 </div>

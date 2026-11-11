@@ -43,7 +43,7 @@ export function StaffBookingsPage() {
       setSelected((current) => current?.bookingCode === updated.bookingCode ? updated : current)
       load()
     } catch (err) {
-      window.alert(errorMessage(err, 'Không thể hủy đơn'))
+      setAlertModal({ title: 'Không thể hủy đơn', message: errorMessage(err, 'Không thể hủy đơn') })
     } finally {
       setCancelling(false)
     }

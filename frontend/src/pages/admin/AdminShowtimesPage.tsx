@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ConsolePageHeader } from '../../components/console/ConsolePageHeader'
+import { openAdminAi } from '../../components/console/AdminAiWidget'
 import { Modal } from '../../components/console/Modal'
 import { StatusBadge } from '../../components/console/StatusBadge'
 import { Icon } from '../../components/ui/Icon'
@@ -136,7 +137,12 @@ export function AdminShowtimesPage() {
         await adminService.createShowtime(payload)
       }
       setModalOpen(false)
-      loadShowtimes()
+      // Đồng bộ bộ lọc ngày về ngày của suất vừa lưu để suất mới/đã sửa hiển thị ngay
+      if (form.date !== date) {
+        setDate(form.date)
+      } else {
+        loadShowtimes()
+      }
     } catch (err) {
       setFormError(errorMessage(err, 'Không lưu được suất chiếu'))
     } finally {
@@ -157,15 +163,51 @@ export function AdminShowtimesPage() {
   return (
     <div>
       <ConsolePageHeader
-        eyebrow="Lịch chiếu"
+        eyebrow="Lịch chiếu · Tự động phủ 10 ngày (chu kỳ 5 ngày/lần)"
         title="Quản lý suất chiếu"
         description="Lên lịch chiếu theo phim, rạp và phòng. Hệ thống tự sinh sơ đồ ghế và tính giá theo loại ghế."
         actions={
-          <button type="button" className="btn btn-primary btn-sm" onClick={openCreate}>
-            <Icon name="plus" size={16} /> Thêm suất chiếu
-          </button>
+          <>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={runAutoSchedule}
+              disabled={autoRunning}
+              title="Tự động lấp đầy lịch chiếu cho 10 ngày tới tại các phòng đang hoạt động"
+            >
+              <Icon name="refresh" size={15} /> {autoRunning ? 'Đang xếp lịch…' : 'Tự động xếp 10 ngày'}
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() =>
+                openAdminAi(
+                  'Thêm suất chiếu Dune: Part Two ngày mai lúc 18:00 và 21:00 ở Landmark 81 giá 95k',
+                )
+              }
+            >
+              <Icon name="sparkles" size={15} /> AI thêm lịch chiếu
+            </button>
+            <button type="button" className="btn btn-primary btn-sm" onClick={openCreate}>
+              <Icon name="plus" size={16} /> Thêm suất chiếu
+            </button>
+          </>
         }
       />
+
+      {autoBanner && (
+        <div className="console-card" style={{ marginBottom: 14, padding: '12px 16px', borderColor: 'rgba(34, 211, 238, 0.35)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <span style={{ fontSize: 13 }}>
+              <Icon name="check-circle" size={15} style={{ verticalAlign: '-3px', marginRight: 8, color: 'var(--accent)' }} />
+              {autoBanner}
+            </span>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setAutoBanner('')}>
+              Đóng
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="console-toolbar">
         <input
@@ -267,7 +309,7 @@ export function AdminShowtimesPage() {
       <Modal
         open={modalOpen}
         title={editing ? 'Cập nhật suất chiếu' : 'Thêm suất chiếu'}
-        subtitle={editing ? 'Chỉ có thể sửa suất chiếu chưa có đơn đặt vé' : 'Chọn phim, phòng chiếu và khung giờ'}
+        subtitle={editing ? 'Suất chiếu đang chờ thanh toán hoặc đã bán vé không thể sửa' : 'Chọn phim, phòng chiếu và khung giờ'}
         onClose={() => setModalOpen(false)}
         footer={
           <>
@@ -291,7 +333,13 @@ export function AdminShowtimesPage() {
             <label>Rạp</label>
             <select className="select" value={form.cinemaId} onChange={(e) => setForm({ ...form, cinemaId: Number(e.target.value), auditoriumId: '' })}>
               <option value="">Chọn rạp</option>
-              {cinemas.map((cinema) => <option key={cinema.id} value={cinema.id}>{cinema.name}</option>)}
+              {cinemas
+                .filter((cinema) => cinema.active || cinema.id === form.cinemaId)
+                .map((cinema) => (
+                  <option key={cinema.id} value={cinema.id}>
+                    {cinema.name}{cinema.active ? '' : ' (ngừng hoạt động)'}
+                  </option>
+                ))}
             </select>
           </div>
           <div className="field">

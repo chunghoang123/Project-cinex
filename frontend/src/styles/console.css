@@ -748,6 +748,16 @@
   font-size: 10px;
 }
 
+.auditorium-item.is-inactive {
+  opacity: 0.72;
+  border-style: dashed;
+}
+
+.auditorium-item strong .badge {
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
 /* ---------- POS ---------- */
 .pos-layout {
   display: grid;

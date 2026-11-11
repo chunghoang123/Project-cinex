@@ -107,7 +107,7 @@ export function ShowtimeList() {
     </>
   )
 
-  const renderSlots = (slots: Showtime[]) => (
+  const renderSlots = (slots: Showtime[], disabled = false) => (
     <div className="showtime-slots">
       {slots.length === 0 && (
         <p className="muted" style={{ fontSize: 13 }}>
@@ -136,6 +136,7 @@ export function ShowtimeList() {
       cinema,
       slots: slots.filter((item) => item.cinemaId === cinema.id),
     }))
+    const isComingSoon = movie.status === 'COMING_SOON'
 
     return (
       <div className="container">
@@ -192,7 +193,7 @@ export function ShowtimeList() {
                         {cinemaSlots.length} suất chiếu · {cinemaSlots[0].auditoriumName}
                       </div>
                     </div>
-                    <span className="badge badge-success">Còn vé</span>
+                    <span className="badge badge-success">{isComingSoon ? 'Sắp mở bán' : 'Còn vé'}</span>
                   </div>
                   {renderSlots(cinemaSlots)}
                 </div>

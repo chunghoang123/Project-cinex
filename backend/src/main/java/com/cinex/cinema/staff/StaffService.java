@@ -10,6 +10,7 @@ import com.cinex.cinema.booking.BookingSeatRepository;
 import com.cinex.cinema.booking.BookingService;
 import com.cinex.cinema.booking.BookingStatus;
 import com.cinex.cinema.common.SeatPricing;
+import com.cinex.cinema.movie.MovieStatus;
 import com.cinex.cinema.payment.Payment;
 import com.cinex.cinema.payment.PayOSService;
 import com.cinex.cinema.payment.PaymentService;
@@ -183,6 +184,10 @@ public class StaffService {
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Suất chiếu không tồn tại"));
         if (!showtime.isActive() || showtime.getStartTime().isBefore(LocalDateTime.now())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Suất chiếu không còn khả dụng");
+        }
+        if (showtime.getMovie().getStatus() == MovieStatus.COMING_SOON) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                "Phim chưa khởi chiếu, chưa thể bán vé");
         }
 
         List<ShowtimeSeat> seats = showtimeSeatRepository.findAllById(request.getSeatIds());

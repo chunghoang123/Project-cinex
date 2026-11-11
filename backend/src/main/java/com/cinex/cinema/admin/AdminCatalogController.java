@@ -88,6 +88,16 @@ public class AdminCatalogController {
         return ResponseEntity.ok(ApiResponse.ok("Đã ngừng hoạt động rạp", null));
     }
 
+    /** Bật/tắt bảo trì rạp: cho phép mở lại rạp đã ngừng. */
+    @PatchMapping("/cinemas/{id}/status")
+    public ResponseEntity<ApiResponse<CinemaResponse>> updateCinemaStatus(
+            @PathVariable Long id, @Valid @RequestBody UpdateActiveRequest request) {
+        boolean active = Boolean.TRUE.equals(request.active());
+        return ResponseEntity.ok(ApiResponse.ok(
+            active ? "Đã mở lại rạp" : "Đã chuyển rạp sang bảo trì",
+            cinemaService.setActive(id, active)));
+    }
+
     @GetMapping("/cinemas/{cinemaId}/auditoriums")
     public ResponseEntity<ApiResponse<List<AuditoriumResponse>>> auditoriums(@PathVariable Long cinemaId) {
         return ResponseEntity.ok(ApiResponse.ok(auditoriumService.findByCinema(cinemaId, true)));
@@ -151,5 +161,15 @@ public class AdminCatalogController {
     public ResponseEntity<ApiResponse<Void>> deleteShowtime(@PathVariable Long id) {
         showtimeService.delete(id);
         return ResponseEntity.ok(ApiResponse.ok("Đã hủy suất chiếu", null));
+    }
+
+    @PostMapping("/showtimes/auto-generate")
+    public ResponseEntity<ApiResponse<ShowtimeService.AutoScheduleResult>> autoGenerateShowtimes(
+            @RequestParam(defaultValue = "10") int days) {
+        ShowtimeService.AutoScheduleResult result = showtimeService.autoGenerateShowtimes(days);
+        String msg = String.format(
+            "Đã tự động cập nhật lịch chiếu cho %d ngày tới (%d suất mới, %d suất chuyển hoàn thành)",
+            result.daysAhead(), result.createdCount(), result.completedCount());
+        return ResponseEntity.ok(ApiResponse.ok(msg, result));
     }
 }

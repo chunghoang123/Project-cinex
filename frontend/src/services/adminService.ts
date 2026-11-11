@@ -87,6 +87,11 @@ export const adminService = {
   deleteCinema: async (id: number): Promise<void> => {
     await api.delete(`/admin/cinemas/${id}`)
   },
+  /** Bật/tắt bảo trì rạp. */
+  setCinemaStatus: async (id: number, active: boolean): Promise<Cinema> => {
+    const res = await api.patch<Envelope<Cinema>>(`/admin/cinemas/${id}/status`, { active })
+    return res.data.data
+  },
 
   getAuditoriums: async (cinemaId: number): Promise<Auditorium[]> => {
     const res = await api.get<Envelope<Auditorium[]>>(`/admin/cinemas/${cinemaId}/auditoriums`)
@@ -126,6 +131,24 @@ export const adminService = {
   },
   deleteShowtime: async (id: number): Promise<void> => {
     await api.delete(`/admin/showtimes/${id}`)
+  },
+  autoGenerateShowtimes: async (days = 10): Promise<AutoScheduleResult> => {
+    const res = await api.post<Envelope<AutoScheduleResult>>('/admin/showtimes/auto-generate', null, {
+      params: { days },
+    })
+    return res.data.data
+  },
+
+  chatAi: async (
+    message: string,
+    history: Array<{ role: 'user' | 'assistant'; content: string }> = [],
+  ): Promise<AdminAiResponse> => {
+    const res = await api.post<Envelope<AdminAiResponse>>(
+      '/admin/ai/chat',
+      { message, history },
+      { timeout: 60_000 },
+    )
+    return res.data.data
   },
 
   getBookings: async (params: { status?: string; date?: string; q?: string }): Promise<Booking[]> => {

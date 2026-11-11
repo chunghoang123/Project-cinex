@@ -139,7 +139,6 @@ public class NvidiaAiService {
                 throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
                     "NVIDIA đang giới hạn lượt gọi, vui lòng thử lại sau ít phút");
             }
-            // Trả 503 thay vì 502/504 để Cloudflare không chèn trang lỗi và người dùng vẫn thấy message
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
                 "NVIDIA chưa phục vụ model hiện tại (" + status + "), thử lại ít phút nữa");
         } catch (ResourceAccessException ex) {

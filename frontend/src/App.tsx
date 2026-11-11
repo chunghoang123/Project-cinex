@@ -29,6 +29,7 @@ import { AdminCinemasPage } from './pages/admin/AdminCinemasPage'
 import { AdminShowtimesPage } from './pages/admin/AdminShowtimesPage'
 import { AdminBookingsPage } from './pages/admin/AdminBookingsPage'
 import { AdminUsersPage } from './pages/admin/AdminUsersPage'
+import { AdminReportsPage } from './pages/admin/AdminReportsPage'
 import { StaffPosPage } from './pages/staff/StaffPosPage'
 import { StaffBookingsPage } from './pages/staff/StaffBookingsPage'
 import { StaffValidatePage } from './pages/staff/StaffValidatePage'
@@ -40,6 +41,39 @@ function ScrollToTop() {
     window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior })
   }, [pathname])
   return null
+}
+
+/** Tự kiểm tra phiên định kỳ: tài khoản bị khóa hoặc hết hạn sẽ bị đẩy về trang đăng nhập. */
+function useSessionWatch() {
+  useEffect(() => {
+    const redirectToLogin = () => {
+      if (!['/login', '/register'].includes(window.location.pathname)) {
+        window.location.href = '/login'
+      }
+    }
+    const check = () => {
+      if (!authService.isAuthenticated()) {
+        authService.logout()
+        redirectToLogin()
+        return
+      }
+      // Bị khóa phía server sẽ trả 401 ở đây; interceptor trong axios.ts tự đăng xuất + chuyển trang.
+      authService.me().catch(() => {})
+    }
+    if (!authService.getToken()) return
+    check()
+    const interval = window.setInterval(check, 60_000)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') check()
+    }
+    window.addEventListener('focus', onVisible)
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      window.clearInterval(interval)
+      window.removeEventListener('focus', onVisible)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [])
 }
 
 function Shell() {
@@ -86,6 +120,7 @@ function Shell() {
             <Route path="showtimes" element={<AdminShowtimesPage />} />
             <Route path="bookings" element={<AdminBookingsPage />} />
             <Route path="users" element={<AdminUsersPage />} />
+<Route path="reports" element={<AdminReportsPage />} />
           </Route>
 
           <Route

@@ -10,6 +10,7 @@ interface MovieCardProps {
 }
 
 export function MovieCard({ movie, showMatch = true, className }: MovieCardProps) {
+  const isComingSoon = movie.status === 'COMING_SOON'
   return (
     <Link to={`/movies/${movie.id}`} className={`movie-card ${className ?? ''}`}>
       <div className="movie-card__poster">
@@ -25,10 +26,17 @@ export function MovieCard({ movie, showMatch = true, className }: MovieCardProps
             {movie.rating.toFixed(1)}
           </span>
         </div>
-        <span className="movie-card__hover btn btn-accent btn-sm">
-          <Icon name="ticket" size={14} />
-          Đặt vé
-        </span>
+        {isComingSoon ? (
+          <span className="movie-card__hover btn btn-sm">
+            <Icon name="calendar" size={14} />
+            Sắp chiếu
+          </span>
+        ) : (
+          <span className="movie-card__hover btn btn-accent btn-sm">
+            <Icon name="ticket" size={14} />
+            Đặt vé
+          </span>
+        )}
       </div>
       <div>
         <h3 className="movie-card__title">{movie.title}</h3>
