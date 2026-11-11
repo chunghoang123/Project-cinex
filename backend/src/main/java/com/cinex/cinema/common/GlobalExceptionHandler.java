@@ -48,7 +48,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleDataIntegrity(DataIntegrityViolationException ex) {
         log.warn("Vi phạm toàn vẹn dữ liệu: {}", ex.getMostSpecificCause().getMessage());
         return ResponseEntity.badRequest()
-            .body(ApiResponse.error("Vi phạm toàn vẹn dữ liệu: " + ex.getMostSpecificCause().getMessage()));
+            .body(ApiResponse.error("Dữ liệu bị trùng lặp hoặc đang được tham chiếu ở bản ghi khác"));
     }
 
     @ExceptionHandler(AuthenticationException.class)

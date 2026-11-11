@@ -1,6 +1,7 @@
 package com.cinex.cinema.user;
 
 import com.cinex.cinema.common.BaseEntity;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -58,6 +59,7 @@ public class User extends BaseEntity implements org.springframework.security.cor
     private String passwordResetToken;
 
     /** Thời điểm hết hạn của mã OTP đặt lại mật khẩu, null nếu không có yêu cầu đang hiệu lực. */
+    @JsonIgnore
     @Column(name = "password_reset_expires")
     private LocalDateTime passwordResetExpires;
 

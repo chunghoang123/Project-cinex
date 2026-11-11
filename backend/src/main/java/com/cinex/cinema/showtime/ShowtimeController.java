@@ -26,7 +26,7 @@ public class ShowtimeController {
             @RequestParam(required = false) String to) {
         LocalDateTime fromDate = from == null ? LocalDateTime.now() : LocalDateTime.parse(from);
         LocalDateTime toDate = to == null
-            ? fromDate.plusDays(7)
+            ? fromDate.plusDays(10)
             : LocalDateTime.parse(to);
         List<ShowtimeResponse> result = movieId == null
             ? showtimeService.findInRange(fromDate, toDate)

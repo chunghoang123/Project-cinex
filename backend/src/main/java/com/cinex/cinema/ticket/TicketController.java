@@ -24,6 +24,16 @@ public class TicketController {
     public ResponseEntity<ApiResponse<Ticket>> getByCode(@PathVariable String ticketCode,
                                                          Authentication authentication) {
         Ticket ticket = ticketService.findByTicketCode(ticketCode);
+        if (authentication != null && authentication.getPrincipal() instanceof User user) {
+            boolean isStaffOrAdmin = user.getRoles().stream()
+                .anyMatch(r -> r.getName() == ERole.ROLE_ADMIN || r.getName() == ERole.ROLE_STAFF);
+            boolean isOwner = ticket.getBooking() != null
+                && ticket.getBooking().getUser() != null
+                && user.getId().equals(ticket.getBooking().getUser().getId());
+            if (!isStaffOrAdmin && !isOwner) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Bạn không có quyền truy cập vé này");
+            }
+        }
         return ResponseEntity.ok(ApiResponse.ok(ticket));
     }
 

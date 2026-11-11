@@ -67,6 +67,9 @@ public class AdminDashboardService {
         long customers = userRepository.countByRolesName(ERole.ROLE_CUSTOMER);
         long showtimesToday = showtimeRepository.countByStartTimeBetweenAndActiveTrue(todayStart, tomorrowStart);
 
+        List<Payment> recentPayments = paymentRepository.findByStatusAndPaidAtAfter(
+            PaymentStatus.SUCCESS, today.minusDays(30).atStartOfDay());
+
         List<AdminDashboardResponse.DailyRevenue> revenueLast7Days = new ArrayList<>();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM");
         for (int i = 6; i >= 0; i--) {

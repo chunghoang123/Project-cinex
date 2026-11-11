@@ -86,7 +86,12 @@ public class AdminUserService {
 
     public UserResponse updateStatus(Long id, UpdateUserStatusRequest request, Long currentAdminId) {
         User user = findById(id);
-        user.setActive(Boolean.TRUE.equals(request.getActive()));
+        boolean active = Boolean.TRUE.equals(request.getActive());
+        if (!active && currentAdminId != null && currentAdminId.equals(user.getId())) {
+            throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST, "Không thể tự khóa tài khoản Quản trị viên đang đăng nhập");
+        }
+        user.setActive(active);
         return toResponse(userRepository.save(user));
     }
 

@@ -113,13 +113,21 @@ export function StaffValidatePage() {
         if (detector) {
           const codes = await detector.detect(canvas)
           if (cancelledRef.current) return
-          if (raw) {
-            cancelAnimationFrame(rafRef.current)
-            const ticketCode = raw.startsWith('CINEX|') ? raw.split('|')[1] || raw : raw
-            stopCamera()
-            void runValidate(ticketCode)
-            return
+          if (codes && codes.length > 0) {
+            raw = String(codes[0].rawValue || '')
           }
+        } else {
+          const imageData = ctx.getImageData(0, 0, width, height)
+          const code = jsQR(imageData.data, width, height)
+          if (code && code.data) raw = code.data
+        }
+        if (cancelledRef.current) return
+        if (raw) {
+          cancelAnimationFrame(rafRef.current)
+          const ticketCode = raw.startsWith('CINEX|') ? raw.split('|')[1] || raw : raw
+          stopCamera()
+          void runValidate(ticketCode)
+          return
         }
       }
       rafRef.current = requestAnimationFrame(tick)
