@@ -9,12 +9,17 @@ import { errorMessage } from '../utils/consoleFormat'
 
 export function ForgotPassword() {
   const [email, setEmail] = useState('')
+  const [otp, setOtp] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [fieldError, setFieldError] = useState('')
   const [result, setResult] = useState<{ message: string; resetToken?: string | null } | null>(null)
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  // Bước 1: gửi mã OTP tới email
+  const handleSendOtp = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!email.trim()) {
       setFieldError('Vui lòng nhập email đã đăng ký.')
@@ -25,7 +30,11 @@ export function ForgotPassword() {
     setLoading(true)
     try {
       const res = await authService.forgotPassword(email.trim())
-      setResult(res)
+      setStep('otp')
+      if (res.resetToken) {
+        // Chế độ dev: chưa có SMTP, mã OTP được trả trực tiếp
+        setOtp(res.resetToken)
+      }
     } catch (err) {
       setError(errorMessage(err, 'Không thể gửi yêu cầu. Vui lòng thử lại.'))
     } finally {
@@ -52,7 +61,7 @@ export function ForgotPassword() {
           <h1 className="auth-title">Quên mật khẩu</h1>
           <p className="auth-sub">Nhập email đã đăng ký, chúng tôi sẽ gửi hướng dẫn đặt lại mật khẩu.</p>
 
-          {error && <div className="form-error" style={{ marginBottom: 14 }}>{error}</div>}
+              {error && <div className="form-error" style={{ marginBottom: 14 }}>{error}</div>}
 
           {result ? (
             <div className="form-success" style={{ marginBottom: 14 }}>
@@ -71,47 +80,103 @@ export function ForgotPassword() {
                     </Link>
                   </p>
                 </div>
-              )}
-            </div>
-          ) : (
-            <form className="auth-form" onSubmit={handleSubmit} noValidate>
-              <div className="field">
-                <label htmlFor="email">Email</label>
-                <div className={`input-wrap${fieldError ? ' input-wrap--error' : ''}`}>
-                  <Icon name="mail" size={17} />
-                  <input
-                    id="email"
-                    type="email"
-                    className="input"
-                    value={email}
-                    onChange={(e) => {
-                      setEmail(e.target.value)
-                      if (fieldError) setFieldError('')
-                    }}
-                    placeholder="Nhập email đã đăng ký"
-                    autoComplete="email"
-                    required
-                    aria-invalid={Boolean(fieldError)}
-                  />
+                <button type="submit" className="btn btn-gradient btn-block btn-lg" disabled={loading}>
+                  {loading ? (
+                    <>
+                      <span className="spinner spinner-sm" aria-hidden="true" />
+                      Đang gửi...
+                    </>
+                  ) : (
+                    'Gửi mã OTP'
+                  )}
+                </button>
+              </form>
+            </>
+          )}
+
+          {step === 'otp' && (
+            <>
+              <h1 className="auth-title">Nhập mã OTP</h1>
+              <p className="auth-sub">
+                Mã OTP 6 số đã được gửi tới <strong>{email}</strong> (hiệu lực 5 phút). Kiểm tra cả mục Spam nhé.
+              </p>
+
+              {error && <div className="form-error" style={{ marginBottom: 14 }}>{error}</div>}
+
+              <form className="auth-form" onSubmit={handleVerifyOtp} noValidate>
+                <div className="field">
+                  <label htmlFor="otp">Mã OTP</label>
+                  <div className={`input-wrap${fieldError ? ' input-wrap--error' : ''}`}>
+                    <Icon name="lock" size={17} />
+                    <input
+                      id="otp"
+                      type="text"
+                      className="input"
+                      value={otp}
+                      onChange={(e) => {
+                        setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))
+                        if (fieldError) setFieldError('')
+                      }}
+                      placeholder="Nhập 6 số từ email"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      maxLength={6}
+                      style={{ letterSpacing: 4, fontWeight: 600 }}
+                      required
+                      aria-invalid={Boolean(fieldError)}
+                    />
+                  </div>
+                  <FieldError id="otp-error" message={fieldError} />
+                </div>
+                <div className="field">
+                  <label htmlFor="new-password">Mật khẩu mới</label>
+                  <div className={`input-wrap${fieldError ? ' input-wrap--error' : ''}`}>
+                    <Icon name="lock" size={17} />
+                    <input
+                      id="new-password"
+                      type={showPassword ? 'text' : 'password'}
+                      className="input"
+                      value={password}
+                      onChange={(e) => {
+                        setPassword(e.target.value)
+                        if (fieldError) setFieldError('')
+                      }}
+                      placeholder="Tối thiểu 6 ký tự"
+                      autoComplete="new-password"
+                      required
+                    />
+                    <button
+                      type="button"
+                      className="input-action"
+                      onClick={() => setShowPassword((v) => !v)}
+                      aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                    >
+                      <Icon name={showPassword ? 'eye-off' : 'eye'} size={17} />
+                    </button>
+                  </div>
                 </div>
                 <FieldError id="email-error" message={fieldError} />
               </div>
-              <button type="submit" className="btn btn-gradient btn-block btn-lg" disabled={loading}>
-                {loading ? (
-                  <>
-                    <span className="spinner spinner-sm" aria-hidden="true" />
-                    Đang gửi...
-                  </>
-                ) : (
-                  'Gửi hướng dẫn'
-                )}
-              </button>
-            </form>
+            </>
           )}
 
-          <p className="auth-foot" style={{ marginTop: 16 }}>
-            Nhớ mật khẩu? <Link to="/login">Quay lại đăng nhập</Link>
-          </p>
+          {step !== 'success' && (
+            <p className="auth-foot" style={{ marginTop: 16 }}>
+              {step === 'email' && (
+                <>
+                  Nhớ mật khẩu? <Link to="/login">Quay lại đăng nhập</Link>
+                </>
+              )}
+              {step === 'otp' && (
+                <>
+                  Dùng email khác?{' '}
+                  <button type="button" className="btn-link" onClick={() => setStep('email')}>
+                    Quay lại bước 1
+                  </button>
+                </>
+              )}
+            </p>
+          )}
         </div>
       </section>
     </div>
