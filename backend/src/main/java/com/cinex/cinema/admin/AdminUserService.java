@@ -63,6 +63,10 @@ public class AdminUserService {
     }
 
     public UserResponse updateRoles(Long id, UpdateUserRolesRequest request) {
+        return updateRoles(id, request, null);
+    }
+
+    public UserResponse updateRoles(Long id, UpdateUserRolesRequest request, Long currentAdminId) {
         User user = findById(id);
         user.setRoles(resolveRoles(request.getRoles()));
         return toResponse(userRepository.save(user));

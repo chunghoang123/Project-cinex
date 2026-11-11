@@ -99,6 +99,8 @@ export function StaffValidatePage() {
     type DetectorCtor = new (options?: { formats?: string[] }) => DetectorInstance
     const DetectorCtor = (window as unknown as { BarcodeDetector?: DetectorCtor }).BarcodeDetector
     const detector = DetectorCtor ? new DetectorCtor({ formats: ['qr_code'] }) : null
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })
     cancelledRef.current = false
     const tick = async () => {
       const width = video.videoWidth

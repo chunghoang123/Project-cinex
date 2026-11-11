@@ -3,6 +3,7 @@ package com.cinex.cinema.ticket;
 import com.cinex.cinema.common.ApiResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -16,7 +17,8 @@ public class TicketController {
     }
 
     @GetMapping("/{ticketCode}")
-    public ResponseEntity<ApiResponse<Ticket>> getByCode(@PathVariable String ticketCode) {
+    public ResponseEntity<ApiResponse<Ticket>> getByCode(@PathVariable String ticketCode,
+                                                         Authentication authentication) {
         Ticket ticket = ticketService.findByTicketCode(ticketCode);
         return ResponseEntity.ok(ApiResponse.ok(ticket));
     }

@@ -24,6 +24,7 @@ public class User extends BaseEntity implements org.springframework.security.cor
     @Column(nullable = false, length = 100)
     private String email;
 
+    @JsonIgnore
     @Column(nullable = false)
     private String password;
 

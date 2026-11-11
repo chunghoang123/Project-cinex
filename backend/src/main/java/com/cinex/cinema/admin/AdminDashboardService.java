@@ -81,9 +81,6 @@ public class AdminDashboardService {
                 .revenue(revenue)
                 .build());
         }
-
-        List<Payment> recentPayments = paymentRepository.findByStatusAndPaidAtAfter(
-            PaymentStatus.SUCCESS, today.minusDays(30).atStartOfDay());
         Map<Long, AdminDashboardResponse.TopMovie> movieStats = new LinkedHashMap<>();
         for (Payment payment : recentPayments) {
             Booking booking = payment.getBooking();
