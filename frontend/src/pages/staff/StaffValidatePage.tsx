@@ -105,25 +105,13 @@ export function StaffValidatePage() {
     const tick = async () => {
       const width = video.videoWidth
       const height = video.videoHeight
-      if (width && height) {
-        const canvas = document.createElement('canvas')
-        canvas.width = width
-        canvas.height = height
-        const ctx = canvas.getContext('2d')
-        if (ctx) {
-          ctx.drawImage(video, 0, 0, width, height)
-          let raw = ''
-          if (detector) {
-            const codes = await detector.detect(canvas)
-            if (cancelledRef.current) return
-            if (codes && codes.length > 0) {
-              raw = String(codes[0].rawValue || '')
-            }
-          } else {
-            const imageData = ctx.getImageData(0, 0, width, height)
-            const code = jsQR(imageData.data, width, height)
-            if (code && code.data) raw = code.data
-          }
+      if (width && height && ctx) {
+        if (canvas.width !== width) canvas.width = width
+        if (canvas.height !== height) canvas.height = height
+        ctx.drawImage(video, 0, 0, width, height)
+        let raw = ''
+        if (detector) {
+          const codes = await detector.detect(canvas)
           if (cancelledRef.current) return
           if (raw) {
             cancelAnimationFrame(rafRef.current)

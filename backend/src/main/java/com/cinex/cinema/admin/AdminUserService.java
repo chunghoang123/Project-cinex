@@ -68,11 +68,23 @@ public class AdminUserService {
 
     public UserResponse updateRoles(Long id, UpdateUserRolesRequest request, Long currentAdminId) {
         User user = findById(id);
-        user.setRoles(resolveRoles(request.getRoles()));
+        Set<Role> newRoles = resolveRoles(request.getRoles());
+        if (currentAdminId != null && currentAdminId.equals(user.getId())) {
+            boolean keepsAdmin = newRoles.stream().anyMatch(r -> r.getName() == ERole.ROLE_ADMIN);
+            if (!keepsAdmin) {
+                throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Không thể tự gỡ quyền Quản trị viên (ROLE_ADMIN) của chính mình");
+            }
+        }
+        user.setRoles(newRoles);
         return toResponse(userRepository.save(user));
     }
 
     public UserResponse updateStatus(Long id, UpdateUserStatusRequest request) {
+        return updateStatus(id, request, null);
+    }
+
+    public UserResponse updateStatus(Long id, UpdateUserStatusRequest request, Long currentAdminId) {
         User user = findById(id);
         user.setActive(Boolean.TRUE.equals(request.getActive()));
         return toResponse(userRepository.save(user));

@@ -46,6 +46,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiResponse<Void>> handleDataIntegrity(DataIntegrityViolationException ex) {
+        log.warn("Vi phạm toàn vẹn dữ liệu: {}", ex.getMostSpecificCause().getMessage());
         return ResponseEntity.badRequest()
             .body(ApiResponse.error("Vi phạm toàn vẹn dữ liệu: " + ex.getMostSpecificCause().getMessage()));
     }
@@ -97,6 +98,6 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleGeneric(Exception ex) {
         log.error("Lỗi hệ thống chưa được xử lý", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-            .body(ApiResponse.error("Lỗi hệ thống: " + ex.getMessage()));
+            .body(ApiResponse.error("Đã xảy ra lỗi hệ thống, vui lòng thử lại sau"));
     }
 }

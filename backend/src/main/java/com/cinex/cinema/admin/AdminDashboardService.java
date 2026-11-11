@@ -73,9 +73,10 @@ public class AdminDashboardService {
             LocalDate day = today.minusDays(i);
             LocalDateTime from = day.atStartOfDay();
             LocalDateTime to = day.plusDays(1).atStartOfDay();
-            BigDecimal revenue = paymentRepository.findByStatusAndPaidAtBetween(
-                    PaymentStatus.SUCCESS, from, to)
-                .stream().map(Payment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal revenue = recentPayments.stream()
+                .filter(p -> p.getPaidAt() != null && !p.getPaidAt().isBefore(from) && p.getPaidAt().isBefore(to))
+                .map(Payment::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
             revenueLast7Days.add(AdminDashboardResponse.DailyRevenue.builder()
                 .date(day.format(formatter))
                 .revenue(revenue)

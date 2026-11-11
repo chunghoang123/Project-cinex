@@ -53,6 +53,7 @@ public class User extends BaseEntity implements org.springframework.security.cor
     private boolean active = true;
 
     /** Mã OTP đặt lại mật khẩu đã hash (SHA-256), null nếu không có yêu cầu đang hiệu lực. */
+    @JsonIgnore
     @Column(name = "password_reset_token", length = 128)
     private String passwordResetToken;
 

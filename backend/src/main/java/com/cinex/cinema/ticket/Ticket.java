@@ -2,6 +2,7 @@ package com.cinex.cinema.ticket;
 
 import com.cinex.cinema.booking.Booking;
 import com.cinex.cinema.common.BaseEntity;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
