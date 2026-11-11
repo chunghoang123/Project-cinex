@@ -103,8 +103,8 @@ export const authService = {
     const res = await api.post<Envelope<{ message: string; resetToken: string | null }>>('/auth/forgot-password', { email })
     return res.data.data
   },
-  resetPassword: async (token: string, newPassword: string): Promise<string> => {
-    const res = await api.post<Envelope<null>>('/auth/reset-password', { token, newPassword })
+  resetPassword: async (otp: string, newPassword: string): Promise<string> => {
+    const res = await api.post<Envelope<null>>('/auth/reset-password', { token: otp, newPassword })
     return res.data.message
   },
   logout: () => {

@@ -7,7 +7,10 @@ import { Logo } from '../components/ui/Logo'
 import { FieldError } from '../components/ui/FieldError'
 import { errorMessage } from '../utils/consoleFormat'
 
+type Step = 'email' | 'otp' | 'success'
+
 export function ForgotPassword() {
+  const [step, setStep] = useState<Step>('email')
   const [email, setEmail] = useState('')
   const [otp, setOtp] = useState('')
   const [password, setPassword] = useState('')
@@ -16,7 +19,6 @@ export function ForgotPassword() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [fieldError, setFieldError] = useState('')
-  const [result, setResult] = useState<{ message: string; resetToken?: string | null } | null>(null)
 
   // Bước 1: gửi mã OTP tới email
   const handleSendOtp = async (event: FormEvent<HTMLFormElement>) => {
@@ -42,6 +44,50 @@ export function ForgotPassword() {
     }
   }
 
+  // Bước 2: xác minh OTP và đặt mật khẩu mới
+  const handleVerifyOtp = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!otp.trim()) {
+      setFieldError('Vui lòng nhập mã OTP từ email.')
+      return
+    }
+    if (password.length < 6) {
+      setFieldError('Mật khẩu mới tối thiểu 6 ký tự.')
+      return
+    }
+    if (password !== confirm) {
+      setFieldError('Mật khẩu xác nhận không khớp.')
+      return
+    }
+    setFieldError('')
+    setError('')
+    setLoading(true)
+    try {
+      await authService.resetPassword(otp.trim(), password)
+      setStep('success')
+    } catch (err) {
+      setError(errorMessage(err, 'Mã OTP không đúng hoặc đã hết hạn. Vui lòng gửi lại mã.'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleResendOtp = async () => {
+    setFieldError('')
+    setError('')
+    setLoading(true)
+    try {
+      const res = await authService.forgotPassword(email.trim())
+      if (res.resetToken) {
+        setOtp(res.resetToken)
+      }
+    } catch (err) {
+      setError(errorMessage(err, 'Không gửi được lại mã OTP. Vui lòng thử lại.'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="auth-page">
       {loading && (
@@ -58,27 +104,34 @@ export function ForgotPassword() {
       </section>
       <section className="auth-panel">
         <div className="auth-card">
-          <h1 className="auth-title">Quên mật khẩu</h1>
-          <p className="auth-sub">Nhập email đã đăng ký, chúng tôi sẽ gửi hướng dẫn đặt lại mật khẩu.</p>
+          {step === 'email' && (
+            <>
+              <h1 className="auth-title">Quên mật khẩu</h1>
+              <p className="auth-sub">Nhập email đã đăng ký, chúng tôi sẽ gửi mã OTP khôi phục.</p>
 
               {error && <div className="form-error" style={{ marginBottom: 14 }}>{error}</div>}
 
-          {result ? (
-            <div className="form-success" style={{ marginBottom: 14 }}>
-              <p>{result.message}</p>
-              {result.resetToken && (
-                <div style={{ marginTop: 12 }}>
-                  <p className="muted" style={{ fontSize: 13 }}>
-                    (Chế độ dev: không có SMTP, mã OTP đặt lại được trả trực tiếp để bạn test.)
-                  </p>
-                  <p style={{ marginTop: 8, wordBreak: 'break-all' }}>
-                    <strong>Mã OTP:</strong> <code>{result.resetToken}</code>
-                  </p>
-                  <p style={{ marginTop: 8 }}>
-                    <Link to={`/reset-password?token=${encodeURIComponent(result.resetToken)}`}>
-                      Đặt lại mật khẩu ngay →
-                    </Link>
-                  </p>
+              <form className="auth-form" onSubmit={handleSendOtp} noValidate>
+                <div className="field">
+                  <label htmlFor="email">Email</label>
+                  <div className={`input-wrap${fieldError ? ' input-wrap--error' : ''}`}>
+                    <Icon name="mail" size={17} />
+                    <input
+                      id="email"
+                      type="email"
+                      className="input"
+                      value={email}
+                      onChange={(e) => {
+                        setEmail(e.target.value)
+                        if (fieldError) setFieldError('')
+                      }}
+                      placeholder="Nhập email đã đăng ký"
+                      autoComplete="email"
+                      required
+                      aria-invalid={Boolean(fieldError)}
+                    />
+                  </div>
+                  <FieldError id="email-error" message={fieldError} />
                 </div>
                 <button type="submit" className="btn btn-gradient btn-block btn-lg" disabled={loading}>
                   {loading ? (
@@ -155,7 +208,53 @@ export function ForgotPassword() {
                     </button>
                   </div>
                 </div>
-                <FieldError id="email-error" message={fieldError} />
+                <div className="field">
+                  <label htmlFor="confirm-password">Xác nhận mật khẩu</label>
+                  <div className={`input-wrap${fieldError ? ' input-wrap--error' : ''}`}>
+                    <Icon name="lock" size={17} />
+                    <input
+                      id="confirm-password"
+                      type={showPassword ? 'text' : 'password'}
+                      className="input"
+                      value={confirm}
+                      onChange={(e) => setConfirm(e.target.value)}
+                      placeholder="Nhập lại mật khẩu mới"
+                      autoComplete="new-password"
+                      required
+                    />
+                  </div>
+                  <FieldError id="confirm-password-error" message={fieldError} />
+                </div>
+                <button type="submit" className="btn btn-gradient btn-block btn-lg" disabled={loading}>
+                  {loading ? (
+                    <>
+                      <span className="spinner spinner-sm" aria-hidden="true" />
+                      Đang đặt lại...
+                    </>
+                  ) : (
+                    'Đặt lại mật khẩu'
+                  )}
+                </button>
+                <p className="muted" style={{ marginTop: 10, fontSize: 13, textAlign: 'center' }}>
+                  Không nhận được mã?{' '}
+                  <button type="button" className="btn-link" onClick={handleResendOtp} disabled={loading}>
+                    Gửi lại mã OTP
+                  </button>
+                </p>
+              </form>
+            </>
+          )}
+
+          {step === 'success' && (
+            <>
+              <h1 className="auth-title">Thành công</h1>
+              <div className="form-success" style={{ marginBottom: 14 }}>
+                <p>Đặt lại mật khẩu thành công! Bạn có thể đăng nhập bằng mật khẩu mới.</p>
+              </div>
+              <div style={{ marginTop: 16 }}>
+                <Link to="/login" className="btn btn-gradient btn-block btn-lg">
+                  Về trang đăng nhập
+                </Link>
               </div>
             </>
           )}
