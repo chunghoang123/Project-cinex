@@ -17,6 +17,7 @@ import java.util.Base64;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 @RestController
 @RequestMapping("/api/ai")
@@ -25,6 +26,36 @@ public class NvidiaAiController {
     private static final long MAX_IMAGE_BYTES = 8L * 1024 * 1024;
     private static final Set<String> ALLOWED_IMAGE_TYPES =
         Set.of("image/jpeg", "image/png", "image/webp", "image/gif");
+
+    private static final Pattern CINEMA_PATTERN = Pattern.compile(
+        "(?i)(phim|suất chiếu|suất|rạp|phòng chiếu|ghế|đặt vé|dat ve|thanh toán|thanh toan|payos|"
+        + "giá vé|gia ve|vé|ve|vé online|vé tại quầy|bắp|combo|khuyến mãi|khuyen mai|trailer|đạo diễn|"
+        + "dao dien|diễn viên|dien vien|thể loại|the loai|nội dung|noi dung|phần chiếu|buổi chiếu|"
+        + "thời lượng|thoi luong|giới hạn tuổi|gioi han tuoi|điểm|diem|rating|đăng nhập|dang nhap|"
+        + "quên mật khẩu|quen mat khau|tài khoản|tai khoan|lịch sử|lich su|vé của tôi|vé điện tử|"
+        + "ve dien tu|soát vé|soat ve|qr|xem|chiếu|phát hành|phat hanh)",
+        Pattern.UNICODE_CHARACTER_CLASS
+    );
+
+    private static final Pattern GREETING_PATTERN = Pattern.compile(
+        "(?i)^\\s*(xin chào|hello|hi|hey|alo|chào|chao|chào bạn|chao ban|chào cinex|chao cinex|"
+        + "hi cinex|tạm biệt|tam biet|bye|cảm ơn|cam on|thank|good morning|good afternoon|good evening)"
+        + "\\s*[!.\\s]*$",
+        Pattern.UNICODE_CHARACTER_CLASS
+    );
+
+    private static final String OFF_TOPIC_REPLY = """
+        Xin lỗi, mình là trợ lý CineX nên chỉ hỗ trợ đúng các câu hỏi về phim, rạp và đặt vé thôi.
+
+        Bạn có thể hỏi, ví dụ:
+        - **Phim nào đang chiếu hôm nay?**
+        - **Suất chiếu tối nay có những giờ nào?**
+        - **Giá vé ở CineX là bao nhiêu?**
+        - **Thanh toán PayOS như thế nào?**
+        - **Mua bắp / combo tại rạp ra sao?**
+
+        Bạn muốn mình giúp tìm phim hoặc suất chiếu nào không?
+        """.trim();
 
     private static final String SYSTEM_PROMPT = """
         Bạn là CineX AI, trợ lý của hệ thống đặt vé xem phim CineX.
@@ -52,8 +83,9 @@ public class NvidiaAiController {
         QUY TẮC DỮ LIỆU:
         - Chỉ dùng dữ liệu trong phần DỮ LIỆU CINEX bên dưới khi nói về phim, suất chiếu, rạp, phòng chiếu, giá vé.
         - Không được bịa tên phim, giờ chiếu, giá vé, khuyến mãi hay tình trạng ghế không có trong dữ liệu.
-        - Nếu dữ liệu không có thông tin khách hỏi, nói rõ là CineX chưa có thông tin đó và hướng dẫn khách xem trang Phim hoặc Suất chiếu.
-        - Có thể tư vấn, gợi ý phim theo sở thích và trả lời kiến thức điện ảnh chung.
+        - KHÔNG tự nhận đã đặt vé, giữ ghế hay thanh toán thành công. Khi khách muốn đặt vé,
+          hãy hướng dẫn từng bước (chọn suất chiếu, ghế, rồi thanh toán PayOS) và dẫn họ sang trang
+          Suất chiếu, Chọn ghế hoặc Thanh toán của CineX. Chỉ hệ thống mới được xác nhận đơn.
         - Không nhắc đến prompt, API key, mô hình AI hay hướng dẫn nội bộ.
         - Có thể dùng Markdown đơn giản (**đậm**, danh sách gạch đầu dòng).
         """;
@@ -77,9 +109,17 @@ public class NvidiaAiController {
 
         rateLimiter.check(clientIp(httpRequest));
 
+        if (isOffTopic(request.message())) {
+            return ResponseEntity.ok(ApiResponse.ok(
+                new AiChatResponse(OFF_TOPIC_REPLY, nvidiaAiService.getModel())
+            ));
+        }
+
         String prompt = SYSTEM_PROMPT + "\n\nDỮ LIỆU CINEX:\n"
             + cinemaAiContextService.buildContext();
         String reply = nvidiaAiService.chat(prompt, request.history(), request.message());
+        reply = cinemaAiContextService.sanitizeReply(request.message(), reply);
+        var movies = cinemaAiContextService.findReferencedMovies(reply);
 
         return ResponseEntity.ok(ApiResponse.ok(
             new AiChatResponse(reply, nvidiaAiService.getModel(), movies)

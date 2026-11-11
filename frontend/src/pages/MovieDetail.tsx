@@ -64,6 +64,7 @@ export function MovieDetail() {
   const related = movies.filter((item) => item.id !== movie.id).slice(0, 5)
   const trailerEmbedUrl = toYouTubeEmbed(movie.trailerUrl)
   const trailerAvailable = Boolean(trailerEmbedUrl)
+  const isComingSoon = movie.status === 'COMING_SOON'
 
   function toYouTubeEmbed(url: string): string {
     if (!url) return ''
@@ -123,10 +124,17 @@ export function MovieDetail() {
               ))}
             </div>
             <div className="detail-actions">
-              <Link to={`/showtimes?movieId=${movie.id}`} className="btn btn-accent">
-                <Icon name="ticket" size={17} />
-                Đặt vé
-              </Link>
+              {isComingSoon ? (
+                <button type="button" className="btn btn-accent" disabled title="Phim sắp khởi chiếu, chưa mở bán vé">
+                  <Icon name="calendar" size={17} />
+                  Sắp chiếu
+                </button>
+              ) : (
+                <Link to={`/showtimes?movieId=${movie.id}`} className="btn btn-accent">
+                  <Icon name="ticket" size={17} />
+                  Đặt vé
+                </Link>
+              )}
               <button type="button" className="btn btn-ghost" onClick={openTrailer} disabled={!trailerAvailable} title={trailerAvailable ? 'Xem trailer' : 'Trailer chưa được cập nhật'}>
                 <Icon name="play" size={16} />
                 {trailerAvailable ? 'Xem trailer' : 'Trailer sắp có'}
@@ -207,31 +215,39 @@ export function MovieDetail() {
               <h3 className="h3">{isComingSoon ? 'Suất chiếu' : 'Suất chiếu hôm nay'}</h3>
               {!isComingSoon && <span className="badge badge-success">Còn vé</span>}
             </div>
-            <div className="row gap-6" style={{ marginBottom: 14, color: 'var(--muted)', fontSize: 12 }}>
-              <Icon name="location" size={14} />
-              {slots[0]?.cinemaName ?? 'Cinex'}
-            </div>
-            <div className="showtime-slots" style={{ marginBottom: 16 }}>
-              {slots.length === 0 && (
-                <p className="muted" style={{ fontSize: 13 }}>
-                  Chưa có suất chiếu cho phim này.
-                </p>
-              )}
-              {slots.map((slot, index) => (
-                <button
-                  key={slot.id}
-                  type="button"
-                  className={`slot ${index === 0 ? 'is-active' : ''}`}
-                  onClick={() => navigate(`/seats/${slot.id}`)}
-                >
-                  <strong>{formatTime(slot.startTime)}</strong>
-                  <span>{formatVnd(Number(slot.basePrice))}</span>
-                </button>
-              ))}
-            </div>
-            <Link to={`/showtimes?movieId=${movie.id}`} className="btn btn-primary btn-block">
-              Chọn suất chiếu khác
-            </Link>
+            {isComingSoon ? (
+              <p className="muted" style={{ fontSize: 13 }}>
+                Phim sắp khởi chiếu — mở bán vé khi lịch chiếu được công bố.
+              </p>
+            ) : (
+              <>
+                <div className="row gap-6" style={{ marginBottom: 14, color: 'var(--muted)', fontSize: 12 }}>
+                  <Icon name="location" size={14} />
+                  {slots[0]?.cinemaName ?? 'Cinex'}
+                </div>
+                <div className="showtime-slots" style={{ marginBottom: 16 }}>
+                  {slots.length === 0 && (
+                    <p className="muted" style={{ fontSize: 13 }}>
+                      Chưa có suất chiếu cho phim này.
+                    </p>
+                  )}
+                  {slots.map((slot, index) => (
+                    <button
+                      key={slot.id}
+                      type="button"
+                      className={`slot ${index === 0 ? 'is-active' : ''}`}
+                      onClick={() => navigate(`/seats/${slot.id}`)}
+                    >
+                      <strong>{formatTime(slot.startTime)}</strong>
+                      <span>{formatVnd(Number(slot.basePrice))}</span>
+                    </button>
+                  ))}
+                </div>
+                <Link to={`/showtimes?movieId=${movie.id}`} className="btn btn-primary btn-block">
+                  Chọn suất chiếu khác
+                </Link>
+              </>
+            )}
             <div className="secure-note" style={{ marginTop: 14 }}>
               <Icon name="shield" size={15} />
               Thanh toán an toàn, ghế được giữ ngay khi thanh toán xong.

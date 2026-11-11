@@ -65,6 +65,20 @@ public class AuditoriumService {
         auditoriumRepository.save(auditorium);
     }
 
+    /**
+     * Bật/tắt hoạt động phòng chiếu (bảo trì).
+     * Khi bật lại, ghế trong khu vực sẽ được sinh lại để phòng dùng được ngay.
+     */
+    public AuditoriumResponse setActive(Long id, boolean active) {
+        Auditorium auditorium = findById(id);
+        auditorium.setActive(active);
+        auditorium = auditoriumRepository.save(auditorium);
+        if (active) {
+            generateSeats(auditorium);
+        }
+        return toResponse(auditorium);
+    }
+
     public List<SeatResponse> getSeats(Long auditoriumId) {
         findById(auditoriumId);
         return seatRepository.findByAuditoriumId(auditoriumId).stream()

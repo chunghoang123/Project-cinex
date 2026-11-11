@@ -124,6 +124,16 @@ public class AdminCatalogController {
         return ResponseEntity.ok(ApiResponse.ok("Đã ngừng hoạt động phòng chiếu", null));
     }
 
+    /** Bật/tắt bảo trì phòng chiếu: cho phép mở lại phòng đã ngừng. */
+    @PatchMapping("/auditoriums/{id}/status")
+    public ResponseEntity<ApiResponse<AuditoriumResponse>> updateAuditoriumStatus(
+            @PathVariable Long id, @Valid @RequestBody UpdateActiveRequest request) {
+        boolean active = Boolean.TRUE.equals(request.active());
+        return ResponseEntity.ok(ApiResponse.ok(
+            active ? "Đã mở lại phòng chiếu" : "Đã chuyển phòng chiếu sang bảo trì",
+            auditoriumService.setActive(id, active)));
+    }
+
     @GetMapping("/auditoriums/{id}/seats")
     public ResponseEntity<ApiResponse<List<SeatResponse>>> seats(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.ok(auditoriumService.getSeats(id)));

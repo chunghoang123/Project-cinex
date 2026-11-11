@@ -9,6 +9,7 @@ import com.cinex.cinema.cinema.SeatRepository;
 import com.cinex.cinema.common.SeatPricing;
 import com.cinex.cinema.movie.Movie;
 import com.cinex.cinema.movie.MovieRepository;
+import com.cinex.cinema.movie.MovieStatus;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,6 +18,9 @@ import org.springframework.web.server.ResponseStatusException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -66,17 +70,31 @@ public class ShowtimeService {
 
     public List<ShowtimeResponse> findInRange(LocalDateTime from, LocalDateTime to) {
         return showtimeRepository.findByStartTimeBetweenAndActiveTrueOrderByStartTimeAsc(from, to)
-            .stream().map(this::toResponse).collect(Collectors.toList());
+            .stream()
+            .filter(this::isBookable)
+            .map(this::toResponse).collect(Collectors.toList());
+    }
+
+    /** Phòng chiếu đang bảo trì hoặc rạp đã ngừng thì khách không thấy suất chiếu đó. */
+    private boolean isBookable(Showtime showtime) {
+        return showtime.getAuditorium().isActive() && showtime.getAuditorium().getCinema().isActive();
     }
 
     public List<ShowtimeResponse> findAdmin(LocalDate date, Long cinemaId, Long movieId) {
-        LocalDate targetDate = date == null ? LocalDate.now() : date;
-        LocalDateTime from = targetDate.atStartOfDay();
-        LocalDateTime to = targetDate.plusDays(1).atStartOfDay();
-        List<Showtime> showtimes = cinemaId == null
-            ? showtimeRepository.findByStartTimeBetweenAndActiveTrueOrderByStartTimeAsc(from, to)
-            : showtimeRepository.findByAuditoriumCinemaIdAndStartTimeBetweenAndActiveTrueOrderByStartTimeAsc(
-                cinemaId, from, to);
+        List<Showtime> showtimes;
+        if (date == null) {
+            // Không lọc ngày: trả về toàn bộ suất chiếu còn hoạt động của rạp (hoặc toàn hệ thống)
+            showtimes = cinemaId == null
+                ? showtimeRepository.findByActiveTrueOrderByStartTimeAsc()
+                : showtimeRepository.findByAuditoriumCinemaIdAndActiveTrueOrderByStartTimeAsc(cinemaId);
+        } else {
+            LocalDateTime from = date.atStartOfDay();
+            LocalDateTime to = date.plusDays(1).atStartOfDay();
+            showtimes = cinemaId == null
+                ? showtimeRepository.findByStartTimeBetweenAndActiveTrueOrderByStartTimeAsc(from, to)
+                : showtimeRepository.findByAuditoriumCinemaIdAndStartTimeBetweenAndActiveTrueOrderByStartTimeAsc(
+                    cinemaId, from, to);
+        }
         return showtimes.stream()
             .filter(item -> movieId == null || item.getMovie().getId().equals(movieId))
             .map(this::toResponse)
@@ -122,6 +140,8 @@ public class ShowtimeService {
 
         LocalDateTime endTime = request.getStartTime()
             .plusMinutes(movie.getDurationMinutes() == null ? 120 : movie.getDurationMinutes());
+        ensureNoOverlap(auditorium, request.getStartTime(), endTime, null);
+
         Showtime showtime = Showtime.builder()
             .movie(movie)
             .auditorium(auditorium)
@@ -149,12 +169,21 @@ public class ShowtimeService {
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Phim không tồn tại"));
         Auditorium auditorium = auditoriumRepository.findById(request.getAuditoriumId())
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Phòng chiếu không tồn tại"));
+        if (!auditorium.isActive()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Phòng chiếu đã ngừng hoạt động");
+        }
+        if (!auditorium.getCinema().isActive()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Rạp đã ngừng hoạt động");
+        }
+
+        LocalDateTime endTime = request.getStartTime()
+            .plusMinutes(movie.getDurationMinutes() == null ? 120 : movie.getDurationMinutes());
+        ensureNoOverlap(auditorium, request.getStartTime(), endTime, id);
 
         showtime.setMovie(movie);
         showtime.setAuditorium(auditorium);
         showtime.setStartTime(request.getStartTime());
-        showtime.setEndTime(request.getStartTime()
-            .plusMinutes(movie.getDurationMinutes() == null ? 120 : movie.getDurationMinutes()));
+        showtime.setEndTime(endTime);
         showtime.setBasePrice(request.getBasePrice());
         showtime = showtimeRepository.save(showtime);
 

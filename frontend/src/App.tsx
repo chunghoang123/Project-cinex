@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-route
 import { Header } from './components/layout/Header'
 import { Footer } from './components/layout/Footer'
 import { BottomNav } from './components/layout/BottomNav'
+import { authService } from './services/authService'
 import { Home } from './pages/Home'
 import { MovieList } from './pages/MovieList'
 import { MovieDetail } from './pages/MovieDetail'
@@ -80,6 +81,7 @@ function Shell() {
   const location = useLocation()
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register'
   const isConsole = location.pathname.startsWith('/admin') || location.pathname.startsWith('/staff')
+  useSessionWatch()
 
   return (
     <div className={isConsole ? 'console-root' : 'app-shell'}>

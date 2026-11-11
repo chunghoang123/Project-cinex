@@ -45,6 +45,17 @@ export function AdminShowtimesPage() {
   const [form, setForm] = useState<ShowtimeForm>(emptyForm(todayIso()))
   const [formError, setFormError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [autoRunning, setAutoRunning] = useState(false)
+  const [autoBanner, setAutoBanner] = useState('')
+
+  const loadCatalogs = () => {
+    Promise.all([adminService.getMovies(), adminService.getCinemas()])
+      .then(([movieList, cinemaList]) => {
+        setMovies(movieList)
+        setCinemas(cinemaList)
+      })
+      .catch((err) => setError(errorMessage(err, 'Không tải được dữ liệu danh mục')))
+  }
 
   const loadShowtimes = () => {
     setLoading(true)
@@ -60,16 +71,21 @@ export function AdminShowtimesPage() {
   }
 
   useEffect(() => {
-    Promise.all([adminService.getMovies(), adminService.getCinemas()])
-      .then(([movieList, cinemaList]) => {
-        setMovies(movieList)
-        setCinemas(cinemaList)
-      })
-      .catch((err) => setError(errorMessage(err, 'Không tải được dữ liệu danh mục')))
+    loadCatalogs()
   }, [])
 
   useEffect(() => {
     loadShowtimes()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date, cinemaFilter, movieFilter])
+
+  useEffect(() => {
+    const onRefresh = () => {
+      loadCatalogs()
+      loadShowtimes()
+    }
+    window.addEventListener('cinex:admin-refresh', onRefresh)
+    return () => window.removeEventListener('cinex:admin-refresh', onRefresh)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date, cinemaFilter, movieFilter])
 
@@ -85,7 +101,7 @@ export function AdminShowtimesPage() {
           if (current.auditoriumId !== '' && items.some((item) => item.id === current.auditoriumId)) {
             return current
           }
-          return { ...current, auditoriumId: items[0]?.id ?? '' }
+          return { ...current, auditoriumId: items.find((item) => item.active)?.id ?? '' }
         })
       })
       .catch((err) => setFormError(errorMessage(err, 'Không tải được phòng chiếu')))
@@ -95,8 +111,8 @@ export function AdminShowtimesPage() {
     setEditing(null)
     setForm({
       ...emptyForm(date),
-      movieId: movies[0]?.id ?? '',
-      cinemaId: cinemas[0]?.id ?? '',
+      movieId: movies.find((movie) => movie.active)?.id ?? '',
+      cinemaId: cinemas.find((cinema) => cinema.active)?.id ?? '',
     })
     setFormError('')
     setModalOpen(true)
@@ -160,12 +176,28 @@ export function AdminShowtimesPage() {
     }
   }
 
+  const runAutoSchedule = async () => {
+    setAutoRunning(true)
+    setAutoBanner('')
+    try {
+      const res = await adminService.autoGenerateShowtimes(10)
+      setAutoBanner(
+        `Đã tự động phủ lịch chiếu 10 ngày (${res.fromDate} → ${res.toDate}): thêm mới ${res.createdCount} suất, hoàn thành ${res.completedCount} suất đã qua.`,
+      )
+      loadShowtimes()
+    } catch (err) {
+      window.alert(errorMessage(err, 'Không thể tự động cập nhật suất chiếu'))
+    } finally {
+      setAutoRunning(false)
+    }
+  }
+
   return (
     <div>
       <ConsolePageHeader
         eyebrow="Lịch chiếu · Tự động phủ 10 ngày (chu kỳ 5 ngày/lần)"
         title="Quản lý suất chiếu"
-        description="Lên lịch chiếu theo phim, rạp và phòng. Hệ thống tự sinh sơ đồ ghế và tính giá theo loại ghế."
+        description="Hệ thống tự động cập nhật suất chiếu cho 10 ngày tới (5 ngày/lần) và chuyển trạng thái hoàn thành khi hết giờ. Bạn cũng có thể nhờ AI xếp lịch nhanh."
         actions={
           <>
             <button
@@ -326,7 +358,13 @@ export function AdminShowtimesPage() {
             <label>Phim</label>
             <select className="select" value={form.movieId} onChange={(e) => setForm({ ...form, movieId: Number(e.target.value) })}>
               <option value="">Chọn phim</option>
-              {movies.map((movie) => <option key={movie.id} value={movie.id}>{movie.title}</option>)}
+              {movies
+                .filter((movie) => movie.active || movie.id === form.movieId)
+                .map((movie) => (
+                  <option key={movie.id} value={movie.id}>
+                    {movie.title}{movie.active ? '' : ' (đã ẩn)'}
+                  </option>
+                ))}
             </select>
           </div>
           <div className="field">
@@ -346,7 +384,13 @@ export function AdminShowtimesPage() {
             <label>Phòng chiếu</label>
             <select className="select" value={form.auditoriumId} onChange={(e) => setForm({ ...form, auditoriumId: Number(e.target.value) })}>
               <option value="">Chọn phòng</option>
-              {auditoriums.map((auditorium) => <option key={auditorium.id} value={auditorium.id}>{auditorium.name} ({auditorium.seatCount} ghế)</option>)}
+              {auditoriums
+                .filter((auditorium) => auditorium.active || auditorium.id === form.auditoriumId)
+                .map((auditorium) => (
+                  <option key={auditorium.id} value={auditorium.id}>
+                    {auditorium.name} ({auditorium.seatCount} ghế){auditorium.active ? '' : ' (ngừng hoạt động)'}
+                  </option>
+                ))}
             </select>
           </div>
           <div className="field">

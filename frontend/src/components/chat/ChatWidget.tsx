@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import axios from 'axios'
 import { Icon } from '../ui/Icon'
 import { aiService } from '../../services/aiService'
-import type { AiChatMessage } from '../../services/aiService'
+import type { AiChatMessage, AiMovieSuggestion } from '../../services/aiService'
 
 interface Message {
   id: number
@@ -11,6 +12,12 @@ interface Message {
   text: string
   time: string
   error?: boolean
+  movies?: AiMovieSuggestion[]
+}
+
+interface QuickLink {
+  label: string
+  to: string
 }
 
 const suggestions = [
@@ -24,8 +31,18 @@ const suggestions = [
 const greeting: Message = {
   id: 1,
   role: 'ai',
-  text: 'Xin chào! Mình là CineX AI. Mình có thể gợi ý phim, tra suất chiếu và giải đáp thắc mắc về đặt vé. Bạn muốn xem gì hôm nay?',
-  time: now(),
+  text: 'Xin chào! Mình là CineX AI. Mình chỉ hỗ trợ đúng việc đặt vé xem phim: gợi ý phim, tra suất chiếu, giá vé, thanh toán PayOS và vé của bạn. Bạn muốn xem phim gì hôm nay?',
+  time: '',
+}
+
+function linkForMessage(text: string): QuickLink | null {
+  const low = text.toLowerCase()
+  if (low.includes('suất chiếu') || low.includes('suất')) return { label: 'Mở lịch chiếu', to: '/showtimes' }
+  if (low.includes('giá vé') || low.includes('gia ve')) return { label: 'Xem lịch chiếu & giá', to: '/showtimes' }
+  if (low.includes('thanh toán') || low.includes('payos') || low.includes('thanh toan')) return { label: 'Cách đặt vé & thanh toán', to: '/showtimes' }
+  if (low.includes('vé của tôi') || low.includes('tra vé') || low.includes('lịch sử vé')) return { label: 'Mở vé của tôi', to: '/history' }
+  if (low.includes('phim')) return { label: 'Khám phá phim', to: '/movies' }
+  return null
 }
 
 function now() {
@@ -68,6 +85,7 @@ export function ChatWidget() {
   const [input, setInput] = useState('')
   const [typing, setTyping] = useState(false)
   const bodyRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const handler = () => setOpen(true)
@@ -113,7 +131,7 @@ export function ChatWidget() {
       try {
         const result = await aiService.chat(value, history)
         const reply = result?.reply?.trim()
-        if (!reply) throw new Error('Trợ lý AI không trả về nội dung.')
+        if (!reply) throw new Error('CineX AI không trả về nội dung.')
         setMessages((current) => [
           ...current,
           { id: Date.now() + 1, role: 'ai', text: reply, time: now(), movies: result?.movies || [] },
@@ -124,7 +142,7 @@ export function ChatWidget() {
           {
             id: Date.now() + 1,
             role: 'ai',
-            text: `⚠️ ${errorText(error)}`,
+            text: `Rất tiếc, ${errorText(error)}`,
             time: now(),
             error: true,
           },
@@ -152,7 +170,7 @@ export function ChatWidget() {
             <span className="chat-head__avatar" aria-hidden="true">
               <Icon name="sparkles" size={20} />
             </span>
-            <div>
+            <div className="chat-head__text">
               <div className="chat-head__name">CineX AI</div>
               <div className="chat-head__status">Hỗ trợ đặt vé · đang trực tuyến</div>
             </div>
@@ -160,7 +178,7 @@ export function ChatWidget() {
               type="button"
               className="chat-head__close"
               onClick={() => setOpen(false)}
-              aria-label="Đóng chat"
+              aria-label="Đóng trợ lý"
             >
               <Icon name="close" size={17} />
             </button>
@@ -211,12 +229,14 @@ export function ChatWidget() {
             })}
             {typing && (
               <div className="chat-msg is-ai">
-                <span className="muted">CineX AI đang trả lời...</span>
+                <div className="chat-typing" aria-label="CineX AI đang trả lời">
+                  <span /><span /><span />
+                </div>
               </div>
             )}
           </div>
 
-          <div className="chat-suggestions">
+          <div className="chat-suggestions" aria-label="Gợi ý câu hỏi">
             {suggestions.map((suggestion) => (
               <button
                 key={suggestion}
@@ -232,6 +252,7 @@ export function ChatWidget() {
 
           <form className="chat-compose" onSubmit={handleSubmit}>
             <input
+              ref={inputRef}
               value={input}
               onChange={(event) => setInput(event.target.value)}
               placeholder="Hỏi về phim, suất chiếu, giá vé..."
@@ -243,7 +264,8 @@ export function ChatWidget() {
               <Icon name="send" size={17} />
             </button>
           </form>
-        </div>
+          <p className="chat-note">Chỉ trả lời về phim &amp; đặt vé tại CineX.</p>
+        </section>
       )}
 
       <button

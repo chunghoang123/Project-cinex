@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { ConsolePageHeader } from '../../components/console/ConsolePageHeader'
+import { openAdminAi } from '../../components/console/AdminAiWidget'
 import { Modal } from '../../components/console/Modal'
 import { StatusBadge } from '../../components/console/StatusBadge'
 import { Icon } from '../../components/ui/Icon'
@@ -58,6 +59,9 @@ export function AdminMoviesPage() {
 
   useEffect(() => {
     load()
+    const onRefresh = () => load()
+    window.addEventListener('cinex:admin-refresh', onRefresh)
+    return () => window.removeEventListener('cinex:admin-refresh', onRefresh)
   }, [])
 
   const openCreate = () => {
@@ -172,9 +176,18 @@ export function AdminMoviesPage() {
         title="Quản lý phim"
         description="Thêm, cập nhật và ẩn phim khỏi hệ thống. Bạn có thể dùng AI để thêm phim nhanh."
         actions={
-          <button type="button" className="btn btn-primary btn-sm" onClick={openCreate}>
-            <Icon name="plus" size={16} /> Thêm phim
-          </button>
+          <>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => openAdminAi('Thêm phim Lật Mặt 7 đang chiếu, 138 phút, 13+')}
+            >
+              <Icon name="sparkles" size={15} /> AI thêm phim
+            </button>
+            <button type="button" className="btn btn-primary btn-sm" onClick={openCreate}>
+              <Icon name="plus" size={16} /> Thêm phim
+            </button>
+          </>
         }
       />
 

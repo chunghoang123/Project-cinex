@@ -119,7 +119,9 @@ export function ShowtimeList() {
           key={slot.id}
           type="button"
           className="slot"
-          onClick={() => navigate(`/seats/${slot.id}?movieId=${slot.movieId}`)}
+          disabled={disabled}
+          title={disabled ? 'Phim sắp khởi chiếu, chưa mở bán vé' : undefined}
+          onClick={() => !disabled && navigate(`/seats/${slot.id}?movieId=${slot.movieId}`)}
         >
           <strong>{formatTime(slot.startTime)}</strong>
           <span>{formatVnd(Number(slot.basePrice))}</span>
@@ -155,7 +157,7 @@ export function ShowtimeList() {
             <div className="showtime-summary">
               <img src={movie.posterUrl} alt={movie.title} />
               <div>
-                <span className="eyebrow">Đang chiếu</span>
+                <span className="eyebrow">{isComingSoon ? 'Sắp chiếu' : 'Đang chiếu'}</span>
                 <h2 className="h3" style={{ margin: '4px 0 6px' }}>
                   {movie.title}
                 </h2>
@@ -195,7 +197,7 @@ export function ShowtimeList() {
                     </div>
                     <span className="badge badge-success">{isComingSoon ? 'Sắp mở bán' : 'Còn vé'}</span>
                   </div>
-                  {renderSlots(cinemaSlots)}
+                  {renderSlots(cinemaSlots, isComingSoon)}
                 </div>
               ),
             )}

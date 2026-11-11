@@ -57,6 +57,13 @@ public class CinemaService {
         cinemaRepository.save(cinema);
     }
 
+    /** Bật lại rạp đã ngừng hoạt động (thoát bảo trì). */
+    public CinemaResponse setActive(Long id, boolean active) {
+        Cinema cinema = findById(id);
+        cinema.setActive(active);
+        return toResponse(cinemaRepository.save(cinema));
+    }
+
     public CinemaResponse toResponse(Cinema cinema) {
         return CinemaResponse.builder()
             .id(cinema.getId())

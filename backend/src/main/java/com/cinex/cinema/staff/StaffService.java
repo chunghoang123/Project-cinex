@@ -104,6 +104,10 @@ public class StaffService {
         if (!showtime.isActive() || showtime.getStartTime().isBefore(LocalDateTime.now())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Suất chiếu không còn khả dụng");
         }
+        if (showtime.getMovie().getStatus() == MovieStatus.COMING_SOON) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                "Phim chưa khởi chiếu, chưa thể bán vé");
+        }
 
         List<ShowtimeSeat> seats = showtimeSeatRepository.findAllById(request.getSeatIds());
         if (seats.size() != request.getSeatIds().size()) {
@@ -190,7 +194,7 @@ public class StaffService {
                 "Phim chưa khởi chiếu, chưa thể bán vé");
         }
 
-        List<ShowtimeSeat> seats = showtimeSeatRepository.findAllById(request.getSeatIds());
+        List<ShowtimeSeat> seats = showtimeSeatRepository.findAllByIdForUpdate(request.getSeatIds());
         if (seats.size() != request.getSeatIds().size()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Một số ghế không tồn tại");
         }

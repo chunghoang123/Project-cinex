@@ -3,13 +3,7 @@ package com.cinex.cinema.admin;
 import com.cinex.cinema.booking.BookingResponse;
 import com.cinex.cinema.booking.BookingStatus;
 import com.cinex.cinema.common.ApiResponse;
-import com.cinex.cinema.user.CreateUserRequest;
-import com.cinex.cinema.user.UpdateUserRolesRequest;
-import com.cinex.cinema.user.UpdateUserStatusRequest;
-import com.cinex.cinema.user.UserResponse;
-import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -24,7 +18,6 @@ public class AdminOperationsController {
 
     private final AdminDashboardService dashboardService;
     private final AdminBookingService bookingService;
-    private final AdminUserService userService;
 
     public AdminOperationsController(AdminDashboardService dashboardService,
                                      AdminBookingService bookingService) {

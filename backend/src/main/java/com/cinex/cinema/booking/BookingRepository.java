@@ -21,5 +21,6 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     List<Booking> findByBookingCodeContainingIgnoreCaseOrCustomerPhoneContainingIgnoreCaseOrCustomerNameContainingIgnoreCase(
         String bookingCode, String customerPhone, String customerName);
     boolean existsByShowtimeId(Long showtimeId);
+    boolean existsByShowtimeIdAndStatusIn(Long showtimeId, Collection<BookingStatus> statuses);
     long countByCreatedAtBetween(LocalDateTime from, LocalDateTime to);
 }

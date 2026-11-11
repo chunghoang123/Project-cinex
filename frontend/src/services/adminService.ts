@@ -30,6 +30,29 @@ export interface YoutubeTrailer {
   duration: string
 }
 
+export interface AutoScheduleResult {
+  createdCount: number
+  completedCount: number
+  fromDate: string
+  toDate: string
+  daysAhead: number
+}
+
+export interface AdminAiActionResult {
+  type: string
+  success: boolean
+  title: string
+  detail: string
+  entityId: number | null
+}
+
+export interface AdminAiResponse {
+  reply: string
+  model: string
+  actions: AdminAiActionResult[]
+  dataChanged: boolean
+}
+
 export const youtubeService = {
   searchTrailers: async (query: string, maxResults = 10): Promise<YoutubeTrailer[]> => {
     const res = await api.get<Envelope<YoutubeTrailer[]>>('/youtube/trailers', {
@@ -107,6 +130,11 @@ export const adminService = {
   },
   deleteAuditorium: async (id: number): Promise<void> => {
     await api.delete(`/admin/auditoriums/${id}`)
+  },
+  /** Bật/tắt bảo trì phòng chiếu. */
+  setAuditoriumStatus: async (id: number, active: boolean): Promise<Auditorium> => {
+    const res = await api.patch<Envelope<Auditorium>>(`/admin/auditoriums/${id}/status`, { active })
+    return res.data.data
   },
   getSeats: async (auditoriumId: number): Promise<Seat[]> => {
     const res = await api.get<Envelope<Seat[]>>(`/admin/auditoriums/${auditoriumId}/seats`)

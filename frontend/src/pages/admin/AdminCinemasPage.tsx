@@ -90,10 +90,19 @@ export function AdminCinemasPage() {
   const deactivateCinema = async (cinema: Cinema) => {
     if (!window.confirm(`Chuyển rạp "${cinema.name}" sang bảo trì?`)) return
     try {
-      await adminService.deleteCinema(cinema.id)
+      await adminService.setCinemaStatus(cinema.id, false)
       load()
     } catch (err) {
-      window.alert(errorMessage(err, 'Không thể ngừng hoạt động rạp'))
+      window.alert(errorMessage(err, 'Không thể chuyển rạp sang bảo trì'))
+    }
+  }
+
+  const restoreCinema = async (cinema: Cinema) => {
+    try {
+      await adminService.setCinemaStatus(cinema.id, true)
+      load()
+    } catch (err) {
+      window.alert(errorMessage(err, 'Không thể mở lại rạp'))
     }
   }
 
@@ -163,7 +172,7 @@ export function AdminCinemasPage() {
   const deactivateAuditorium = async (auditorium: Auditorium) => {
     if (!window.confirm(`Chuyển phòng "${auditorium.name}" sang bảo trì?`)) return
     try {
-      await adminService.deleteAuditorium(auditorium.id)
+      await adminService.setAuditoriumStatus(auditorium.id, false)
       if (selectedCinema) await loadAuditoriums(selectedCinema.id)
     } catch (err) {
       window.alert(errorMessage(err, 'Không thể chuyển phòng chiếu sang bảo trì'))
@@ -349,9 +358,12 @@ export function AdminCinemasPage() {
         ) : (
           <div className="auditorium-list">
             {auditoriums.map((auditorium) => (
-              <div className="auditorium-item" key={auditorium.id}>
+              <div className={`auditorium-item ${auditorium.active ? '' : 'is-inactive'}`} key={auditorium.id}>
                 <div>
-                  <strong>{auditorium.name}</strong>
+                  <strong>
+                    {auditorium.name}
+                    {!auditorium.active && <span className="badge badge-warning">Bảo trì</span>}
+                  </strong>
                   <span>{auditorium.totalRows} hàng × {auditorium.columnsPerRow} cột · {auditorium.seatCount} ghế</span>
                 </div>
                 <div className="cell-actions">
@@ -361,8 +373,14 @@ export function AdminCinemasPage() {
                   <button type="button" className="btn btn-ghost btn-sm" onClick={() => regenerateSeats(auditorium)}>
                     <Icon name="refresh" size={14} /> Tạo ghế
                   </button>
-                  {auditorium.active && (
-                    <button type="button" className="btn btn-danger btn-sm" onClick={() => deactivateAuditorium(auditorium)}>
+                  {auditorium.active ? (
+                    <button
+                      type="button"
+                      className="btn btn-danger btn-sm"
+                      title="Chuyển phòng sang bảo trì"
+                      aria-label={`Chuyển phòng ${auditorium.name} sang bảo trì`}
+                      onClick={() => deactivateAuditorium(auditorium)}
+                    >
                       <Icon name="trash" size={14} />
                     </button>
                   ) : (

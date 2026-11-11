@@ -104,6 +104,16 @@ export function ConsoleLayout({ variant, roleLabel, items }: ConsoleLayoutProps)
           </div>
 
           <div className="console-topbar__right">
+            {variant === 'admin' && (
+              <button
+                type="button"
+                className="console-ai-btn"
+                onClick={() => openAdminAi()}
+              >
+                <Icon name="sparkles" size={16} />
+                <span>Trợ lý AI</span>
+              </button>
+            )}
             <Link to="/" className="console-store-link">
               <Icon name="globe" size={16} />
               <span>Cửa hàng</span>
@@ -121,6 +131,7 @@ export function ConsoleLayout({ variant, roleLabel, items }: ConsoleLayoutProps)
         <main className="console-content">
           <Outlet />
         </main>
+        {variant === 'admin' && <AdminAiWidget />}
       </div>
     </div>
   )
