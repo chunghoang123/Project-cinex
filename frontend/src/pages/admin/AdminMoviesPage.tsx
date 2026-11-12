@@ -131,11 +131,21 @@ export function AdminMoviesPage() {
       setFormError('Vui lòng nhập tên phim')
       return
     }
+    const duplicate = movies.find(
+      (movie) =>
+        movie.id !== editing?.id &&
+        movie.title.trim().replace(/\s+/g, ' ').toLowerCase() === cleanTitle.toLowerCase(),
+    )
+    if (duplicate) {
+      setFormError(`Phim "${cleanTitle}" đã tồn tại trong danh mục`)
+      return
+    }
     setSaving(true)
     setFormError('')
     try {
       const payload = {
         ...form,
+        title: cleanTitle,
         durationMinutes: Number(form.durationMinutes),
         ageRating: Number(form.ageRating),
       }
@@ -159,7 +169,7 @@ export function AdminMoviesPage() {
       await adminService.deleteMovie(movie.id)
       load()
     } catch (err) {
-      window.alert(errorMessage(err, 'Không thể ẩn phim'))
+      window.alert(errorMessage(err, 'Không thể xóa phim'))
     }
   }
 
@@ -176,18 +186,9 @@ export function AdminMoviesPage() {
         title="Quản lý phim"
         description="Thêm, cập nhật và xóa phim khỏi hệ thống."
         actions={
-          <>
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm"
-              onClick={() => openAdminAi('Thêm phim Lật Mặt 7 đang chiếu, 138 phút, 13+')}
-            >
-              <Icon name="sparkles" size={15} /> AI thêm phim
-            </button>
-            <button type="button" className="btn btn-primary btn-sm" onClick={openCreate}>
-              <Icon name="plus" size={16} /> Thêm phim
-            </button>
-          </>
+          <button type="button" className="btn btn-primary btn-sm" onClick={openCreate}>
+            <Icon name="plus" size={16} /> Thêm phim
+          </button>
         }
       />
 
@@ -231,7 +232,7 @@ export function AdminMoviesPage() {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7}>
+                  <td colSpan={6}>
                     <div className="console-empty">
                       <strong>Không có phim phù hợp</strong>
                       Thử từ khóa khác hoặc thêm phim mới.
@@ -259,11 +260,6 @@ export function AdminMoviesPage() {
                   <td>{movie.durationMinutes ? formatDuration(movie.durationMinutes) : '—'}</td>
                   <td>{movie.ageRating ? `T${movie.ageRating}` : 'P'}</td>
                   <td><StatusBadge status={movie.status} /></td>
-                  <td>
-                    <span className={`badge ${movie.active ? 'badge-success' : 'badge-muted'}`}>
-                      {movie.active ? 'Đang hiển thị' : 'Đã ẩn'}
-                    </span>
-                  </td>
                   <td>
                     <div className="cell-actions">
                       <button type="button" className="btn btn-ghost btn-sm" onClick={() => openEdit(movie)}>
