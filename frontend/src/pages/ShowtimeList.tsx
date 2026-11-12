@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useMovies } from '../hooks/useMovies'
 import { useShowtimes } from '../hooks/useShowtimes'
@@ -15,9 +15,8 @@ export function ShowtimeList() {
   const { movies } = useMovies()
   const dates = useMemo(() => buildDates(7), [])
   const [dateIndex, setDateIndex] = useState(0)
-  const [cinemaId, setCinemaId] = useState<number | null>(null)
-
   const movieIdParam = searchParams.get('movieId')
+  const cinemaIdParam = searchParams.get('cinemaId')
   const selectedMovie = movieIdParam
     ? movies.find((item) => String(item.id) === movieIdParam) ?? null
     : null
@@ -30,6 +29,15 @@ export function ShowtimeList() {
     showtimes.forEach((item) => map.set(item.cinemaId, item.cinemaName))
     return Array.from(map.entries()).map(([id, name]) => ({ id, name }))
   }, [showtimes])
+
+  // Rạp được chọn sẵn từ URL (ví dụ khi bấm vào kết quả tìm kiếm).
+  const [cinemaId, setCinemaId] = useState<number | null>(
+    cinemaIdParam ? Number(cinemaIdParam) || null : null,
+  )
+
+  useEffect(() => {
+    setCinemaId(cinemaIdParam ? Number(cinemaIdParam) || null : null)
+  }, [cinemaIdParam])
 
   const byDate = useMemo(
     () => showtimes.filter((item) => localDateKey(item.startTime) === activeDate.key),
