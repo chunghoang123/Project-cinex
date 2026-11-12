@@ -1,6 +1,7 @@
 package com.cinex.cinema.ticket;
 
 import com.cinex.cinema.booking.Booking;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,10 +32,9 @@ public class TicketService {
         return ticketRepository.save(ticket);
     }
 
+    @Transactional(readOnly = true)
     public Ticket findByTicketCode(String ticketCode) {
-        return ticketRepository.findByTicketCode(normalizeCode(ticketCode))
-            .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
-                org.springframework.http.HttpStatus.NOT_FOUND, "Vé không tồn tại"));
+        return ticketValidator.findByTicketCode(ticketCode);
     }
 
     /** Chấp nhận cả mã vé và nội dung QR đầy đủ dạng CINEX|TKT-...|BK... khi quét. */
@@ -62,28 +62,5 @@ public class TicketService {
             ticket.setStatus(TicketStatus.CANCELLED);
             ticketRepository.save(ticket);
         }
-    }
-
-    /**
-     * Chạy trong transaction riêng (REQUIRES_NEW) để khi throw,
-     * transaction gốc của caller (vd StaffService.validateTicket) không bị đánh dấu rollback-only.
-     */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public Ticket validateTicket(String ticketCode) {
-        Ticket ticket = findByTicketCode(ticketCode);
-
-        if (ticket.getStatus() == TicketStatus.SCANNED) {
-            throw new org.springframework.web.server.ResponseStatusException(
-                org.springframework.http.HttpStatus.BAD_REQUEST, "Vé đã được soát, không thể dùng lại");
-        }
-
-        if (ticket.getStatus() == TicketStatus.CANCELLED) {
-            throw new org.springframework.web.server.ResponseStatusException(
-                org.springframework.http.HttpStatus.BAD_REQUEST, "Vé đã bị hủy");
-        }
-
-        ticket.setStatus(TicketStatus.SCANNED);
-        ticket.setScannedAt(java.time.LocalDateTime.now());
-        return ticketRepository.save(ticket);
     }
 }

@@ -23,7 +23,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -65,7 +64,7 @@ public class ShowtimeService {
         return showtimeRepository.findByMovieIdAndStartTimeBetweenAndActiveTrue(movieId, from, to)
             .stream()
             .filter(this::isBookable)
-            .map(this::toResponse).collect(Collectors.toList());
+            .map(this::toResponse).toList();
     }
 
     public List<ShowtimeResponse> findInRange(LocalDateTime from, LocalDateTime to) {
@@ -105,7 +104,7 @@ public class ShowtimeService {
         LocalDateTime now = LocalDateTime.now();
         return findAdmin(date, cinemaId, null).stream()
             .filter(item -> item.getStartTime().isAfter(now))
-            .collect(Collectors.toList());
+            .toList();
     }
 
     public Showtime findById(Long id) {
@@ -248,29 +247,23 @@ public class ShowtimeService {
         LocalDate endDate = today.plusDays(safeDays - 1);
 
         List<Movie> movies = movieRepository.findByStatusAndActiveTrue(MovieStatus.NOW_SHOWING);
-        if (movies.isEmpty()) {
+        List<Auditorium> auditoriums = findEligibleAuditoriums();
+        if (movies.isEmpty() || auditoriums.isEmpty()) {
             return new AutoScheduleResult(0, completed, today, endDate, safeDays);
         }
 
-        List<Auditorium> auditoriums = auditoriumRepository.findAll().stream()
-            .filter(a -> a.isActive() && a.getCinema() != null && a.getCinema().isActive())
-            .filter(a -> !seatRepository.findByAuditoriumIdAndActiveTrue(a.getId()).isEmpty())
-            .sorted(Comparator.comparing(Auditorium::getId))
-            .toList();
-
-        if (auditoriums.isEmpty()) {
-            return new AutoScheduleResult(0, completed, today, endDate, safeDays);
-        }
-
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime cutoff = LocalDateTime.now().plusMinutes(10);
         int created = 0;
 
         for (int dayOffset = 0; dayOffset < safeDays; dayOffset++) {
             LocalDate date = today.plusDays(dayOffset);
             for (int audIndex = 0; audIndex < auditoriums.size(); audIndex++) {
-                Auditorium auditorium = auditoriums.get(audIndex);
-                List<Showtime> existingInAud = new ArrayList<>(
-                    showtimeRepository.findByAuditoriumIdAndActiveTrue(auditorium.getId())
+                created += fillAuditoriumDaySlots(
+                    auditoriums.get(audIndex),
+                    movies,
+                    date,
+                    cutoff,
+                    dayOffset + audIndex
                 );
 
                 for (int slotIndex = 0; slotIndex < AUTO_SLOTS.size(); slotIndex++) {

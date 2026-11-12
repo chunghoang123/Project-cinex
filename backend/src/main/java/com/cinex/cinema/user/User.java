@@ -19,6 +19,9 @@ import java.util.Set;
 @AllArgsConstructor
 @Builder
 public class User extends BaseEntity implements org.springframework.security.core.userdetails.UserDetails {
+    @Serial
+    private static final long serialVersionUID = 1L;
+
     @Column(nullable = false, length = 50)
     private String username;
 
@@ -48,6 +51,7 @@ public class User extends BaseEntity implements org.springframework.security.cor
         joinColumns = @JoinColumn(name = "user_id"),
         inverseJoinColumns = @JoinColumn(name = "role_id")
     )
+    @Builder.Default
     private Set<Role> roles = new HashSet<>();
 
     @Column(nullable = false)
@@ -67,7 +71,7 @@ public class User extends BaseEntity implements org.springframework.security.cor
     public java.util.Collection<? extends org.springframework.security.core.GrantedAuthority> getAuthorities() {
         return roles.stream()
             .map(role -> new org.springframework.security.core.authority.SimpleGrantedAuthority(role.getName().name()))
-            .collect(java.util.stream.Collectors.toList());
+            .toList();
     }
 
     @Override

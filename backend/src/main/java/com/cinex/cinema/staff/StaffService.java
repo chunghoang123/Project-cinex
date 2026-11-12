@@ -317,7 +317,7 @@ public class StaffService {
             .findByCreatedAtBetweenOrderByCreatedAtDesc(from, to).stream()
             .filter(booking -> booking.getChannel() == BookingChannel.COUNTER)
             .filter(booking -> booking.getStatus() == BookingStatus.CONFIRMED)
-            .collect(Collectors.toList());
+            .toList();
 
         BigDecimal totalRevenue = BigDecimal.ZERO;
         BigDecimal cashRevenue = BigDecimal.ZERO;

@@ -26,7 +26,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -241,7 +240,7 @@ public class BookingService {
             return;
         }
         if (booking.getStatus() == BookingStatus.CONFIRMED) {
-            paymentService.markSuccess(booking, "PAYOS", paymentLinkId);
+            paymentService.markSuccess(booking, PAYMENT_METHOD_PAYOS, paymentLinkId);
             return;
         }
         if (booking.getStatus() != BookingStatus.PENDING && booking.getStatus() != BookingStatus.EXPIRED) {
@@ -340,7 +339,7 @@ public class BookingService {
         LocalDateTime now = LocalDateTime.now();
         List<ShowtimeSeat> seats = bookingSeatRepository.findByBookingId(booking.getId()).stream()
             .map(BookingSeat::getShowtimeSeat)
-            .collect(Collectors.toList());
+            .toList();
         for (ShowtimeSeat seat : seats) {
             boolean takenByOther = seat.getStatus() == SeatStatus.BOOKED
                 || (seat.getStatus() == SeatStatus.HELD

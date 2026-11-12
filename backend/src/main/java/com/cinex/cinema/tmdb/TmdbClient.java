@@ -71,7 +71,7 @@ public class TmdbClient {
         URI uri = buildUri("/genre/movie/list").build().encode().toUri();
         TmdbGenreResponse response = execute(uri, new ParameterizedTypeReference<>() {
         });
-        return response.genres() == null ? List.of() : response.genres();
+        return response == null || response.genres() == null ? List.of() : response.genres();
     }
 
     /** URL đầy đủ của poster, null nếu TMDB không có ảnh. */

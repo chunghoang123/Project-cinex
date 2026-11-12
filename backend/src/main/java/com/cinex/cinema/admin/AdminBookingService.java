@@ -49,7 +49,7 @@ public class AdminBookingService {
             .filter(item -> status == null || item.getStatus() == status)
             .filter(item -> date == null || item.getCreatedAt().toLocalDate().equals(date))
             .map(bookingMapper::toResponse)
-            .collect(Collectors.toList());
+            .toList();
     }
 
     public BookingResponse cancel(String bookingCode) {

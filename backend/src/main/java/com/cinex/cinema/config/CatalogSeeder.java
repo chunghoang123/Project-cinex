@@ -41,7 +41,6 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Component
 @Order(3)
@@ -204,29 +203,15 @@ public class CatalogSeeder implements CommandLineRunner {
                 continue;
             }
 
-            boolean counter = index >= 7;
-            String bookingCode = String.format("BKDEMO%04d", index + 1);
-            BigDecimal seatAmount = seats.stream()
-                .map(seat -> SeatPricing.priceFor(showtime.getBasePrice(), seat.getSeat().getSeatType()))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-            BigDecimal snackAmount = counter && index == 9 ? new BigDecimal("65000") : BigDecimal.ZERO;
-            BigDecimal totalAmount = seatAmount.add(snackAmount);
-
-            Booking booking = bookingRepository.save(Booking.builder()
-                .bookingCode(bookingCode)
-                .user(customer)
-                .showtime(showtime)
-                .totalAmount(totalAmount)
-                .seatAmount(seatAmount)
-                .snackAmount(snackAmount)
-                .snackNote(snackAmount.signum() > 0 ? "1 Combo bắp nước" : null)
-                .customerName(counter ? "Khách tại quầy" : "Minh Dương")
-                .customerPhone(counter ? "0909999999" : "0901234567")
-                .channel(counter ? BookingChannel.COUNTER : BookingChannel.ONLINE)
-                .staff(counter ? staff : null)
-                .status(BookingStatus.CONFIRMED)
-                .expiresAt(null)
-                .build());
+    private void seedSingleDemoBooking(int index, Showtime showtime, List<ShowtimeSeat> seats,
+                                       User customer, User staff) {
+        boolean counter = index >= 7;
+        String bookingCode = String.format("BKDEMO%04d", index + 1);
+        BigDecimal seatAmount = seats.stream()
+            .map(seat -> SeatPricing.priceFor(showtime.getBasePrice(), seat.getSeat().getSeatType()))
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal snackAmount = (index == 9) ? new BigDecimal("65000") : BigDecimal.ZERO;
+        BigDecimal totalAmount = seatAmount.add(snackAmount);
 
             for (ShowtimeSeat seat : seats) {
                 seat.setStatus(SeatStatus.BOOKED);
@@ -248,6 +233,8 @@ public class CatalogSeeder implements CommandLineRunner {
                 .paymentMethod(counter ? "CASH" : (index % 2 == 0 ? "MOMO" : "CARD"))
                 .paidAt(LocalDateTime.now().minusHours(index))
                 .build());
+        }
+        showtimeSeatRepository.saveAll(seats);
 
             String ticketCode = String.format("TKDEMO%04d", index + 1);
             ticketRepository.save(Ticket.builder()

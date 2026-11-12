@@ -108,7 +108,7 @@ public class AdminDashboardService {
             .collect(Collectors.toList());
 
         List<BookingResponse> recentBookings = bookingRepository.findTop8ByOrderByCreatedAtDesc()
-            .stream().map(bookingMapper::toResponse).collect(Collectors.toList());
+            .stream().map(bookingMapper::toResponse).toList();
 
         return AdminDashboardResponse.builder()
             .revenueToday(revenueToday)

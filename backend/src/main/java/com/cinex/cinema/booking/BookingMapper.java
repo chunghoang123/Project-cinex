@@ -42,7 +42,7 @@ public class BookingMapper {
                 .seatType(item.getShowtimeSeat().getSeat().getSeatType())
                 .price(item.getPrice())
                 .build())
-            .collect(Collectors.toList());
+            .toList();
 
         Payment payment = paymentRepository.findByBookingId(booking.getId()).orElse(null);
         Ticket ticket = ticketRepository.findByBookingId(booking.getId()).orElse(null);

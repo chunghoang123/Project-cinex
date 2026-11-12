@@ -74,12 +74,12 @@ public class NvidiaAiService {
             }
         }
 
-        messages.add(Map.of("role", "user", "content", message.trim()));
+        messages.add(Map.of(KEY_ROLE, ROLE_USER, KEY_CONTENT, message.trim()));
 
         Map<String, Object> body = Map.of(
-            "model", model,
-            "messages", messages,
-            "temperature", 0.2,
+            KEY_MODEL, model,
+            KEY_MESSAGES, messages,
+            KEY_TEMPERATURE, 0.2,
             "top_p", 0.9,
             "max_tokens", 1024,
             "stream", false
@@ -91,17 +91,17 @@ public class NvidiaAiService {
     /** Mô tả ảnh bằng model vision của NVIDIA. */
     public String describeImage(String base64Image, String mimeType, String prompt) {
         List<Map<String, Object>> content = List.of(
-            Map.of("type", "text", "text", prompt),
-            Map.of("type", "image_url", "image_url",
+            Map.of(KEY_TYPE, "text", "text", prompt),
+            Map.of(KEY_TYPE, "image_url", "image_url",
                 Map.of("url", "data:" + mimeType + ";base64," + base64Image))
         );
 
         Map<String, Object> body = Map.of(
-            "model", visionModel,
-            "messages", List.of(Map.of("role", "user", "content", content)),
-            "temperature", 0.3,
-            "max_tokens", 700,
-            "stream", false
+            KEY_MODEL, visionModel,
+            KEY_MESSAGES, List.of(Map.of(KEY_ROLE, ROLE_USER, KEY_CONTENT, content)),
+            KEY_TEMPERATURE, 0.3,
+            KEY_MAX_TOKENS, 700,
+            KEY_STREAM, false
         );
 
         return complete(body, "phân tích hình ảnh");

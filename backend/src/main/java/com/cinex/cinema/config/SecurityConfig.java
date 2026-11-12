@@ -83,9 +83,9 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/cinemas/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/showtimes/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/tmdb/**").permitAll()
-                .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                .requestMatchers("/api/youtube/**").hasRole("ADMIN")
-                .requestMatchers("/api/staff/**").hasAnyRole("STAFF", "ADMIN")
+                .requestMatchers("/api/admin/**").hasRole(ROLE_ADMIN)
+                .requestMatchers("/api/youtube/**").hasRole(ROLE_ADMIN)
+                .requestMatchers("/api/staff/**").hasAnyRole("STAFF", ROLE_ADMIN)
                 .anyRequest().authenticated()
             )
             // Trả 401 khi chưa đăng nhập/phiên hết hạn để frontend tự đăng xuất,

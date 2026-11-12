@@ -44,6 +44,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * Trợ lý AI dành riêng cho Admin:
@@ -58,11 +59,81 @@ public class AdminAiService {
     private static final ZoneId CINEMA_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HH:mm");
+    private static final DateTimeFormatter NOW_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+
+    private static final String ACTION_CREATE_AUDITORIUM = "CREATE_AUDITORIUM";
+    private static final String ACTION_CREATE_CINEMA = "CREATE_CINEMA";
+    private static final String ACTION_CREATE_MOVIE = "CREATE_MOVIE";
+    private static final String ACTION_CREATE_SHOWTIME = "CREATE_SHOWTIME";
+    private static final String ACTION_UPDATE_SHOWTIME = "UPDATE_SHOWTIME";
+    private static final String ACTION_AUTO_GENERATE = "AUTO_GENERATE_SHOWTIMES";
+
+    private static final String FIELD_TYPE = "type";
+    private static final String FIELD_ACTIONS = "actions";
+    private static final String FIELD_NAME = "name";
+    private static final String FIELD_TITLE = "title";
+    private static final String FIELD_STATUS = "status";
+    private static final String FIELD_DURATION_MINUTES = "durationMinutes";
+    private static final String FIELD_CINEMA_ID = "cinemaId";
+    private static final String FIELD_CINEMA_NAME = "cinemaName";
+    private static final String FIELD_AUDITORIUM_ID = "auditoriumId";
+    private static final String FIELD_AUDITORIUM_NAME = "auditoriumName";
+    private static final String FIELD_MOVIE_ID = "movieId";
+    private static final String FIELD_SHOWTIME_ID = "showtimeId";
+    private static final String FIELD_BASE_PRICE = "basePrice";
+    private static final String FIELD_START_TIMES = "startTimes";
+    private static final String FIELD_START_TIME = "startTime";
+    private static final String FIELD_TIMES = "times";
+
+    private static final String SCREEN_PREFIX = "Screen ";
+    private static final String STATUS_NOW_SHOWING = "NOW_SHOWING";
+    private static final String TOKEN_SUAT_CHIEU = "suat chieu";
+    private static final String TOKEN_LICH_CHIEU = "lich chieu";
+
+    private static final int UNICODE_REGEX_FLAGS =
+        Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE | Pattern.UNICODE_CHARACTER_CLASS;
+
+    private static final String CODE_FENCE = "```";
+    private static final String JSON_FENCE_LANG = "json";
+    private static final Pattern DAYS_PATTERN = Pattern.compile(
+        "(\\d{1,2})\\s*ngay",
+        UNICODE_REGEX_FLAGS
+    );
+    private static final Pattern ROOM_DIM_PATTERN = Pattern.compile(
+        "(\\d{1,2})\\s*(?:x|×|hang)\\s*(\\d{1,2})",
+        UNICODE_REGEX_FLAGS
+    );
+    private static final Pattern DURATION_PATTERN = Pattern.compile(
+        "(\\d{2,3})\\s*(?:phut|p\\b)",
+        UNICODE_REGEX_FLAGS
+    );
+    private static final Pattern CLOCK_TIME_PATTERN = Pattern.compile(
+        "(?<!\\d)([01]?\\d|2[0-3])[:h]([0-5]\\d)(?!\\d)",
+        UNICODE_REGEX_FLAGS
+    );
+    private static final Pattern PRICE_PATTERN = Pattern.compile(
+        "(\\d{2,3})\\s*k\\b|(\\d{5,6})\\s*(?:d|vnd)?",
+        UNICODE_REGEX_FLAGS
+    );
 
     private static final Pattern JSON_BLOCK_PATTERN = Pattern.compile(
         "```(?:json)?\\s*(\\{[\\s\\S]*?})\\s*```",
         Pattern.CASE_INSENSITIVE
     );
+    private static final Set<String> ROOM_NAME_STOP_WORDS = Set.of(
+        "co", "tai", "o", "rap", "hang", "cot", "ghe", "moi", "chieu"
+    );
+
+    private static final List<String> CINEMA_KEYWORDS =
+        List.of("landmark", "galaxy", "nguyen du", "aeon", "tan phu");
+
+    private static final String DEFAULT_HELP_MESSAGE = """
+        Mình là **Trợ lý AI Quản trị CineX**. Bạn có thể yêu cầu mình:
+        - **Tạo phòng chiếu:** *"Tạo phòng Screen 3 có 10 hàng 12 cột ở rạp Landmark 81"*
+        - **Thêm phim mới:** *"Thêm phim Deadpool & Wolverine đang chiếu, 128 phút, 16+"*
+        - **Tạo suất chiếu:** *"Thêm suất chiếu Dune: Part Two ngày mai lúc 18:00 và 21:00 ở Landmark 81 giá 95k"*
+        - **Tự động phủ lịch 10 ngày:** *"Tự động cập nhật suất chiếu cho 10 ngày tới"*
+        """.trim();
 
     private static final String ADMIN_SYSTEM_PROMPT = """
         Bạn là **CineX Admin Copilot**, trợ lý AI quản trị hệ thống rạp chiếu phim CineX.
@@ -180,13 +251,17 @@ public class AdminAiService {
         String rawReply = null;
         String modelName = nvidiaAiService.getModel();
 
+    private String queryModelSafely(String systemPrompt, List<AiChatMessage> history, String userMessage) {
+        if (!nvidiaAiService.isConfigured()) {
+            return "";
+        }
         try {
-            if (nvidiaAiService.isConfigured()) {
-                rawReply = nvidiaAiService.chat(systemPrompt, history, userMessage);
-            }
+            String reply = nvidiaAiService.chat(systemPrompt, history, userMessage);
+            return reply == null ? "" : reply;
         } catch (Exception ex) {
             log.warn("Gọi NVIDIA AI trong Admin gặp lỗi, chuyển sang bộ phân tích lệnh trực tiếp: {}", ex.getMessage());
         }
+    }
 
         List<JsonNode> actionNodes = new ArrayList<>();
         String cleanReply = "";
@@ -206,8 +281,7 @@ public class AdminAiService {
             executedActions.addAll(tryExecuteFallbackCommand(userMessage));
         }
 
-        boolean dataChanged = executedActions.stream().anyMatch(AdminAiActionResult::success);
-
+    private String finalizeReplyText(String cleanReply, List<AdminAiActionResult> executedActions) {
         if (cleanReply.isBlank()) {
             if (!executedActions.isEmpty()) {
                 cleanReply = buildSummaryFromActions(executedActions);
@@ -262,6 +336,19 @@ public class AdminAiService {
             sb.append('\n');
         }
 
+    private String formatAuditoriumList(Long cinemaId) {
+        List<Auditorium> auds = auditoriumRepository.findByCinemaId(cinemaId);
+        if (auds.isEmpty()) {
+            return "chưa có phòng";
+        }
+        return auds.stream()
+            .map(a -> String.format("[auditoriumId=%d] %s (%dx%d%s)",
+                a.getId(), a.getName(), a.getTotalRows(), a.getColumnsPerRow(),
+                a.isActive() ? "" : ", bảo trì"))
+            .collect(Collectors.joining(", "));
+    }
+
+    private void appendMoviesContext(StringBuilder sb) {
         sb.append("\nDANH SÁCH PHIM:\n");
         List<Movie> movies = movieRepository.findAll();
         for (Movie movie : movies) {
@@ -298,7 +385,7 @@ public class AdminAiService {
             JsonNode actions = root.path("actions");
             if (actions.isArray()) {
                 actions.forEach(result::add);
-            } else if (root.has("type")) {
+            } else if (root.has(FIELD_TYPE)) {
                 result.add(root);
             }
         } catch (Exception ignored) {
@@ -332,7 +419,7 @@ public class AdminAiService {
     private AdminAiActionResult handleCreateCinema(JsonNode node) {
         String name = node.path("name").asText("").trim();
         if (name.isBlank()) {
-            return new AdminAiActionResult("CREATE_CINEMA", false, "Thiếu tên rạp", "Vui lòng cung cấp tên rạp cần tạo", null);
+            return new AdminAiActionResult(ACTION_CREATE_CINEMA, false, "Thiếu tên rạp", "Vui lòng cung cấp tên rạp cần tạo", null);
         }
         CinemaRequest req = new CinemaRequest();
         req.setName(name);
@@ -363,15 +450,12 @@ public class AdminAiService {
             );
         }
 
-        String roomName = node.path("name").asText("").trim();
+        String roomName = node.path(FIELD_NAME).asText("").trim();
         if (roomName.isBlank()) {
-            int nextIndex = auditoriumRepository.findByCinemaId(cinema.getId()).size() + 1;
-            roomName = "Screen " + nextIndex;
+            roomName = defaultRoomName(cinema.getId());
         }
-        int rows = node.path("totalRows").asInt(8);
-        int cols = node.path("columnsPerRow").asInt(12);
-        rows = Math.max(1, Math.min(30, rows));
-        cols = Math.max(1, Math.min(30, cols));
+        int rows = Math.max(1, Math.min(30, node.path("totalRows").asInt(8)));
+        int cols = Math.max(1, Math.min(30, node.path("columnsPerRow").asInt(12)));
 
         AuditoriumRequest req = new AuditoriumRequest();
         req.setName(roomName);
@@ -392,7 +476,7 @@ public class AdminAiService {
     private AdminAiActionResult handleCreateMovie(JsonNode node) {
         String title = node.path("title").asText("").trim();
         if (title.isBlank()) {
-            return new AdminAiActionResult("CREATE_MOVIE", false, "Thiếu tên phim", "Vui lòng nhập tên phim cần thêm", null);
+            return new AdminAiActionResult(ACTION_CREATE_MOVIE, false, "Thiếu tên phim", "Vui lòng nhập tên phim cần thêm", null);
         }
 
         String description = node.path("description").asText("").trim();
@@ -401,8 +485,58 @@ public class AdminAiService {
         int duration = node.path("durationMinutes").asInt(0);
         int ageRating = node.path("ageRating").asInt(13);
         String genre = node.path("genre").asText("").trim();
-        String statusStr = node.path("status").asText("NOW_SHOWING").trim().toUpperCase(Locale.ROOT);
-        MovieStatus status = "COMING_SOON".equals(statusStr) ? MovieStatus.COMING_SOON : MovieStatus.NOW_SHOWING;
+        String statusStr = node.path(FIELD_STATUS).asText(STATUS_NOW_SHOWING).trim().toUpperCase(Locale.ROOT);
+
+        MovieRequest req = new MovieRequest();
+        req.setTitle(title);
+        req.setDescription(description);
+        req.setPosterUrl(posterUrl);
+        req.setTrailerUrl(trailerUrl);
+        req.setDurationMinutes(duration);
+        req.setAgeRating(node.path("ageRating").asInt(13));
+        req.setGenre(genre.isBlank() ? "Hành động, Giải trí" : genre);
+        req.setReleaseDate(LocalDate.now(CINEMA_ZONE));
+        req.setStatus("COMING_SOON".equals(statusStr) ? MovieStatus.COMING_SOON : MovieStatus.NOW_SHOWING);
+        return req;
+    }
+
+    private String resolvePosterUrl(String rawPoster, TmdbDtos.TmdbMovie match) {
+        if (!rawPoster.isBlank()) {
+            return rawPoster;
+        }
+        if (match != null && match.posterPath() != null) {
+            return tmdbClient.posterUrl(match.posterPath());
+        }
+        return null;
+    }
+
+    private static String resolveDescription(String rawDescription, String title, TmdbDtos.TmdbMovie match) {
+        if (!rawDescription.isBlank()) {
+            return rawDescription;
+        }
+        if (match != null && match.overview() != null && !match.overview().isBlank()) {
+            return match.overview();
+        }
+        return "Phim điện ảnh " + title + " trình chiếu tại hệ thống rạp CineX.";
+    }
+
+    private int resolveDuration(int rawDuration, TmdbDtos.TmdbMovie match) {
+        if (rawDuration > 0) {
+            return rawDuration;
+        }
+        if (match != null && match.id() != null) {
+            int tmdbRuntime = fetchTmdbRuntime(match.id());
+            if (tmdbRuntime > 0) {
+                return tmdbRuntime;
+            }
+        }
+        return 120;
+    }
+
+    private String resolveTrailerUrl(String rawTrailer, String title) {
+        String candidate = rawTrailer.isBlank() ? lookupYoutubeEmbedUrl(title) : rawTrailer;
+        return candidate.isBlank() ? null : candidate;
+    }
 
         // Tự động tra cứu TMDB để lấy poster, mô tả, thời lượng chuẩn nếu còn trống
         try {
@@ -436,16 +570,18 @@ public class AdminAiService {
             } catch (Exception ignored) {
                 // Không chặn việc tạo phim nếu YouTube chưa cấu hình
             }
+        } catch (Exception ignored) {
+            // Bỏ qua nếu không lấy được chi tiết runtime
         }
 
-        if (duration <= 0) {
-            duration = 120;
-        }
-        if (genre.isBlank()) {
-            genre = "Hành động, Giải trí";
-        }
-        if (description.isBlank()) {
-            description = "Phim điện ảnh " + title + " trình chiếu tại hệ thống rạp CineX.";
+    private String lookupYoutubeEmbedUrl(String title) {
+        try {
+            YoutubeDtos.YoutubeTrailer trailer = youtubeService.findFirstTrailer(title);
+            if (trailer != null && trailer.embedUrl() != null) {
+                return trailer.embedUrl();
+            }
+        } catch (Exception ignored) {
+            // Không chặn việc tạo phim nếu YouTube chưa cấu hình
         }
 
         MovieRequest req = new MovieRequest();
@@ -480,7 +616,7 @@ public class AdminAiService {
         );
         if (movie == null) {
             return List.of(new AdminAiActionResult(
-                "CREATE_SHOWTIME",
+                ACTION_CREATE_SHOWTIME,
                 false,
                 "Không tìm thấy phim",
                 "Vui lòng kiểm tra lại tên phim hoặc yêu cầu AI thêm phim trước khi xếp suất chiếu",
@@ -504,17 +640,14 @@ public class AdminAiService {
             ));
         }
 
-        BigDecimal basePrice = new BigDecimal(node.path("basePrice").asLong(90000));
-        if (basePrice.compareTo(BigDecimal.valueOf(1000)) < 0 && basePrice.signum() > 0) {
-            // Phòng trường hợp AI trả 90 thay vì 90000
-            basePrice = basePrice.multiply(BigDecimal.valueOf(1000));
-        }
-
+        BigDecimal basePrice = normalizeBasePrice(node.path(FIELD_BASE_PRICE).asLong(90000));
         List<LocalDateTime> startTimes = extractStartTimes(node);
         if (startTimes.isEmpty()) {
             startTimes = List.of(LocalDate.now(CINEMA_ZONE).plusDays(1).atTime(19, 30));
         }
 
+    private List<AdminAiActionResult> createShowtimesForSlots(Movie movie, Auditorium auditorium,
+                                                              List<LocalDateTime> startTimes, BigDecimal basePrice) {
         List<AdminAiActionResult> results = new ArrayList<>();
         for (LocalDateTime startTime : startTimes) {
             try {
@@ -532,7 +665,7 @@ public class AdminAiService {
                     String.format("%s · %s (%s) · %s %s · %,dđ",
                         created.getCinemaName(),
                         created.getAuditoriumName(),
-                        created.getTotalSeats() + " ghế",
+                        created.getTotalSeats(),
                         created.getStartTime().format(DATE_FMT),
                         created.getStartTime().format(TIME_FMT),
                         created.getBasePrice().longValue()),
@@ -554,7 +687,7 @@ public class AdminAiService {
     private AdminAiActionResult handleUpdateShowtime(JsonNode node) {
         if (!node.path("showtimeId").isNumber()) {
             return new AdminAiActionResult(
-                "UPDATE_SHOWTIME",
+                ACTION_UPDATE_SHOWTIME,
                 false,
                 "Thiếu mã suất chiếu (#ID)",
                 "Vui lòng nêu mã suất chiếu cần cập nhật (ví dụ: suất chiếu #12)",
@@ -603,7 +736,7 @@ public class AdminAiService {
         int days = node.path("days").asInt(10);
         ShowtimeService.AutoScheduleResult res = showtimeService.autoGenerateShowtimes(days);
         return new AdminAiActionResult(
-            "AUTO_GENERATE_SHOWTIMES",
+            ACTION_AUTO_GENERATE,
             true,
             String.format("Đã tự động xếp lịch chiếu %d ngày (%s – %s)",
                 res.daysAhead(), res.fromDate().format(DATE_FMT), res.toDate().format(DATE_FMT)),
@@ -623,25 +756,20 @@ public class AdminAiService {
         String lower = message.toLowerCase(Locale.ROOT);
         String norm = normalizeSearch(message);
 
-        // 1. Tự động cập nhật / xếp lịch chiếu 10 ngày
-        if ((norm.contains("tu dong") || norm.contains("cap nhat") || norm.contains("xep lich") || norm.contains("them lich"))
-            && (norm.contains("10 ngay") || norm.contains("5 ngay") || norm.contains("suat chieu") && norm.contains("ngay toi"))) {
-            int days = 10;
-            Matcher m = Pattern.compile("(\\d{1,2})\\s*(?:ngay|ngày)", Pattern.CASE_INSENSITIVE).matcher(message);
-            if (m.find()) {
-                days = Integer.parseInt(m.group(1));
-            }
-            ShowtimeService.AutoScheduleResult res = showtimeService.autoGenerateShowtimes(days);
-            return List.of(new AdminAiActionResult(
-                "AUTO_GENERATE_SHOWTIMES",
-                true,
-                String.format("Đã tự động cập nhật suất chiếu cho %d ngày tới", res.daysAhead()),
-                String.format("Từ %s đến %s · Thêm mới %d suất · Hoàn thành %d suất cũ",
-                    res.fromDate().format(DATE_FMT), res.toDate().format(DATE_FMT),
-                    res.createdCount(), res.completedCount()),
-                null
-            ));
+        if (isAutoScheduleIntent(norm)) {
+            return executeFallbackAutoSchedule(norm);
         }
+        if (isCreateAuditoriumIntent(norm)) {
+            return executeFallbackCreateAuditorium(message, norm);
+        }
+        if (isCreateMovieIntent(norm)) {
+            return executeFallbackCreateMovie(message, norm);
+        }
+        if (norm.contains(TOKEN_SUAT_CHIEU) || norm.contains(TOKEN_LICH_CHIEU)) {
+            return executeFallbackCreateShowtime(message, norm);
+        }
+        return List.of();
+    }
 
         // 2. Tạo phòng chiếu (ví dụ: "Tạo phòng Screen 3 10 hàng 12 cột ở rạp Landmark 81")
         if ((norm.contains("tao phong") || norm.contains("them phong")) && !norm.contains("suat chieu")) {
@@ -674,27 +802,92 @@ public class AdminAiService {
             }
         }
 
-        // 3. Thêm phim mới (ví dụ: "Thêm phim Lật Mặt 7 đang chiếu, 138 phút")
-        if ((norm.contains("them phim") || norm.contains("tao phim"))
-            && !norm.contains("suat chieu") && !norm.contains("lich chieu")) {
-            Matcher titleMatcher = Pattern.compile(
-                "(?i)(?:thêm|them|tạo|tao)\\s+phim\\s+(?:mới\\s+)?[\"']?([^,\"'\\n]+?)[\"']?(?:\\s+(?:đang chiếu|dang chieu|sắp chiếu|sap chieu|thể loại|the loai|\\d+\\s*phút|,|$))"
-            ).matcher(message);
-            String title = titleMatcher.find() ? titleMatcher.group(1).trim() : "";
-            if (!title.isBlank()) {
-                int duration = 120;
-                Matcher durMatcher = Pattern.compile("(\\d{2,3})\\s*(?:phút|phut|p\\b)", Pattern.CASE_INSENSITIVE).matcher(message);
-                if (durMatcher.find()) {
-                    duration = Integer.parseInt(durMatcher.group(1));
-                }
-                MovieStatus status = norm.contains("sap chieu") ? MovieStatus.COMING_SOON : MovieStatus.NOW_SHOWING;
-                ObjectMapper mapper = this.objectMapper;
-                JsonNode node = mapper.createObjectNode()
-                    .put("type", "CREATE_MOVIE")
-                    .put("title", title)
-                    .put("durationMinutes", duration)
-                    .put("status", status.name());
-                return List.of(handleCreateMovie(node));
+    private static boolean isCreateAuditoriumIntent(String norm) {
+        return (norm.contains("tao phong") || norm.contains("them phong")) && !norm.contains(TOKEN_SUAT_CHIEU);
+    }
+
+    private List<AdminAiActionResult> executeFallbackCreateAuditorium(String message, String norm) {
+        if (message == null || message.isBlank()) {
+            return List.of();
+        }
+        Cinema cinema = resolveCinema(null, message);
+        if (cinema == null) {
+            return List.of();
+        }
+        int rows = 8;
+        int cols = 12;
+        Matcher dimMatcher = ROOM_DIM_PATTERN.matcher(norm);
+        if (dimMatcher.find()) {
+            rows = Integer.parseInt(dimMatcher.group(1));
+            cols = Integer.parseInt(dimMatcher.group(2));
+        }
+        AuditoriumRequest req = new AuditoriumRequest();
+        req.setName(extractRoomNameFromText(message, cinema.getId()));
+        req.setTotalRows(Math.max(1, Math.min(30, rows)));
+        req.setColumnsPerRow(Math.max(1, Math.min(30, cols)));
+        AuditoriumResponse created = auditoriumService.create(cinema.getId(), req);
+        return List.of(new AdminAiActionResult(
+            ACTION_CREATE_AUDITORIUM,
+            true,
+            "Đã tạo phòng chiếu: " + created.getName(),
+            String.format("Rạp %s · %d hàng × %d cột (%d ghế)",
+                created.getCinemaName(), created.getTotalRows(), created.getColumnsPerRow(), created.getSeatCount()),
+            created.getId()
+        ));
+    }
+
+    private static boolean isCreateMovieIntent(String norm) {
+        return (norm.contains("them phim") || norm.contains("tao phim"))
+            && !norm.contains(TOKEN_SUAT_CHIEU) && !norm.contains(TOKEN_LICH_CHIEU);
+    }
+
+    private List<AdminAiActionResult> executeFallbackCreateMovie(String message, String norm) {
+        String title = extractMovieTitleFromText(message);
+        if (title.isBlank()) {
+            return List.of();
+        }
+        int duration = 120;
+        Matcher durMatcher = DURATION_PATTERN.matcher(norm);
+        if (durMatcher.find()) {
+            duration = Integer.parseInt(durMatcher.group(1));
+        }
+        MovieStatus status = norm.contains("sap chieu") ? MovieStatus.COMING_SOON : MovieStatus.NOW_SHOWING;
+        JsonNode node = objectMapper.createObjectNode()
+            .put(FIELD_TYPE, ACTION_CREATE_MOVIE)
+            .put(FIELD_TITLE, title)
+            .put(FIELD_DURATION_MINUTES, duration)
+            .put(FIELD_STATUS, status.name());
+        return List.of(handleCreateMovie(node));
+    }
+
+    private static String extractMovieTitleFromText(String message) {
+        if (message == null || message.isBlank()) {
+            return "";
+        }
+        String quoted = extractFirstQuotedSegment(message);
+        if (!quoted.isBlank()) {
+            return quoted;
+        }
+        String lower = message.toLowerCase(Locale.ROOT);
+        int phimIdx = lower.indexOf("phim");
+        if (phimIdx < 0) {
+            return "";
+        }
+        String afterPhim = message.substring(phimIdx + "phim".length()).trim();
+        String candidate = afterPhim;
+        if (normalizeNonNull(afterPhim).startsWith("moi ")) {
+            int spaceIdx = afterPhim.indexOf(' ');
+            candidate = spaceIdx >= 0 ? afterPhim.substring(spaceIdx + 1).trim() : "";
+        }
+        return truncateAtStopMarker(candidate);
+    }
+
+    private static String extractFirstQuotedSegment(String text) {
+        for (char quote : new char[]{'"', '\''}) {
+            int first = text.indexOf(quote);
+            int second = first >= 0 ? text.indexOf(quote, first + 1) : -1;
+            if (second > first + 1) {
+                return text.substring(first + 1, second).trim();
             }
         }
 
@@ -760,6 +953,8 @@ public class AdminAiService {
                 return list;
             }
         }
+        return stripSurroundingQuotes(candidate.substring(0, cutIndex).trim());
+    }
 
         return List.of();
     }
@@ -771,8 +966,46 @@ public class AdminAiService {
             if (text.toLowerCase(Locale.ROOT).contains("screen " + candidate.toLowerCase(Locale.ROOT))) {
                 return "Screen " + candidate;
             }
-            return candidate.matches("\\d+") ? "Screen " + candidate : candidate;
         }
+        return defaultRoomName(cinemaId);
+    }
+
+    private static String resolveRoomTokenPair(String[] tokens, int index) {
+        if (tokens == null || index < 0 || index + 1 >= tokens.length) {
+            return "";
+        }
+        String current = tokens[index];
+        String next = tokens[index + 1];
+        if (current == null || next == null) {
+            return "";
+        }
+        String normCurrent = normalizeNonNull(current);
+        String nextRaw = cleanRoomToken(next);
+        if ("screen".equals(normCurrent)) {
+            return nextRaw.isBlank() ? "" : SCREEN_PREFIX + nextRaw;
+        }
+        if (!"phong".equals(normCurrent)) {
+            return "";
+        }
+        String normNext = normalizeNonNull(nextRaw);
+        if ("screen".equals(normNext)) {
+            String afterScreen = index + 2 < tokens.length ? cleanRoomToken(tokens[index + 2]) : "";
+            return afterScreen.isBlank() ? "" : SCREEN_PREFIX + afterScreen;
+        }
+        if (normNext.isBlank() || ROOM_NAME_STOP_WORDS.contains(normNext) || normNext.matches("\\d+x\\d+")) {
+            return "";
+        }
+        return nextRaw.matches("\\d+") ? SCREEN_PREFIX + nextRaw : nextRaw;
+    }
+
+    private static String cleanRoomToken(String raw) {
+        if (raw == null) {
+            return "";
+        }
+        return raw.replaceAll("[,.\"']", "").trim();
+    }
+
+    private String defaultRoomName(Long cinemaId) {
         int next = auditoriumRepository.findByCinemaId(cinemaId).size() + 1;
         return "Screen " + next;
     }
@@ -799,8 +1032,17 @@ public class AdminAiService {
         return times;
     }
 
+    private void addParsedTime(List<LocalDateTime> times, String raw) {
+        LocalDateTime dt = parseDateTimeFlexible(raw);
+        if (dt != null) {
+            times.add(dt);
+        }
+    }
+
     private LocalDateTime parseDateTimeFlexible(String raw) {
-        if (raw == null || raw.isBlank()) return null;
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
         String clean = raw.trim().replace(' ', 'T');
         try {
             if (clean.length() == 16) {
@@ -835,6 +1077,14 @@ public class AdminAiService {
         return cinemas.stream().filter(Cinema::isActive).findFirst().orElse(null);
     }
 
+    private static boolean matchesCinemaQuery(String normName, String normQuery) {
+        if (normName.contains(normQuery) || normQuery.contains(normName)) {
+            return true;
+        }
+        return CINEMA_KEYWORDS.stream()
+            .anyMatch(token -> normQuery.contains(token) && normName.contains(token));
+    }
+
     private Auditorium resolveAuditorium(Long auditoriumId, String auditoriumQuery,
                                          Long cinemaId, String cinemaQuery) {
         if (auditoriumId != null) {
@@ -860,10 +1110,17 @@ public class AdminAiService {
             .orElse(null);
     }
 
+    private static boolean matchesName(String normName, String normQuery) {
+        return !normName.isBlank()
+            && (normName.equals(normQuery) || normQuery.contains(normName) || normName.contains(normQuery));
+    }
+
     private Movie resolveMovie(Long movieId, String movieQuery) {
         if (movieId != null) {
             Movie byId = movieRepository.findById(movieId).orElse(null);
-            if (byId != null) return byId;
+            if (byId != null) {
+                return byId;
+            }
         }
         String normQuery = normalizeSearch(movieQuery);
         if (normQuery.isBlank()) return null;
@@ -898,7 +1155,17 @@ public class AdminAiService {
     }
 
     private static String normalizeSearch(String input) {
-        if (input == null) return "";
+        if (input == null) {
+            return "";
+        }
+        return normalizeNonNull(input);
+    }
+
+    /**
+     * Bỏ dấu tiếng Việt + lowercase cho chuỗi chắc chắn khác null.
+     * Tách riêng để bộ phân tích tĩnh không suy luận ngược rằng đối số có thể null.
+     */
+    private static String normalizeNonNull(String input) {
         String nfd = Normalizer.normalize(input, Normalizer.Form.NFD);
         return nfd.replaceAll("\\p{M}+", "")
             .replace('đ', 'd')

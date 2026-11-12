@@ -131,7 +131,7 @@ public class PayOSService {
     @SuppressWarnings("unchecked")
     private Map<String, Object> fetchPaymentLink(String paymentLinkId) {
         if (!isConfigured() || paymentLinkId == null || paymentLinkId.isBlank()) {
-            return null;
+            return Optional.empty();
         }
         try {
             HttpHeaders headers = new HttpHeaders();
@@ -145,13 +145,15 @@ public class PayOSService {
             if (body == null || !"00".equals(body.get("code"))) {
                 return null;
             }
-            return (Map<String, Object>) body.get("data");
+            Object data = body.get("data");
+            return data instanceof Map ? Optional.of((Map<String, Object>) data) : Optional.empty();
         } catch (Exception e) {
             return null;
         }
     }
 
     /** Xác minh chữ ký webhook PayOS. */
+    @SuppressWarnings("unchecked")
     public boolean verifyWebhookSignature(Map<String, Object> webhookData) {
         if (!isConfigured()) return false;
         Object signatureObj = webhookData.get("signature");
@@ -173,7 +175,10 @@ public class PayOSService {
             first = false;
         }
         String computed = hmacSha256(checksumKey, sb.toString());
-        return computed.equalsIgnoreCase(receivedSig);
+        return java.security.MessageDigest.isEqual(
+            computed.toLowerCase(java.util.Locale.ROOT).getBytes(StandardCharsets.UTF_8),
+            receivedSig.trim().toLowerCase(java.util.Locale.ROOT).getBytes(StandardCharsets.UTF_8)
+        );
     }
 
     private String hmacSha256(String key, String data) {

@@ -4,6 +4,7 @@ import com.cinex.cinema.trailer.YoutubeEmbedUrlNormalizer;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -18,17 +19,20 @@ public class MovieService {
                         YoutubeEmbedUrlNormalizer youtubeEmbedUrlNormalizer) {
         this.movieRepository = movieRepository;
         this.youtubeEmbedUrlNormalizer = youtubeEmbedUrlNormalizer;
+        this.showtimeRepository = showtimeRepository;
+        this.showtimeSeatRepository = showtimeSeatRepository;
+        this.bookingRepository = bookingRepository;
     }
 
     public List<MovieResponse> findAll(MovieStatus status) {
         List<Movie> movies = (status != null)
             ? movieRepository.findByStatusAndActiveTrue(status)
-            : movieRepository.findAll().stream().filter(Movie::isActive).collect(Collectors.toList());
-        return movies.stream().map(this::toResponse).collect(Collectors.toList());
+            : movieRepository.findByActiveTrue();
+        return movies.stream().map(this::toResponse).toList();
     }
 
     public List<MovieResponse> findAllAdmin() {
-        return movieRepository.findAll().stream()
+        return movieRepository.findByActiveTrue().stream()
             .map(this::toResponse)
             .collect(Collectors.toList());
     }

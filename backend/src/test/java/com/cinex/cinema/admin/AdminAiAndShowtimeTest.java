@@ -13,6 +13,7 @@ import com.cinex.cinema.cinema.Seat;
 import com.cinex.cinema.cinema.SeatRepository;
 import com.cinex.cinema.movie.Movie;
 import com.cinex.cinema.movie.MovieRepository;
+import com.cinex.cinema.movie.MovieRequest;
 import com.cinex.cinema.movie.MovieResponse;
 import com.cinex.cinema.movie.MovieService;
 import com.cinex.cinema.movie.MovieStatus;

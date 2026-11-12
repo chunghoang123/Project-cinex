@@ -46,5 +46,6 @@ public class Movie extends BaseEntity {
     private MovieStatus status;
 
     @Column(nullable = false)
+    @Builder.Default
     private boolean active = true;
 }
