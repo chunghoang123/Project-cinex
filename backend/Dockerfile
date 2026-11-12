@@ -22,8 +22,10 @@ WORKDIR /app
 # Copy the built JAR
 COPY --from=build /app/build/libs/*.jar app.jar
 
-# Create non-root user
-RUN addgroup -S cinex && adduser -S cinex -G cinex
+# Create non-root user and log directory for production profile
+RUN addgroup -S cinex && adduser -S cinex -G cinex \
+    && mkdir -p /var/log/cinex \
+    && chown -R cinex:cinex /var/log/cinex /app
 USER cinex
 
 # Expose port
