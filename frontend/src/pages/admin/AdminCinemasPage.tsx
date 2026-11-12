@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { ConsolePageHeader } from '../../components/console/ConsolePageHeader'
-import { openAdminAi } from '../../components/console/AdminAiWidget'
 import { Modal } from '../../components/console/Modal'
 import { Icon } from '../../components/ui/Icon'
 import { adminService } from '../../services/adminService'
@@ -195,18 +194,9 @@ export function AdminCinemasPage() {
         title="Rạp & phòng chiếu"
         description="Quản lý cụm rạp, phòng chiếu và sơ đồ ghế. Mỗi phòng chiếu được tạo ghế tự động theo số hàng và số cột."
         actions={
-          <>
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm"
-              onClick={() => openAdminAi('Tạo phòng Screen 3 có 10 hàng 12 cột ở rạp Landmark 81')}
-            >
-              <Icon name="sparkles" size={15} /> AI tạo phòng chiếu
-            </button>
-            <button type="button" className="btn btn-primary btn-sm" onClick={openCreateCinema}>
-              <Icon name="plus" size={16} /> Thêm rạp
-            </button>
-          </>
+          <button type="button" className="btn btn-primary btn-sm" onClick={openCreateCinema}>
+            <Icon name="plus" size={16} /> Thêm rạp
+          </button>
         }
       />
 

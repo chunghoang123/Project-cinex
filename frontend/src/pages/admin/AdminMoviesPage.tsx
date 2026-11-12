@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { ConsolePageHeader } from '../../components/console/ConsolePageHeader'
-import { openAdminAi } from '../../components/console/AdminAiWidget'
 import { Modal } from '../../components/console/Modal'
 import { StatusBadge } from '../../components/console/StatusBadge'
 import { Icon } from '../../components/ui/Icon'
@@ -127,8 +126,18 @@ export function AdminMoviesPage() {
   }
 
   const save = async () => {
-    if (!form.title.trim()) {
+    const cleanTitle = form.title.trim().replace(/\s+/g, ' ')
+    if (!cleanTitle) {
       setFormError('Vui lòng nhập tên phim')
+      return
+    }
+    const duplicate = movies.find(
+      (movie) =>
+        movie.id !== editing?.id &&
+        movie.title.trim().replace(/\s+/g, ' ').toLowerCase() === cleanTitle.toLowerCase(),
+    )
+    if (duplicate) {
+      setFormError(`Phim "${cleanTitle}" đã tồn tại trong danh mục`)
       return
     }
     setSaving(true)
@@ -136,6 +145,7 @@ export function AdminMoviesPage() {
     try {
       const payload = {
         ...form,
+        title: cleanTitle,
         durationMinutes: Number(form.durationMinutes),
         ageRating: Number(form.ageRating),
       }
@@ -153,13 +163,13 @@ export function AdminMoviesPage() {
     }
   }
 
-  const hideMovie = async (movie: Movie) => {
-    if (!window.confirm(`Ẩn phim "${movie.title}" khỏi danh sách hiển thị?`)) return
+  const deleteMovie = async (movie: Movie) => {
+    if (!window.confirm(`Xóa phim "${movie.title}" khỏi hệ thống?`)) return
     try {
       await adminService.deleteMovie(movie.id)
       load()
     } catch (err) {
-      window.alert(errorMessage(err, 'Không thể ẩn phim'))
+      window.alert(errorMessage(err, 'Không thể xóa phim'))
     }
   }
 
@@ -174,20 +184,11 @@ export function AdminMoviesPage() {
       <ConsolePageHeader
         eyebrow="Danh mục phim"
         title="Quản lý phim"
-        description="Thêm, cập nhật và ẩn phim khỏi hệ thống. Bạn có thể dùng AI để thêm phim nhanh."
+        description="Thêm, cập nhật và xóa phim khỏi hệ thống."
         actions={
-          <>
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm"
-              onClick={() => openAdminAi('Thêm phim Lật Mặt 7 đang chiếu, 138 phút, 13+')}
-            >
-              <Icon name="sparkles" size={15} /> AI thêm phim
-            </button>
-            <button type="button" className="btn btn-primary btn-sm" onClick={openCreate}>
-              <Icon name="plus" size={16} /> Thêm phim
-            </button>
-          </>
+          <button type="button" className="btn btn-primary btn-sm" onClick={openCreate}>
+            <Icon name="plus" size={16} /> Thêm phim
+          </button>
         }
       />
 
@@ -225,14 +226,13 @@ export function AdminMoviesPage() {
                 <th>Thời lượng</th>
                 <th>Độ tuổi</th>
                 <th>Trạng thái</th>
-                <th>Hiển thị</th>
                 <th className="num">Thao tác</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7}>
+                  <td colSpan={6}>
                     <div className="console-empty">
                       <strong>Không có phim phù hợp</strong>
                       Thử từ khóa khác hoặc thêm phim mới.
@@ -261,20 +261,13 @@ export function AdminMoviesPage() {
                   <td>{movie.ageRating ? `T${movie.ageRating}` : 'P'}</td>
                   <td><StatusBadge status={movie.status} /></td>
                   <td>
-                    <span className={`badge ${movie.active ? 'badge-success' : 'badge-muted'}`}>
-                      {movie.active ? 'Đang hiển thị' : 'Đã ẩn'}
-                    </span>
-                  </td>
-                  <td>
                     <div className="cell-actions">
                       <button type="button" className="btn btn-ghost btn-sm" onClick={() => openEdit(movie)}>
                         <Icon name="edit" size={14} /> Sửa
                       </button>
-                      {movie.active && (
-                        <button type="button" className="btn btn-danger btn-sm" onClick={() => hideMovie(movie)}>
-                          <Icon name="trash" size={14} /> Ẩn
-                        </button>
-                      )}
+                      <button type="button" className="btn btn-danger btn-sm" onClick={() => deleteMovie(movie)}>
+                        <Icon name="trash" size={14} /> Xóa
+                      </button>
                     </div>
                   </td>
                 </tr>
