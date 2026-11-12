@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { ConsolePageHeader } from '../../components/console/ConsolePageHeader'
-import { openAdminAi } from '../../components/console/AdminAiWidget'
 import { Modal } from '../../components/console/Modal'
 import { StatusBadge } from '../../components/console/StatusBadge'
 import { Icon } from '../../components/ui/Icon'
@@ -154,8 +153,8 @@ export function AdminMoviesPage() {
     }
   }
 
-  const hideMovie = async (movie: Movie) => {
-    if (!window.confirm(`Ẩn phim "${movie.title}" khỏi danh sách hiển thị?`)) return
+  const deleteMovie = async (movie: Movie) => {
+    if (!window.confirm(`Xóa phim "${movie.title}" khỏi hệ thống?`)) return
     try {
       await adminService.deleteMovie(movie.id)
       load()
@@ -175,7 +174,7 @@ export function AdminMoviesPage() {
       <ConsolePageHeader
         eyebrow="Danh mục phim"
         title="Quản lý phim"
-        description="Thêm, cập nhật và ẩn phim khỏi hệ thống. Bạn có thể dùng AI để thêm phim nhanh."
+        description="Thêm, cập nhật và xóa phim khỏi hệ thống."
         actions={
           <>
             <button
