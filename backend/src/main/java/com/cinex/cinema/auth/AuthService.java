@@ -299,6 +299,10 @@ public class AuthService {
 
         User user = userRepository.findByEmail(email).orElseGet(() -> createUserFromGoogle(email, googleId, fullName));
 
+        if (!user.isActive()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Tài khoản của bạn đã bị khóa");
+        }
+
         if (user.getGoogleId() == null) {
             user.setGoogleId(googleId);
         }

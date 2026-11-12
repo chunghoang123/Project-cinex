@@ -42,6 +42,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -116,9 +117,8 @@ public class AdminAiService {
         UNICODE_REGEX_FLAGS
     );
 
-    private static final Pattern JSON_BLOCK_PATTERN = Pattern.compile(
-        "```(?:json)?\\s*(\\{[\\s\\S]*?})\\s*```",
-        Pattern.CASE_INSENSITIVE
+    private static final List<String> MOVIE_TITLE_STOP_MARKERS = List.of(
+        ",", "\n", " đang chiếu", " dang chieu", " sắp chiếu", " sap chieu", " thể loại", " the loai"
     );
     private static final Set<String> ROOM_NAME_STOP_WORDS = Set.of(
         "co", "tai", "o", "rap", "hang", "cot", "ghe", "moi", "chieu"
@@ -247,6 +247,10 @@ public class AdminAiService {
     public AdminAiResponse chat(String message, List<AiChatMessage> history) {
         String userMessage = message == null ? "" : message.trim();
         String systemPrompt = ADMIN_SYSTEM_PROMPT + "\n\n" + buildAdminContext();
+        String rawReply = queryModelSafely(systemPrompt, history, userMessage);
+
+        List<JsonNode> actionNodes = rawReply.isBlank() ? List.of() : extractJsonActions(rawReply);
+        String cleanReply = rawReply.isBlank() ? "" : stripJsonBlocks(rawReply).trim();
 
         List<AdminAiActionResult> executedActions = executeActionsOrFallback(actionNodes, userMessage);
         boolean dataChanged = executedActions.stream().anyMatch(AdminAiActionResult::success);
@@ -264,15 +268,13 @@ public class AdminAiService {
             return reply == null ? "" : reply;
         } catch (Exception ex) {
             log.warn("Gọi NVIDIA AI trong Admin gặp lỗi, chuyển sang bộ phân tích lệnh trực tiếp: {}", ex.getMessage());
+            return "";
         }
     }
 
-        List<JsonNode> actionNodes = new ArrayList<>();
-        String cleanReply = "";
-
-        if (rawReply != null && !rawReply.isBlank()) {
-            actionNodes.addAll(extractJsonActions(rawReply));
-            cleanReply = stripJsonBlocks(rawReply).trim();
+    private List<AdminAiActionResult> executeActionsOrFallback(List<JsonNode> actionNodes, String userMessage) {
+        if (actionNodes.isEmpty()) {
+            return tryExecuteFallbackCommand(userMessage);
         }
         List<AdminAiActionResult> executed = new ArrayList<>();
         for (JsonNode node : actionNodes) {
@@ -295,30 +297,26 @@ public class AdminAiService {
         LocalDate today = now.toLocalDate();
         StringBuilder sb = new StringBuilder(4096);
 
-        sb.append("DỮ LIỆU HỆ THỐNG HIỆN TẠI:\n");
-        sb.append("- Thời điểm hiện tại: ").append(now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")))
-            .append(" (Hôm nay: ").append(today).append(", Ngày mai: ").append(today.plusDays(1))
+        sb.append("DỮ LIỆU HỆ THỐNG HIỆN TẠI:\n")
+            .append("- Thời điểm hiện tại: ").append(now.format(NOW_FMT))
+            .append(" (Hôm nay: ").append(today)
+            .append(", Ngày mai: ").append(today.plusDays(1))
             .append(", Ngày kia: ").append(today.plusDays(2)).append(")\n");
 
+        appendCinemasContext(sb);
+        appendMoviesContext(sb);
+        return sb.toString();
+    }
+
+    private void appendCinemasContext(StringBuilder sb) {
         sb.append("\nDANH SÁCH RẠP & PHÒNG CHIẾU:\n");
         for (Cinema cinema : cinemaRepository.findAll()) {
             sb.append("- [cinemaId=").append(cinema.getId()).append("] ")
                 .append(cinema.getName())
                 .append(cinema.isActive() ? " (Đang hoạt động)" : " (Bảo trì)")
-                .append(" | Phòng chiếu: ");
-            List<Auditorium> auds = auditoriumRepository.findByCinemaId(cinema.getId());
-            if (auds.isEmpty()) {
-                sb.append("chưa có phòng");
-            } else {
-                for (int i = 0; i < auds.size(); i++) {
-                    Auditorium a = auds.get(i);
-                    if (i > 0) sb.append(", ");
-                    sb.append("[auditoriumId=").append(a.getId()).append("] ")
-                        .append(a.getName()).append(" (").append(a.getTotalRows()).append("x").append(a.getColumnsPerRow())
-                        .append(a.isActive() ? "" : ", bảo trì").append(")");
-                }
-            }
-            sb.append('\n');
+                .append(" | Phòng chiếu: ")
+                .append(formatAuditoriumList(cinema.getId()))
+                .append('\n');
         }
     }
 
@@ -340,7 +338,7 @@ public class AdminAiService {
             int duration = movie.getDurationMinutes() == null ? 120 : movie.getDurationMinutes();
             sb.append("- [movieId=").append(movie.getId()).append("] ")
                 .append(movie.getTitle())
-                .append(" | ").append(movie.getDurationMinutes() == null ? 120 : movie.getDurationMinutes()).append(" phút")
+                .append(" | ").append(duration).append(" phút")
                 .append(" | ").append(movie.getStatus())
                 .append(movie.isActive() ? "" : " (Đã ẩn)")
                 .append('\n');
@@ -349,9 +347,8 @@ public class AdminAiService {
 
     private List<JsonNode> extractJsonActions(String text) {
         List<JsonNode> result = new ArrayList<>();
-        Matcher matcher = JSON_BLOCK_PATTERN.matcher(text);
-        while (matcher.find()) {
-            parseActionsFromJsonString(matcher.group(1), result);
+        for (FencedBlock block : findJsonFencedBlocks(text)) {
+            parseActionsFromJsonString(block.json(), result);
         }
         if (result.isEmpty()) {
             int firstBrace = text.indexOf('{');
@@ -363,10 +360,44 @@ public class AdminAiService {
         return result;
     }
 
+    /** Khối ```json ... ``` trong câu trả lời của AI: vị trí [start, end) và nội dung JSON bên trong. */
+    private record FencedBlock(int start, int end, String json) {
+    }
+
+    /**
+     * Quét tuyến tính các khối code fence chứa JSON object (thay cho regex dễ bị backtracking).
+     */
+    private static List<FencedBlock> findJsonFencedBlocks(String text) {
+        List<FencedBlock> blocks = new ArrayList<>();
+        if (text == null || text.isEmpty()) {
+            return blocks;
+        }
+        int searchFrom = 0;
+        while (searchFrom < text.length()) {
+            int open = text.indexOf(CODE_FENCE, searchFrom);
+            if (open < 0) {
+                break;
+            }
+            int close = text.indexOf(CODE_FENCE, open + CODE_FENCE.length());
+            if (close < 0) {
+                break;
+            }
+            String content = text.substring(open + CODE_FENCE.length(), close).trim();
+            if (content.regionMatches(true, 0, JSON_FENCE_LANG, 0, JSON_FENCE_LANG.length())) {
+                content = content.substring(JSON_FENCE_LANG.length()).trim();
+            }
+            if (content.startsWith("{") && content.endsWith("}")) {
+                blocks.add(new FencedBlock(open, close + CODE_FENCE.length(), content));
+            }
+            searchFrom = close + CODE_FENCE.length();
+        }
+        return blocks;
+    }
+
     private void parseActionsFromJsonString(String jsonCandidate, List<JsonNode> result) {
         try {
             JsonNode root = objectMapper.readTree(jsonCandidate);
-            JsonNode actions = root.path("actions");
+            JsonNode actions = root.path(FIELD_ACTIONS);
             if (actions.isArray()) {
                 actions.forEach(result::add);
             } else if (root.has(FIELD_TYPE)) {
@@ -435,12 +466,12 @@ public class AdminAiService {
         String type = node.path(FIELD_TYPE).asText("").trim().toUpperCase(Locale.ROOT);
         try {
             return switch (type) {
-                case "CREATE_AUDITORIUM" -> List.of(handleCreateAuditorium(node));
-                case "CREATE_CINEMA" -> List.of(handleCreateCinema(node));
-                case "CREATE_MOVIE" -> List.of(handleCreateMovie(node));
-                case "CREATE_SHOWTIME" -> handleCreateShowtime(node);
-                case "UPDATE_SHOWTIME" -> List.of(handleUpdateShowtime(node));
-                case "AUTO_GENERATE_SHOWTIMES", "AUTO_EXTEND_SHOWTIMES" -> List.of(handleAutoGenerateShowtimes(node));
+                case ACTION_CREATE_AUDITORIUM -> List.of(handleCreateAuditorium(node));
+                case ACTION_CREATE_CINEMA -> List.of(handleCreateCinema(node));
+                case ACTION_CREATE_MOVIE -> List.of(handleCreateMovie(node));
+                case ACTION_CREATE_SHOWTIME -> handleCreateShowtime(node);
+                case ACTION_UPDATE_SHOWTIME -> List.of(handleUpdateShowtime(node));
+                case ACTION_AUTO_GENERATE, "AUTO_EXTEND_SHOWTIMES" -> List.of(handleAutoGenerateShowtimes(node));
                 default -> List.of();
             };
         } catch (Exception ex) {
@@ -450,7 +481,7 @@ public class AdminAiService {
     }
 
     private AdminAiActionResult handleCreateCinema(JsonNode node) {
-        String name = node.path("name").asText("").trim();
+        String name = node.path(FIELD_NAME).asText("").trim();
         if (name.isBlank()) {
             return new AdminAiActionResult(ACTION_CREATE_CINEMA, false, "Thiếu tên rạp", "Vui lòng cung cấp tên rạp cần tạo", null);
         }
@@ -470,12 +501,12 @@ public class AdminAiService {
 
     private AdminAiActionResult handleCreateAuditorium(JsonNode node) {
         Cinema cinema = resolveCinema(
-            node.path("cinemaId").isNumber() ? node.path("cinemaId").asLong() : null,
-            node.path("cinemaName").asText("")
+            node.path(FIELD_CINEMA_ID).isNumber() ? node.path(FIELD_CINEMA_ID).asLong() : null,
+            node.path(FIELD_CINEMA_NAME).asText("")
         );
         if (cinema == null) {
             return new AdminAiActionResult(
-                "CREATE_AUDITORIUM",
+                ACTION_CREATE_AUDITORIUM,
                 false,
                 "Không tìm thấy rạp chiếu",
                 "Vui lòng nêu rõ tên rạp (ví dụ: Landmark 81, Galaxy Nguyễn Du, Aeon Tân Phú)",
@@ -507,16 +538,51 @@ public class AdminAiService {
     }
 
     private AdminAiActionResult handleCreateMovie(JsonNode node) {
-        String title = node.path("title").asText("").trim();
+        String title = node.path(FIELD_TITLE).asText("").trim().replaceAll("\\s+", " ");
         if (title.isBlank()) {
             return new AdminAiActionResult(ACTION_CREATE_MOVIE, false, "Thiếu tên phim", "Vui lòng nhập tên phim cần thêm", null);
         }
 
-        String description = node.path("description").asText("").trim();
-        String posterUrl = node.path("posterUrl").asText("").trim();
-        String trailerUrl = node.path("trailerUrl").asText("").trim();
-        int duration = node.path("durationMinutes").asInt(0);
-        int ageRating = node.path("ageRating").asInt(13);
+        Movie existingMovie = findExistingActiveMovieByTitle(title);
+        if (existingMovie != null) {
+            return new AdminAiActionResult(
+                ACTION_CREATE_MOVIE,
+                false,
+                "Phim đã tồn tại: " + existingMovie.getTitle(),
+                "Phim #" + existingMovie.getId() + " đã có trong danh mục, hệ thống không thêm trùng.",
+                existingMovie.getId()
+            );
+        }
+
+        MovieRequest req = buildMovieRequestFromNode(node, title);
+        MovieResponse created = movieService.create(req);
+        return new AdminAiActionResult(
+            ACTION_CREATE_MOVIE,
+            true,
+            "Đã thêm phim: " + created.getTitle(),
+            String.format("Mã phim #%d · %d phút · %s · %s",
+                created.getId(),
+                created.getDurationMinutes(),
+                created.getGenre(),
+                created.getStatus() == MovieStatus.NOW_SHOWING ? "Đang chiếu" : "Sắp chiếu"),
+            created.getId()
+        );
+    }
+
+    private Movie findExistingActiveMovieByTitle(String title) {
+        return movieRepository.findAll().stream()
+            .filter(Movie::isActive)
+            .filter(m -> m.getTitle() != null && m.getTitle().trim().replaceAll("\\s+", " ").equalsIgnoreCase(title))
+            .findFirst()
+            .orElse(null);
+    }
+
+    private MovieRequest buildMovieRequestFromNode(JsonNode node, String title) {
+        TmdbDtos.TmdbMovie match = findFirstTmdbMatch(title);
+        String posterUrl = resolvePosterUrl(node.path("posterUrl").asText("").trim(), match);
+        String description = resolveDescription(node.path("description").asText("").trim(), title, match);
+        int duration = resolveDuration(node.path(FIELD_DURATION_MINUTES).asInt(0), match);
+        String trailerUrl = resolveTrailerUrl(node.path("trailerUrl").asText("").trim(), title);
         String genre = node.path("genre").asText("").trim();
         String statusStr = node.path(FIELD_STATUS).asText(STATUS_NOW_SHOWING).trim().toUpperCase(Locale.ROOT);
 
@@ -580,16 +646,14 @@ public class AdminAiService {
         } catch (Exception ignored) {
             // Không chặn việc tạo phim nếu TMDB chưa cấu hình
         }
+        return null;
+    }
 
-        // Tự động tìm trailer YouTube nếu chưa có
-        if (trailerUrl.isBlank()) {
-            try {
-                YoutubeDtos.YoutubeTrailer trailer = youtubeService.findFirstTrailer(title);
-                if (trailer != null && trailer.embedUrl() != null) {
-                    trailerUrl = trailer.embedUrl();
-                }
-            } catch (Exception ignored) {
-                // Không chặn việc tạo phim nếu YouTube chưa cấu hình
+    private int fetchTmdbRuntime(long tmdbId) {
+        try {
+            TmdbDtos.TmdbMovie detail = tmdbClient.movieDetail(tmdbId);
+            if (detail != null && detail.runtime() != null && detail.runtime() > 0) {
+                return detail.runtime();
             }
         } catch (Exception ignored) {
             // Bỏ qua nếu không lấy được chi tiết runtime
@@ -606,35 +670,12 @@ public class AdminAiService {
         } catch (Exception ignored) {
             // Không chặn việc tạo phim nếu YouTube chưa cấu hình
         }
-
-        MovieRequest req = new MovieRequest();
-        req.setTitle(title);
-        req.setDescription(description);
-        req.setPosterUrl(posterUrl.isBlank() ? null : posterUrl);
-        req.setTrailerUrl(trailerUrl.isBlank() ? null : trailerUrl);
-        req.setDurationMinutes(duration);
-        req.setAgeRating(ageRating);
-        req.setGenre(genre);
-        req.setReleaseDate(LocalDate.now(CINEMA_ZONE));
-        req.setStatus(status);
-
-        MovieResponse created = movieService.create(req);
-        return new AdminAiActionResult(
-            "CREATE_MOVIE",
-            true,
-            "Đã thêm phim: " + created.getTitle(),
-            String.format("Mã phim #%d · %d phút · %s · %s",
-                created.getId(),
-                created.getDurationMinutes(),
-                created.getGenre(),
-                created.getStatus() == MovieStatus.NOW_SHOWING ? "Đang chiếu" : "Sắp chiếu"),
-            created.getId()
-        );
+        return "";
     }
 
     private List<AdminAiActionResult> handleCreateShowtime(JsonNode node) {
         Movie movie = resolveMovie(
-            node.path("movieId").isNumber() ? node.path("movieId").asLong() : null,
+            node.path(FIELD_MOVIE_ID).isNumber() ? node.path(FIELD_MOVIE_ID).asLong() : null,
             node.path("movieTitle").asText("")
         );
         if (movie == null) {
@@ -668,6 +709,8 @@ public class AdminAiService {
         if (startTimes.isEmpty()) {
             startTimes = List.of(LocalDate.now(CINEMA_ZONE).plusDays(1).atTime(19, 30));
         }
+        return createShowtimesForSlots(movie, auditorium, startTimes, basePrice);
+    }
 
     private List<AdminAiActionResult> createShowtimesForSlots(Movie movie, Auditorium auditorium,
                                                               List<LocalDateTime> startTimes, BigDecimal basePrice) {
@@ -685,7 +728,7 @@ public class AdminAiService {
                     ACTION_CREATE_SHOWTIME,
                     true,
                     "Đã tạo suất chiếu: " + created.getMovieTitle(),
-                    String.format("%s · %s (%s) · %s %s · %,dđ",
+                    String.format("%s · %s (%s ghế) · %s %s · %,dđ",
                         created.getCinemaName(),
                         created.getAuditoriumName(),
                         created.getTotalSeats(),
@@ -707,8 +750,16 @@ public class AdminAiService {
         return results;
     }
 
+    private static BigDecimal normalizeBasePrice(long rawPrice) {
+        BigDecimal price = BigDecimal.valueOf(rawPrice <= 0 ? 90000L : rawPrice);
+        if (price.compareTo(BigDecimal.valueOf(1000)) < 0) {
+            return price.multiply(BigDecimal.valueOf(1000));
+        }
+        return price;
+    }
+
     private AdminAiActionResult handleUpdateShowtime(JsonNode node) {
-        if (!node.path("showtimeId").isNumber()) {
+        if (!node.path(FIELD_SHOWTIME_ID).isNumber()) {
             return new AdminAiActionResult(
                 ACTION_UPDATE_SHOWTIME,
                 false,
@@ -734,7 +785,7 @@ public class AdminAiService {
 
         ShowtimeResponse updated = showtimeService.update(showtimeId, req);
         return new AdminAiActionResult(
-            "UPDATE_SHOWTIME",
+            ACTION_UPDATE_SHOWTIME,
             true,
             "Đã cập nhật suất chiếu #" + updated.getId(),
             String.format("%s · %s - %s · %s %s · %,dđ",
@@ -769,7 +820,6 @@ public class AdminAiService {
         if (message == null || message.isBlank()) {
             return List.of();
         }
-        String lower = message.toLowerCase(Locale.ROOT);
         String norm = normalizeSearch(message);
 
         if (isAutoScheduleIntent(norm)) {
@@ -901,6 +951,8 @@ public class AdminAiService {
                 return text.substring(first + 1, second).trim();
             }
         }
+        return "";
+    }
 
     private static String truncateAtStopMarker(String candidate) {
         if (candidate == null || candidate.isBlank()) {
@@ -917,15 +969,84 @@ public class AdminAiService {
         return stripSurroundingQuotes(candidate.substring(0, cutIndex).trim());
     }
 
-        return List.of();
+    private static String stripSurroundingQuotes(String value) {
+        int start = 0;
+        int end = value.length();
+        while (start < end && isQuoteChar(value.charAt(start))) {
+            start++;
+        }
+        while (end > start && isQuoteChar(value.charAt(end - 1))) {
+            end--;
+        }
+        return value.substring(start, end).trim();
+    }
+
+    private static boolean isQuoteChar(char c) {
+        return c == '"' || c == '\'';
+    }
+
+    private List<AdminAiActionResult> executeFallbackCreateShowtime(String message, String norm) {
+        Movie movie = resolveMovie(null, message);
+        Auditorium auditorium = resolveAuditorium(null, message, null, message);
+        if (movie == null || auditorium == null) {
+            return List.of();
+        }
+        LocalDate targetDate = resolveFallbackTargetDate(norm);
+        List<LocalDateTime> startTimes = extractFallbackClockTimes(norm).stream()
+            .map(targetDate::atTime)
+            .toList();
+        BigDecimal price = parseFallbackPrice(norm);
+        return createShowtimesForSlots(movie, auditorium, startTimes, price);
+    }
+
+    private static LocalDate resolveFallbackTargetDate(String norm) {
+        LocalDate today = LocalDate.now(CINEMA_ZONE);
+        if (norm.contains("ngay mai") || norm.contains("mai")) {
+            return today.plusDays(1);
+        }
+        if (norm.contains("ngay kia") || norm.contains("mot")) {
+            return today.plusDays(2);
+        }
+        return today;
+    }
+
+    private static List<LocalTime> extractFallbackClockTimes(String norm) {
+        List<LocalTime> times = new ArrayList<>();
+        Matcher timeMatcher = CLOCK_TIME_PATTERN.matcher(norm);
+        while (timeMatcher.find()) {
+            times.add(LocalTime.of(
+                Integer.parseInt(timeMatcher.group(1)),
+                Integer.parseInt(timeMatcher.group(2))
+            ));
+        }
+        if (times.isEmpty()) {
+            times.add(LocalTime.of(19, 30));
+        }
+        return times;
+    }
+
+    private static BigDecimal parseFallbackPrice(String norm) {
+        Matcher priceMatcher = PRICE_PATTERN.matcher(norm);
+        if (priceMatcher.find()) {
+            if (priceMatcher.group(1) != null) {
+                return BigDecimal.valueOf(Long.parseLong(priceMatcher.group(1)) * 1000L);
+            }
+            if (priceMatcher.group(2) != null) {
+                return BigDecimal.valueOf(Long.parseLong(priceMatcher.group(2)));
+            }
+        }
+        return new BigDecimal("90000");
     }
 
     private String extractRoomNameFromText(String text, Long cinemaId) {
-        Matcher m = Pattern.compile("(?i)(?:phòng|phong|screen)\\s+([A-Za-z0-9_\\- ]{1,20}?)(?=\\s+(?:có|co|\\d|tại|tai|ở|o|rạp|rap|$))").matcher(text);
-        if (m.find()) {
-            String candidate = m.group(1).trim();
-            if (text.toLowerCase(Locale.ROOT).contains("screen " + candidate.toLowerCase(Locale.ROOT))) {
-                return "Screen " + candidate;
+        if (text == null || text.isBlank()) {
+            return defaultRoomName(cinemaId);
+        }
+        String[] tokens = text.trim().split("\\s+");
+        for (int i = 0; i < tokens.length - 1; i++) {
+            String resolved = resolveRoomTokenPair(tokens, i);
+            if (!resolved.isBlank()) {
+                return resolved;
             }
         }
         return defaultRoomName(cinemaId);
@@ -973,20 +1094,16 @@ public class AdminAiService {
 
     private List<LocalDateTime> extractStartTimes(JsonNode node) {
         List<LocalDateTime> times = new ArrayList<>();
-        if (node.path("startTimes").isArray()) {
-            for (JsonNode item : node.path("startTimes")) {
-                LocalDateTime dt = parseDateTimeFlexible(item.asText(""));
-                if (dt != null) times.add(dt);
-            }
+        if (node.path(FIELD_START_TIMES).isArray()) {
+            node.path(FIELD_START_TIMES).forEach(item -> addParsedTime(times, item.asText("")));
         }
         if (times.isEmpty()) {
             addParsedTime(times, node.path(FIELD_START_TIME).asText(""));
         }
-        if (times.isEmpty() && !node.path("date").asText("").isBlank() && node.path("times").isArray()) {
+        if (times.isEmpty() && node.path(FIELD_TIMES).isArray()) {
             String dateStr = node.path("date").asText("").trim();
-            for (JsonNode t : node.path("times")) {
-                LocalDateTime dt = parseDateTimeFlexible(dateStr + "T" + t.asText("").trim());
-                if (dt != null) times.add(dt);
+            if (!dateStr.isBlank()) {
+                node.path(FIELD_TIMES).forEach(t -> addParsedTime(times, dateStr + "T" + t.asText("").trim()));
             }
         }
         return times;
@@ -1047,7 +1164,9 @@ public class AdminAiService {
                                          Long cinemaId, String cinemaQuery) {
         if (auditoriumId != null) {
             Auditorium byId = auditoriumRepository.findById(auditoriumId).orElse(null);
-            if (byId != null && byId.isActive()) return byId;
+            if (byId != null && byId.isActive()) {
+                return byId;
+            }
         }
         String effectiveCinemaQuery = (cinemaQuery != null && !cinemaQuery.isBlank()) ? cinemaQuery : auditoriumQuery;
         Cinema cinema = resolveCinema(cinemaId, effectiveCinemaQuery);
@@ -1057,11 +1176,12 @@ public class AdminAiService {
 
         String normAud = normalizeSearch(auditoriumQuery);
         if (!normAud.isBlank()) {
-            for (Auditorium a : candidates) {
-                String normName = normalizeSearch(a.getName());
-                if (normName.equals(normAud) || normAud.contains(normName) || normName.contains(normAud)) {
-                    return a;
-                }
+            Auditorium matched = candidates.stream()
+                .filter(a -> matchesName(normalizeSearch(a.getName()), normAud))
+                .findFirst()
+                .orElse(null);
+            if (matched != null) {
+                return matched;
             }
         }
         return candidates.stream()
@@ -1082,14 +1202,8 @@ public class AdminAiService {
             }
         }
         String normQuery = normalizeSearch(movieQuery);
-        if (normQuery.isBlank()) return null;
-
-        List<Movie> movies = movieRepository.findAll();
-        for (Movie m : movies) {
-            String normTitle = normalizeSearch(m.getTitle());
-            if (!normTitle.isBlank() && (normTitle.contains(normQuery) || normQuery.contains(normTitle))) {
-                return m;
-            }
+        if (normQuery.isBlank()) {
+            return null;
         }
         List<Movie> movies = movieRepository.findAll();
         return movies.stream()

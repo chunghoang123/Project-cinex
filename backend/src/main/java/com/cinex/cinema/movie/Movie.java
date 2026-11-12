@@ -9,6 +9,7 @@ import java.time.LocalDate;
 @Entity
 @Table(name = "movies")
 @Data
+@EqualsAndHashCode(callSuper = false)
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder

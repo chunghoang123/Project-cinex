@@ -12,6 +12,7 @@ import java.util.UUID;
 public class TicketService {
 
     private final TicketRepository ticketRepository;
+    private final TicketValidator ticketValidator;
 
     @Autowired
     public TicketService(TicketRepository ticketRepository, TicketValidator ticketValidator) {
@@ -42,19 +43,8 @@ public class TicketService {
         return ticketValidator.findByTicketCode(ticketCode);
     }
 
-    /** Chấp nhận cả mã vé và nội dung QR đầy đủ dạng CINEX|TKT-...|BK... khi quét. */
-    private String normalizeCode(String ticketCode) {
-        if (ticketCode == null) {
-            return null;
-        }
-        String value = ticketCode.trim();
-        if (value.startsWith("CINEX|")) {
-            String[] parts = value.split("\\|");
-            if (parts.length >= 2 && !parts[1].isBlank()) {
-                return parts[1].trim();
-            }
-        }
-        return value;
+    public Ticket validate(String ticketCode) {
+        return ticketValidator.validateTicket(ticketCode);
     }
 
     public Ticket validateTicket(String ticketCode) {

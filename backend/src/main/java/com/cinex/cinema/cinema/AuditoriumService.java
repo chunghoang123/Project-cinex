@@ -83,7 +83,7 @@ public class AuditoriumService {
         return seatRepository.findByAuditoriumId(auditoriumId).stream()
             .sorted(Comparator.comparing(Seat::getRowNumber).thenComparing(Seat::getColumnNumber))
             .map(this::toSeatResponse)
-            .collect(Collectors.toList());
+            .toList();
     }
 
     public List<SeatResponse> generateSeats(Long auditoriumId) {

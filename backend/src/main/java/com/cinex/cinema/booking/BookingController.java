@@ -65,7 +65,7 @@ public class BookingController {
         User user = currentUser(authentication);
         List<BookingResponse> bookings = bookingService.findMyBookings(user.getId()).stream()
             .map(bookingMapper::toResponse)
-            .collect(Collectors.toList());
+            .toList();
         return ResponseEntity.ok(ApiResponse.ok(bookings));
     }
 

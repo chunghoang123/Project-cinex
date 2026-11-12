@@ -170,7 +170,7 @@ public class BookingService {
             withBookingCode(payosReturnUrl, booking.getBookingCode()),
             withBookingCode(payosCancelUrl, booking.getBookingCode())
         );
-        paymentService.recordProcessing(booking, "PAYOS", booking.getTotalAmount(), link.paymentLinkId);
+        paymentService.recordProcessing(booking, PAYMENT_METHOD_PAYOS, booking.getTotalAmount(), link.paymentLinkId);
         return toPayosResponse(booking, link);
     }
 
@@ -284,7 +284,7 @@ public class BookingService {
         booking.setExpiresAt(null);
         bookingRepository.save(booking);
 
-        paymentService.markSuccess(booking, "PAYOS", paymentLinkId);
+        paymentService.markSuccess(booking, PAYMENT_METHOD_PAYOS, paymentLinkId);
         ticketService.issue(booking);
     }
 

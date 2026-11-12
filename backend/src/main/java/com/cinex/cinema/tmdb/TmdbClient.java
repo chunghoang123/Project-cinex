@@ -63,7 +63,7 @@ public class TmdbClient {
             .build().encode().toUri();
         TmdbPage<TmdbVideo> page = execute(uri, new ParameterizedTypeReference<>() {
         });
-        return page.results() == null ? List.of() : page.results();
+        return page == null || page.results() == null ? List.of() : page.results();
     }
 
     /** Danh sách thể loại phim (ám xá tên thể loại theo language cấu hình). */

@@ -226,7 +226,11 @@ public class CinemaAiContextService {
     }
 
     private static boolean matchesShowtimeTopic(String text) {
-        return text != null && !text.isBlank() && SHOWTIME_TOPIC_PATTERN.matcher(text).find();
+        if (text == null || text.isBlank()) {
+            return false;
+        }
+        String lower = text.toLowerCase(Locale.ROOT);
+        return SHOWTIME_TOPIC_KEYWORDS.stream().anyMatch(lower::contains);
     }
 
     private static String buildShowtimeFallback(List<Showtime> upcoming) {

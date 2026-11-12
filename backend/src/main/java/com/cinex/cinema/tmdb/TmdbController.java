@@ -41,7 +41,7 @@ public class TmdbController {
         try {
             return ResponseEntity.ok(ApiResponse.ok(tmdbClient.nowPlaying(page)));
         } catch (Exception ex) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Không lấy được dữ liệu phim từ TMDB, thử lại sau");
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, MSG_TMDB_FETCH_ERROR);
         }
     }
 
@@ -71,7 +71,7 @@ public class TmdbController {
         try {
             return ResponseEntity.ok(ApiResponse.ok(tmdbClient.movieDetail(tmdbId)));
         } catch (Exception ex) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Không lấy được dữ liệu phim từ TMDB, thử lại sau");
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, MSG_TMDB_FETCH_ERROR);
         }
     }
 

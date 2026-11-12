@@ -26,5 +26,6 @@ public class Auditorium extends BaseEntity {
     private Cinema cinema;
 
     @Column(nullable = false)
+    @Builder.Default
     private boolean active = true;
 }

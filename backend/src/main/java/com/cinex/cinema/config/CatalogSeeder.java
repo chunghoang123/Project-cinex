@@ -184,8 +184,8 @@ public class CatalogSeeder implements CommandLineRunner {
         User staff = userRepository.findByUsername("staff").orElse(null);
         List<Showtime> showtimes = showtimeRepository.findAll().stream()
             .filter(Showtime::isActive)
-            .collect(Collectors.toList());
-        if (showtimes.isEmpty()) {
+            .toList();
+        if (customer == null || staff == null || showtimes.isEmpty()) {
             return;
         }
 
@@ -198,6 +198,8 @@ public class CatalogSeeder implements CommandLineRunner {
             if (seats.size() == 2) {
                 seedSingleDemoBooking(index, showtime, seats, customer, staff);
             }
+        }
+    }
 
     private void seedSingleDemoBooking(int index, Showtime showtime, List<ShowtimeSeat> seats,
                                        User customer, User staff) {
@@ -225,7 +227,11 @@ public class CatalogSeeder implements CommandLineRunner {
             .expiresAt(null)
             .build());
 
-            paymentRepository.save(Payment.builder()
+        for (ShowtimeSeat seat : seats) {
+            seat.setStatus(SeatStatus.BOOKED);
+            seat.setHeldUntil(null);
+            seat.setHoldByBookingId(bookingCode);
+            bookingSeatRepository.save(BookingSeat.builder()
                 .booking(booking)
                 .showtimeSeat(seat)
                 .price(SeatPricing.priceFor(showtime.getBasePrice(), seat.getSeat().getSeatType()))

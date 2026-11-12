@@ -243,4 +243,36 @@ class AdminAiAndShowtimeTest {
         assertThat(response.actions().get(1).title()).contains("Deadpool & Wolverine");
         assertThat(response.reply()).doesNotContain("```json");
     }
+
+    @Test
+    void movieServiceRejectsDuplicateTitleIgnoringCaseAndExtraSpaces() {
+        MovieRepository movieRepository = mock(MovieRepository.class);
+        ShowtimeRepository showtimeRepository = mock(ShowtimeRepository.class);
+        ShowtimeSeatRepository showtimeSeatRepository = mock(ShowtimeSeatRepository.class);
+        BookingRepository bookingRepository = mock(BookingRepository.class);
+
+        MovieService movieService = new MovieService(
+            movieRepository,
+            new YoutubeEmbedUrlNormalizer(),
+            showtimeRepository,
+            showtimeSeatRepository,
+            bookingRepository
+        );
+
+        Movie existing = Movie.builder()
+            .title("Lật Mặt 7")
+            .status(MovieStatus.NOW_SHOWING)
+            .active(true)
+            .build();
+        existing.setId(11L);
+        when(movieRepository.findByActiveTrue()).thenReturn(List.of(existing));
+
+        MovieRequest duplicateReq = new MovieRequest();
+        duplicateReq.setTitle("  lật   mặt 7 ");
+        duplicateReq.setStatus(MovieStatus.NOW_SHOWING);
+
+        assertThatThrownBy(() -> movieService.create(duplicateReq))
+            .isInstanceOf(ResponseStatusException.class)
+            .hasMessageContaining("đã tồn tại");
+    }
 }

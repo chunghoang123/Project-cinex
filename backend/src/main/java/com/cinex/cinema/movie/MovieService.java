@@ -10,6 +10,7 @@ import com.cinex.cinema.trailer.YoutubeEmbedUrlNormalizer;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -19,11 +20,19 @@ import java.util.Locale;
 @Transactional
 public class MovieService {
 
+    private static final String MSG_MOVIE_NOT_FOUND = "Phim không tồn tại";
+
     private final MovieRepository movieRepository;
     private final YoutubeEmbedUrlNormalizer youtubeEmbedUrlNormalizer;
+    private final ShowtimeRepository showtimeRepository;
+    private final ShowtimeSeatRepository showtimeSeatRepository;
+    private final BookingRepository bookingRepository;
 
     public MovieService(MovieRepository movieRepository,
-                        YoutubeEmbedUrlNormalizer youtubeEmbedUrlNormalizer) {
+                        YoutubeEmbedUrlNormalizer youtubeEmbedUrlNormalizer,
+                        ShowtimeRepository showtimeRepository,
+                        ShowtimeSeatRepository showtimeSeatRepository,
+                        BookingRepository bookingRepository) {
         this.movieRepository = movieRepository;
         this.youtubeEmbedUrlNormalizer = youtubeEmbedUrlNormalizer;
         this.showtimeRepository = showtimeRepository;
@@ -51,8 +60,11 @@ public class MovieService {
     }
 
     public MovieResponse create(MovieRequest request) {
+        String normalizedTitle = normalizeTitle(request.getTitle());
+        ensureUniqueTitle(normalizedTitle, null);
+
         Movie movie = Movie.builder()
-            .title(request.getTitle())
+            .title(normalizedTitle)
             .description(request.getDescription())
             .posterUrl(request.getPosterUrl())
             // Chuẩn hoá trailer YouTube về embed để nhúng iframe (tránh lỗi "đã từ chối kết nối")

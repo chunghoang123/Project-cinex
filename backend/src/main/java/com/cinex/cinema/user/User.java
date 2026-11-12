@@ -16,6 +16,7 @@ import java.util.Set;
     @UniqueConstraint(columnNames = "email")
 })
 @Data
+@EqualsAndHashCode(callSuper = false)
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder

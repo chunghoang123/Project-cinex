@@ -31,5 +31,6 @@ public class Seat extends BaseEntity {
     private Auditorium auditorium;
 
     @Column(nullable = false)
+    @Builder.Default
     private boolean active = true;
 }

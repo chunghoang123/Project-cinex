@@ -106,6 +106,7 @@ public class PayOSService {
         if (dataOpt.isEmpty()) {
             return null;
         }
+        Map<String, Object> data = dataOpt.get();
         Object status = data.get("status");
         if (status != null && !"PENDING".equals(String.valueOf(status))) {
             return null;
@@ -122,15 +123,14 @@ public class PayOSService {
      * Trả về null nếu không lấy được.
      */
     public String getPaymentStatus(String paymentLinkId) {
-        Map<String, Object> data = fetchPaymentLink(paymentLinkId);
-        if (data == null || data.get("status") == null) {
-            return null;
-        }
-        return String.valueOf(data.get("status"));
+        return fetchPaymentLink(paymentLinkId)
+            .map(data -> data.get("status"))
+            .map(String::valueOf)
+            .orElse(null);
     }
 
-    @SuppressWarnings("unchecked")
-    private Map<String, Object> fetchPaymentLink(String paymentLinkId) {
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private Optional<Map<String, Object>> fetchPaymentLink(String paymentLinkId) {
         if (!isConfigured() || paymentLinkId == null || paymentLinkId.isBlank()) {
             return Optional.empty();
         }
@@ -149,7 +149,7 @@ public class PayOSService {
             Object data = body.get("data");
             return data instanceof Map ? Optional.of((Map<String, Object>) data) : Optional.empty();
         } catch (Exception e) {
-            return null;
+            return Optional.empty();
         }
     }
 

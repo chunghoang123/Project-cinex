@@ -270,7 +270,7 @@ public class StaffService {
                 .findByBookingCodeContainingIgnoreCaseOrCustomerPhoneContainingIgnoreCaseOrCustomerNameContainingIgnoreCase(
                     keyword, keyword, keyword);
         }
-        return bookings.stream().map(bookingMapper::toResponse).collect(Collectors.toList());
+        return bookings.stream().map(bookingMapper::toResponse).toList();
     }
 
     @Transactional(readOnly = true)

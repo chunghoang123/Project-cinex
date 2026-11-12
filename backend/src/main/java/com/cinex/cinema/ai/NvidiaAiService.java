@@ -70,7 +70,7 @@ public class NvidiaAiService {
     /** Hội thoại văn bản: system prompt + lịch sử gần nhất + câu hỏi mới. */
     public String chat(String systemPrompt, List<AiChatMessage> history, String message) {
         List<Map<String, Object>> messages = new ArrayList<>();
-        messages.add(Map.of("role", "system", "content", systemPrompt));
+        messages.add(Map.of(KEY_ROLE, ROLE_SYSTEM, KEY_CONTENT, systemPrompt));
 
         if (history != null) {
             List<AiChatMessage> recent = history.stream()
@@ -92,8 +92,8 @@ public class NvidiaAiService {
             KEY_MESSAGES, messages,
             KEY_TEMPERATURE, 0.2,
             "top_p", 0.9,
-            "max_tokens", 1024,
-            "stream", false
+            KEY_MAX_TOKENS, 1024,
+            KEY_STREAM, false
         );
 
         return complete(body, "trợ lý AI");

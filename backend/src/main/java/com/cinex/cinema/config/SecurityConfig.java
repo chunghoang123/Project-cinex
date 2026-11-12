@@ -67,6 +67,8 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
+            // CSRF tắt có chủ đích: API stateless (SessionCreationPolicy.STATELESS), xác thực bằng JWT
+            // trong header Authorization, không dùng cookie session nên không bị tấn công CSRF.
             .csrf(csrf -> csrf.disable())
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(session ->
