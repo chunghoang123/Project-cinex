@@ -25,6 +25,8 @@ import org.springframework.web.server.ResponseStatusException;
 @RequestMapping("/api/tmdb")
 public class TmdbController {
 
+    private static final String MSG_TMDB_FETCH_ERROR = "Không lấy được dữ liệu phim từ TMDB, thử lại sau";
+
     private final TmdbClient tmdbClient;
     private final TmdbSyncService tmdbSyncService;
 
@@ -60,7 +62,7 @@ public class TmdbController {
         try {
             return ResponseEntity.ok(ApiResponse.ok(tmdbClient.search(query, page)));
         } catch (Exception ex) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Không lấy được dữ liệu phim từ TMDB, thử lại sau");
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, MSG_TMDB_FETCH_ERROR);
         }
     }
 

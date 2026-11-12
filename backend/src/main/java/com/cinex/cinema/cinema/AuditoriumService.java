@@ -29,7 +29,7 @@ public class AuditoriumService {
         List<Auditorium> auditoriums = includeInactive
             ? auditoriumRepository.findByCinemaId(cinemaId)
             : auditoriumRepository.findByCinemaIdAndActiveTrue(cinemaId);
-        return auditoriums.stream().map(this::toResponse).collect(Collectors.toList());
+        return auditoriums.stream().map(this::toResponse).toList();
     }
 
     public AuditoriumResponse create(Long cinemaId, AuditoriumRequest request) {

@@ -30,6 +30,17 @@ public class NvidiaAiService {
 
     private static final String CHAT_COMPLETIONS_URL =
         "https://integrate.api.nvidia.com/v1/chat/completions";
+    private static final String KEY_ROLE = "role";
+    private static final String KEY_CONTENT = "content";
+    private static final String KEY_MESSAGES = "messages";
+    private static final String KEY_MODEL = "model";
+    private static final String KEY_TEMPERATURE = "temperature";
+    private static final String KEY_MAX_TOKENS = "max_tokens";
+    private static final String KEY_STREAM = "stream";
+    private static final String KEY_TYPE = "type";
+    private static final String ROLE_USER = "user";
+    private static final String ROLE_ASSISTANT = "assistant";
+    private static final String ROLE_SYSTEM = "system";
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
@@ -68,8 +79,8 @@ public class NvidiaAiService {
             int start = Math.max(0, recent.size() - 10);
             for (AiChatMessage item : recent.subList(start, recent.size())) {
                 messages.add(Map.of(
-                    "role", "assistant".equals(item.role()) ? "assistant" : "user",
-                    "content", item.content().trim()
+                    KEY_ROLE, ROLE_ASSISTANT.equals(item.role()) ? ROLE_ASSISTANT : ROLE_USER,
+                    KEY_CONTENT, item.content().trim()
                 ));
             }
         }
@@ -162,7 +173,7 @@ public class NvidiaAiService {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
                 "NVIDIA trả về dữ liệu không hợp lệ, vui lòng thử lại");
         }
-        String content = choices.get(0).path("message").path("content").asText("");
+        String content = choices.get(0).path("message").path(KEY_CONTENT).asText("");
         if (content.isBlank()) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
                 "NVIDIA trả về câu trả lời trống, vui lòng thử lại");

@@ -7,6 +7,7 @@ import lombok.*;
 @Entity
 @Table(name = "auditoriums")
 @Data
+@EqualsAndHashCode(callSuper = false)
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder

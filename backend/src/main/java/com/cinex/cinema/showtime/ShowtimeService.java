@@ -71,7 +71,7 @@ public class ShowtimeService {
         return showtimeRepository.findByStartTimeBetweenAndActiveTrueOrderByStartTimeAsc(from, to)
             .stream()
             .filter(this::isBookable)
-            .map(this::toResponse).collect(Collectors.toList());
+            .map(this::toResponse).toList();
     }
 
     /** Phòng chiếu đang bảo trì hoặc rạp đã ngừng thì khách không thấy suất chiếu đó. */
@@ -122,7 +122,7 @@ public class ShowtimeService {
             .sorted(Comparator.comparing((ShowtimeSeat item) -> item.getSeat().getRowNumber())
                 .thenComparing(item -> item.getSeat().getColumnNumber()))
             .map(item -> toSeatResponse(item, showtime.getBasePrice()))
-            .collect(Collectors.toList());
+            .toList();
     }
 
     public ShowtimeResponse create(ShowtimeRequest request) {
@@ -265,42 +265,6 @@ public class ShowtimeService {
                     cutoff,
                     dayOffset + audIndex
                 );
-
-                for (int slotIndex = 0; slotIndex < AUTO_SLOTS.size(); slotIndex++) {
-                    LocalTime slotTime = AUTO_SLOTS.get(slotIndex);
-                    LocalDateTime startTime = date.atTime(slotTime);
-                    if (!startTime.isAfter(now.plusMinutes(10))) {
-                        continue;
-                    }
-
-                    Movie movie = movies.get((dayOffset + audIndex + slotIndex) % movies.size());
-                    int duration = movie.getDurationMinutes() == null ? 120 : movie.getDurationMinutes();
-                    LocalDateTime endTime = startTime.plusMinutes(duration);
-
-                    boolean overlaps = existingInAud.stream()
-                        .filter(ex -> ex.getStatus() != ShowtimeStatus.CANCELLED)
-                        .anyMatch(ex -> ex.getStartTime().isBefore(endTime) && ex.getEndTime().isAfter(startTime));
-                    if (overlaps) {
-                        continue;
-                    }
-
-                    BigDecimal basePrice = slotTime.getHour() >= 18
-                        ? new BigDecimal("95000")
-                        : new BigDecimal("90000");
-
-                    Showtime showtime = showtimeRepository.save(Showtime.builder()
-                        .movie(movie)
-                        .auditorium(auditorium)
-                        .startTime(startTime)
-                        .endTime(endTime)
-                        .basePrice(basePrice)
-                        .status(ShowtimeStatus.ACTIVE)
-                        .active(true)
-                        .build());
-                    generateShowtimeSeats(showtime, auditorium);
-                    existingInAud.add(showtime);
-                    created++;
-                }
             }
         }
 
@@ -326,7 +290,7 @@ public class ShowtimeService {
                 .seat(seat)
                 .status(SeatStatus.AVAILABLE)
                 .build())
-            .collect(Collectors.toList());
+            .toList();
         showtimeSeatRepository.saveAll(showtimeSeats);
     }
 

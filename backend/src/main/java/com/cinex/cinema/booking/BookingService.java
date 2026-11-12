@@ -31,6 +31,8 @@ import java.util.UUID;
 @Transactional
 public class BookingService {
 
+    private static final String PAYMENT_METHOD_PAYOS = "PAYOS";
+
     private final BookingRepository bookingRepository;
     private final BookingSeatRepository bookingSeatRepository;
     private final ShowtimeSeatRepository showtimeSeatRepository;
@@ -264,7 +266,7 @@ public class BookingService {
                     && booking.getBookingCode().equals(seat.getHoldByBookingId())));
         if (!seatsAvailable) {
             // Đã nhận tiền nhưng ghế không còn trống: huỷ đơn, cần hoàn tiền thủ công
-            paymentService.markSuccess(booking, "PAYOS", paymentLinkId);
+            paymentService.markSuccess(booking, PAYMENT_METHOD_PAYOS, paymentLinkId);
             booking.setStatus(BookingStatus.CANCELLED);
             booking.setExpiresAt(null);
             bookingRepository.save(booking);

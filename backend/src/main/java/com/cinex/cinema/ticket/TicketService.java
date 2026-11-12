@@ -3,7 +3,6 @@ package com.cinex.cinema.ticket;
 import com.cinex.cinema.booking.Booking;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
@@ -14,8 +13,14 @@ public class TicketService {
 
     private final TicketRepository ticketRepository;
 
-    public TicketService(TicketRepository ticketRepository) {
+    @Autowired
+    public TicketService(TicketRepository ticketRepository, TicketValidator ticketValidator) {
         this.ticketRepository = ticketRepository;
+        this.ticketValidator = ticketValidator;
+    }
+
+    public TicketService(TicketRepository ticketRepository) {
+        this(ticketRepository, new TicketValidator(ticketRepository));
     }
 
     public Ticket issue(Booking booking) {
@@ -52,8 +57,8 @@ public class TicketService {
         return value;
     }
 
-    public Ticket validate(String ticketCode) {
-        return validateTicket(ticketCode);
+    public Ticket validateTicket(String ticketCode) {
+        return ticketValidator.validateTicket(ticketCode);
     }
 
     public void cancel(Booking booking) {

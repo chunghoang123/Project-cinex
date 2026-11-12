@@ -39,7 +39,7 @@ public class AdminUserService {
     public List<UserResponse> list() {
         return userRepository.findAllByOrderByCreatedAtDesc().stream()
             .map(this::toResponse)
-            .collect(Collectors.toList());
+            .toList();
     }
 
     public UserResponse create(CreateUserRequest request) {

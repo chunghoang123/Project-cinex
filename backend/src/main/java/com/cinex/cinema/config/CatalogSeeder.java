@@ -182,10 +182,6 @@ public class CatalogSeeder implements CommandLineRunner {
     private void seedBookings() {
         User customer = userRepository.findByUsername("customer").orElse(null);
         User staff = userRepository.findByUsername("staff").orElse(null);
-        if (customer == null || staff == null) {
-            return;
-        }
-
         List<Showtime> showtimes = showtimeRepository.findAll().stream()
             .filter(Showtime::isActive)
             .collect(Collectors.toList());
@@ -198,9 +194,9 @@ public class CatalogSeeder implements CommandLineRunner {
             List<ShowtimeSeat> seats = showtimeSeatRepository.findByShowtimeId(showtime.getId()).stream()
                 .filter(seat -> seat.getStatus() == SeatStatus.AVAILABLE)
                 .limit(2)
-                .collect(Collectors.toList());
-            if (seats.size() < 2) {
-                continue;
+                .toList();
+            if (seats.size() == 2) {
+                seedSingleDemoBooking(index, showtime, seats, customer, staff);
             }
 
     private void seedSingleDemoBooking(int index, Showtime showtime, List<ShowtimeSeat> seats,
@@ -213,36 +209,52 @@ public class CatalogSeeder implements CommandLineRunner {
         BigDecimal snackAmount = (index == 9) ? new BigDecimal("65000") : BigDecimal.ZERO;
         BigDecimal totalAmount = seatAmount.add(snackAmount);
 
-            for (ShowtimeSeat seat : seats) {
-                seat.setStatus(SeatStatus.BOOKED);
-                seat.setHeldUntil(null);
-                seat.setHoldByBookingId(bookingCode);
-                bookingSeatRepository.save(BookingSeat.builder()
-                    .booking(booking)
-                    .showtimeSeat(seat)
-                    .price(SeatPricing.priceFor(showtime.getBasePrice(), seat.getSeat().getSeatType()))
-                    .build());
-            }
-            showtimeSeatRepository.saveAll(seats);
+        Booking booking = bookingRepository.save(Booking.builder()
+            .bookingCode(bookingCode)
+            .user(customer)
+            .showtime(showtime)
+            .totalAmount(totalAmount)
+            .seatAmount(seatAmount)
+            .snackAmount(snackAmount)
+            .snackNote(snackAmount.signum() > 0 ? "1 Combo bắp nước" : null)
+            .customerName(counter ? "Khách tại quầy" : "Minh Dương")
+            .customerPhone(counter ? "0909999999" : "0901234567")
+            .channel(counter ? BookingChannel.COUNTER : BookingChannel.ONLINE)
+            .staff(counter ? staff : null)
+            .status(BookingStatus.CONFIRMED)
+            .expiresAt(null)
+            .build());
 
             paymentRepository.save(Payment.builder()
                 .booking(booking)
-                .transactionId("DEMO-" + bookingCode)
-                .amount(totalAmount)
-                .status(PaymentStatus.SUCCESS)
-                .paymentMethod(counter ? "CASH" : (index % 2 == 0 ? "MOMO" : "CARD"))
-                .paidAt(LocalDateTime.now().minusHours(index))
+                .showtimeSeat(seat)
+                .price(SeatPricing.priceFor(showtime.getBasePrice(), seat.getSeat().getSeatType()))
                 .build());
         }
         showtimeSeatRepository.saveAll(seats);
 
-            String ticketCode = String.format("TKDEMO%04d", index + 1);
-            ticketRepository.save(Ticket.builder()
-                .booking(booking)
-                .ticketCode(ticketCode)
-                .qrCode(ticketCode)
-                .status(TicketStatus.UNUSED)
-                .build());
+        paymentRepository.save(Payment.builder()
+            .booking(booking)
+            .transactionId("DEMO-" + bookingCode)
+            .amount(totalAmount)
+            .status(PaymentStatus.SUCCESS)
+            .paymentMethod(resolveDemoPaymentMethod(counter, index))
+            .paidAt(LocalDateTime.now().minusHours(index))
+            .build());
+
+        String ticketCode = String.format("TKDEMO%04d", index + 1);
+        ticketRepository.save(Ticket.builder()
+            .booking(booking)
+            .ticketCode(ticketCode)
+            .qrCode(ticketCode)
+            .status(TicketStatus.UNUSED)
+            .build());
+    }
+
+    private static String resolveDemoPaymentMethod(boolean counter, int index) {
+        if (counter) {
+            return "CASH";
         }
+        return index % 2 == 0 ? "MOMO" : "CARD";
     }
 }

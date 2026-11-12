@@ -15,6 +15,7 @@ public interface ShowtimeRepository extends JpaRepository<Showtime, Long> {
     List<Showtime> findByActiveTrueOrderByStartTimeAsc();
     List<Showtime> findByAuditoriumCinemaIdAndActiveTrueOrderByStartTimeAsc(Long cinemaId);
     List<Showtime> findByAuditoriumIdAndActiveTrue(Long auditoriumId);
+    List<Showtime> findByMovieId(Long movieId);
     List<Showtime> findByStatusAndEndTimeBefore(ShowtimeStatus status, LocalDateTime time);
     long countByStartTimeBetweenAndActiveTrue(LocalDateTime from, LocalDateTime to);
 }

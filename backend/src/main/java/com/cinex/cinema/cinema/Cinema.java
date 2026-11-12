@@ -7,6 +7,7 @@ import lombok.*;
 @Entity
 @Table(name = "cinemas")
 @Data
+@EqualsAndHashCode(callSuper = false)
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder

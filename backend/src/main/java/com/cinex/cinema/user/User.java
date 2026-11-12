@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.io.Serial;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
@@ -55,6 +56,7 @@ public class User extends BaseEntity implements org.springframework.security.cor
     private Set<Role> roles = new HashSet<>();
 
     @Column(nullable = false)
+    @Builder.Default
     private boolean active = true;
 
     /** Mã OTP đặt lại mật khẩu đã hash (SHA-256), null nếu không có yêu cầu đang hiệu lực. */

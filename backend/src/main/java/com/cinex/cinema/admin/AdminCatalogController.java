@@ -62,7 +62,7 @@ public class AdminCatalogController {
     @DeleteMapping("/movies/{id}")
     public ResponseEntity<ApiResponse<Void>> deleteMovie(@PathVariable Long id) {
         movieService.delete(id);
-        return ResponseEntity.ok(ApiResponse.ok("Đã ẩn phim", null));
+        return ResponseEntity.ok(ApiResponse.ok("Đã xóa phim", null));
     }
 
     @GetMapping("/cinemas")

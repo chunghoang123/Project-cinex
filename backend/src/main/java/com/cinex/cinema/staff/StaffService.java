@@ -37,7 +37,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -345,7 +344,7 @@ public class StaffService {
             .cashRevenue(cashRevenue)
             .cardRevenue(cardRevenue)
             .recentSales(counterBookings.stream().limit(10)
-                .map(bookingMapper::toResponse).collect(Collectors.toList()))
+                .map(bookingMapper::toResponse).toList())
             .build();
     }
 

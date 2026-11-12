@@ -30,6 +30,8 @@ import java.util.List;
 @EnableMethodSecurity(securedEnabled = true, prePostEnabled = true)
 public class SecurityConfig {
 
+    private static final String ROLE_ADMIN = "ADMIN";
+
     private final UserRepository userRepository;
     private final JwtAuthFilter jwtAuthFilter;
 

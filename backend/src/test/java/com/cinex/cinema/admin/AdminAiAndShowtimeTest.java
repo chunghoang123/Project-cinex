@@ -17,6 +17,7 @@ import com.cinex.cinema.movie.MovieRequest;
 import com.cinex.cinema.movie.MovieResponse;
 import com.cinex.cinema.movie.MovieService;
 import com.cinex.cinema.movie.MovieStatus;
+import com.cinex.cinema.trailer.YoutubeEmbedUrlNormalizer;
 import com.cinex.cinema.showtime.Showtime;
 import com.cinex.cinema.showtime.ShowtimeRepository;
 import com.cinex.cinema.showtime.ShowtimeRequest;

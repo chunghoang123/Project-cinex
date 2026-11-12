@@ -14,6 +14,7 @@ import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeMap;
 
 /**
@@ -101,8 +102,8 @@ public class PayOSService {
      * Trả về null nếu link không còn ở trạng thái chờ thanh toán.
      */
     public PayOSLink getPaymentLink(String paymentLinkId) {
-        Map<String, Object> data = fetchPaymentLink(paymentLinkId);
-        if (data == null) {
+        Optional<Map<String, Object>> dataOpt = fetchPaymentLink(paymentLinkId);
+        if (dataOpt.isEmpty()) {
             return null;
         }
         Object status = data.get("status");
@@ -143,7 +144,7 @@ public class PayOSService {
                 baseUrl + "/v2/payment-requests/" + paymentLinkId, HttpMethod.GET, entity, Map.class);
             Map<String, Object> body = resp.getBody();
             if (body == null || !"00".equals(body.get("code"))) {
-                return null;
+                return Optional.empty();
             }
             Object data = body.get("data");
             return data instanceof Map ? Optional.of((Map<String, Object>) data) : Optional.empty();

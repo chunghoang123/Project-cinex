@@ -7,6 +7,7 @@ import lombok.*;
 @Entity
 @Table(name = "seats")
 @Data
+@EqualsAndHashCode(callSuper = false)
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
