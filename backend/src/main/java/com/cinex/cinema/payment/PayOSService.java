@@ -14,6 +14,7 @@ import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeMap;
 
 /**
@@ -101,10 +102,11 @@ public class PayOSService {
      * Trả về null nếu link không còn ở trạng thái chờ thanh toán.
      */
     public PayOSLink getPaymentLink(String paymentLinkId) {
-        Map<String, Object> data = fetchPaymentLink(paymentLinkId);
-        if (data == null) {
+        Optional<Map<String, Object>> dataOpt = fetchPaymentLink(paymentLinkId);
+        if (dataOpt.isEmpty()) {
             return null;
         }
+        Map<String, Object> data = dataOpt.get();
         Object status = data.get("status");
         if (status != null && !"PENDING".equals(String.valueOf(status))) {
             return null;
@@ -121,17 +123,16 @@ public class PayOSService {
      * Trả về null nếu không lấy được.
      */
     public String getPaymentStatus(String paymentLinkId) {
-        Map<String, Object> data = fetchPaymentLink(paymentLinkId);
-        if (data == null || data.get("status") == null) {
-            return null;
-        }
-        return String.valueOf(data.get("status"));
+        return fetchPaymentLink(paymentLinkId)
+            .map(data -> data.get("status"))
+            .map(String::valueOf)
+            .orElse(null);
     }
 
-    @SuppressWarnings("unchecked")
-    private Map<String, Object> fetchPaymentLink(String paymentLinkId) {
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private Optional<Map<String, Object>> fetchPaymentLink(String paymentLinkId) {
         if (!isConfigured() || paymentLinkId == null || paymentLinkId.isBlank()) {
-            return null;
+            return Optional.empty();
         }
         try {
             HttpHeaders headers = new HttpHeaders();
@@ -143,15 +144,17 @@ public class PayOSService {
                 baseUrl + "/v2/payment-requests/" + paymentLinkId, HttpMethod.GET, entity, Map.class);
             Map<String, Object> body = resp.getBody();
             if (body == null || !"00".equals(body.get("code"))) {
-                return null;
+                return Optional.empty();
             }
-            return (Map<String, Object>) body.get("data");
+            Object data = body.get("data");
+            return data instanceof Map ? Optional.of((Map<String, Object>) data) : Optional.empty();
         } catch (Exception e) {
-            return null;
+            return Optional.empty();
         }
     }
 
     /** Xác minh chữ ký webhook PayOS. */
+    @SuppressWarnings("unchecked")
     public boolean verifyWebhookSignature(Map<String, Object> webhookData) {
         if (!isConfigured()) return false;
         Object signatureObj = webhookData.get("signature");
@@ -173,7 +176,10 @@ public class PayOSService {
             first = false;
         }
         String computed = hmacSha256(checksumKey, sb.toString());
-        return computed.equalsIgnoreCase(receivedSig);
+        return java.security.MessageDigest.isEqual(
+            computed.toLowerCase(java.util.Locale.ROOT).getBytes(StandardCharsets.UTF_8),
+            receivedSig.trim().toLowerCase(java.util.Locale.ROOT).getBytes(StandardCharsets.UTF_8)
+        );
     }
 
     private String hmacSha256(String key, String data) {

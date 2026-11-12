@@ -10,7 +10,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/bookings")
@@ -66,7 +65,7 @@ public class BookingController {
         User user = currentUser(authentication);
         List<BookingResponse> bookings = bookingService.findMyBookings(user.getId()).stream()
             .map(bookingMapper::toResponse)
-            .collect(Collectors.toList());
+            .toList();
         return ResponseEntity.ok(ApiResponse.ok(bookings));
     }
 

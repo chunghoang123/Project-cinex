@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.io.Serial;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
@@ -15,10 +16,14 @@ import java.util.Set;
     @UniqueConstraint(columnNames = "email")
 })
 @Data
+@EqualsAndHashCode(callSuper = false)
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class User extends BaseEntity implements org.springframework.security.core.userdetails.UserDetails {
+    @Serial
+    private static final long serialVersionUID = 1L;
+
     @Column(nullable = false, length = 50)
     private String username;
 
@@ -48,9 +53,11 @@ public class User extends BaseEntity implements org.springframework.security.cor
         joinColumns = @JoinColumn(name = "user_id"),
         inverseJoinColumns = @JoinColumn(name = "role_id")
     )
+    @Builder.Default
     private Set<Role> roles = new HashSet<>();
 
     @Column(nullable = false)
+    @Builder.Default
     private boolean active = true;
 
     /** Mã OTP đặt lại mật khẩu đã hash (SHA-256), null nếu không có yêu cầu đang hiệu lực. */
@@ -67,7 +74,7 @@ public class User extends BaseEntity implements org.springframework.security.cor
     public java.util.Collection<? extends org.springframework.security.core.GrantedAuthority> getAuthorities() {
         return roles.stream()
             .map(role -> new org.springframework.security.core.authority.SimpleGrantedAuthority(role.getName().name()))
-            .collect(java.util.stream.Collectors.toList());
+            .toList();
     }
 
     @Override

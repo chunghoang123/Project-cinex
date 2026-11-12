@@ -23,7 +23,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -65,14 +64,14 @@ public class ShowtimeService {
         return showtimeRepository.findByMovieIdAndStartTimeBetweenAndActiveTrue(movieId, from, to)
             .stream()
             .filter(this::isBookable)
-            .map(this::toResponse).collect(Collectors.toList());
+            .map(this::toResponse).toList();
     }
 
     public List<ShowtimeResponse> findInRange(LocalDateTime from, LocalDateTime to) {
         return showtimeRepository.findByStartTimeBetweenAndActiveTrueOrderByStartTimeAsc(from, to)
             .stream()
             .filter(this::isBookable)
-            .map(this::toResponse).collect(Collectors.toList());
+            .map(this::toResponse).toList();
     }
 
     /** Phòng chiếu đang bảo trì hoặc rạp đã ngừng thì khách không thấy suất chiếu đó. */
@@ -98,14 +97,14 @@ public class ShowtimeService {
         return showtimes.stream()
             .filter(item -> movieId == null || item.getMovie().getId().equals(movieId))
             .map(this::toResponse)
-            .collect(Collectors.toList());
+            .toList();
     }
 
     public List<ShowtimeResponse> findForStaff(LocalDate date, Long cinemaId) {
         LocalDateTime now = LocalDateTime.now();
         return findAdmin(date, cinemaId, null).stream()
             .filter(item -> item.getStartTime().isAfter(now))
-            .collect(Collectors.toList());
+            .toList();
     }
 
     public Showtime findById(Long id) {
@@ -123,7 +122,7 @@ public class ShowtimeService {
             .sorted(Comparator.comparing((ShowtimeSeat item) -> item.getSeat().getRowNumber())
                 .thenComparing(item -> item.getSeat().getColumnNumber()))
             .map(item -> toSeatResponse(item, showtime.getBasePrice()))
-            .collect(Collectors.toList());
+            .toList();
     }
 
     public ShowtimeResponse create(ShowtimeRequest request) {
@@ -245,73 +244,86 @@ public class ShowtimeService {
         int completed = completeFinishedShowtimes();
 
         LocalDate today = LocalDate.now();
-        LocalDate endDate = today.plusDays(safeDays - 1);
+        LocalDate endDate = today.plusDays(safeDays - 1L);
 
         List<Movie> movies = movieRepository.findByStatusAndActiveTrue(MovieStatus.NOW_SHOWING);
-        if (movies.isEmpty()) {
+        List<Auditorium> auditoriums = findEligibleAuditoriums();
+        if (movies.isEmpty() || auditoriums.isEmpty()) {
             return new AutoScheduleResult(0, completed, today, endDate, safeDays);
         }
 
-        List<Auditorium> auditoriums = auditoriumRepository.findAll().stream()
-            .filter(a -> a.isActive() && a.getCinema() != null && a.getCinema().isActive())
-            .filter(a -> !seatRepository.findByAuditoriumIdAndActiveTrue(a.getId()).isEmpty())
-            .sorted(Comparator.comparing(Auditorium::getId))
-            .toList();
-
-        if (auditoriums.isEmpty()) {
-            return new AutoScheduleResult(0, completed, today, endDate, safeDays);
-        }
-
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime cutoff = LocalDateTime.now().plusMinutes(10);
         int created = 0;
 
         for (int dayOffset = 0; dayOffset < safeDays; dayOffset++) {
             LocalDate date = today.plusDays(dayOffset);
             for (int audIndex = 0; audIndex < auditoriums.size(); audIndex++) {
-                Auditorium auditorium = auditoriums.get(audIndex);
-                List<Showtime> existingInAud = new ArrayList<>(
-                    showtimeRepository.findByAuditoriumIdAndActiveTrue(auditorium.getId())
+                created += fillAuditoriumDaySlots(
+                    auditoriums.get(audIndex),
+                    movies,
+                    date,
+                    cutoff,
+                    dayOffset + audIndex
                 );
-
-                for (int slotIndex = 0; slotIndex < AUTO_SLOTS.size(); slotIndex++) {
-                    LocalTime slotTime = AUTO_SLOTS.get(slotIndex);
-                    LocalDateTime startTime = date.atTime(slotTime);
-                    if (!startTime.isAfter(now.plusMinutes(10))) {
-                        continue;
-                    }
-
-                    Movie movie = movies.get((dayOffset + audIndex + slotIndex) % movies.size());
-                    int duration = movie.getDurationMinutes() == null ? 120 : movie.getDurationMinutes();
-                    LocalDateTime endTime = startTime.plusMinutes(duration);
-
-                    boolean overlaps = existingInAud.stream()
-                        .filter(ex -> ex.getStatus() != ShowtimeStatus.CANCELLED)
-                        .anyMatch(ex -> ex.getStartTime().isBefore(endTime) && ex.getEndTime().isAfter(startTime));
-                    if (overlaps) {
-                        continue;
-                    }
-
-                    BigDecimal basePrice = slotTime.getHour() >= 18
-                        ? new BigDecimal("95000")
-                        : new BigDecimal("90000");
-
-                    Showtime showtime = showtimeRepository.save(Showtime.builder()
-                        .movie(movie)
-                        .auditorium(auditorium)
-                        .startTime(startTime)
-                        .endTime(endTime)
-                        .basePrice(basePrice)
-                        .status(ShowtimeStatus.ACTIVE)
-                        .active(true)
-                        .build());
-                    generateShowtimeSeats(showtime, auditorium);
-                    existingInAud.add(showtime);
-                    created++;
-                }
             }
         }
 
         return new AutoScheduleResult(created, completed, today, endDate, safeDays);
+    }
+
+    private List<Auditorium> findEligibleAuditoriums() {
+        return auditoriumRepository.findAll().stream()
+            .filter(a -> a.isActive() && a.getCinema() != null && a.getCinema().isActive())
+            .filter(a -> !seatRepository.findByAuditoriumIdAndActiveTrue(a.getId()).isEmpty())
+            .sorted(Comparator.comparing(Auditorium::getId))
+            .toList();
+    }
+
+    private int fillAuditoriumDaySlots(Auditorium auditorium, List<Movie> movies,
+                                       LocalDate date, LocalDateTime cutoff, int rotationSeed) {
+        List<Showtime> existingInAud = new ArrayList<>(
+            showtimeRepository.findByAuditoriumIdAndActiveTrue(auditorium.getId())
+        );
+        int created = 0;
+        for (int slotIndex = 0; slotIndex < AUTO_SLOTS.size(); slotIndex++) {
+            LocalTime slotTime = AUTO_SLOTS.get(slotIndex);
+            LocalDateTime startTime = date.atTime(slotTime);
+            if (!startTime.isAfter(cutoff)) {
+                continue;
+            }
+            Movie movie = movies.get((rotationSeed + slotIndex) % movies.size());
+            int duration = movie.getDurationMinutes() == null ? 120 : movie.getDurationMinutes();
+            LocalDateTime endTime = startTime.plusMinutes(duration);
+
+            if (hasActiveOverlap(existingInAud, startTime, endTime)) {
+                continue;
+            }
+
+            Showtime showtime = showtimeRepository.save(Showtime.builder()
+                .movie(movie)
+                .auditorium(auditorium)
+                .startTime(startTime)
+                .endTime(endTime)
+                .basePrice(resolveSlotPrice(slotTime))
+                .status(ShowtimeStatus.ACTIVE)
+                .active(true)
+                .build());
+            generateShowtimeSeats(showtime, auditorium);
+            existingInAud.add(showtime);
+            created++;
+        }
+        return created;
+    }
+
+    private static boolean hasActiveOverlap(List<Showtime> existingInAud,
+                                            LocalDateTime startTime, LocalDateTime endTime) {
+        return existingInAud.stream()
+            .filter(ex -> ex.getStatus() != ShowtimeStatus.CANCELLED)
+            .anyMatch(ex -> ex.getStartTime().isBefore(endTime) && ex.getEndTime().isAfter(startTime));
+    }
+
+    private static BigDecimal resolveSlotPrice(LocalTime slotTime) {
+        return slotTime.getHour() >= 18 ? new BigDecimal("95000") : new BigDecimal("90000");
     }
 
     public void delete(Long id) {
@@ -333,7 +345,7 @@ public class ShowtimeService {
                 .seat(seat)
                 .status(SeatStatus.AVAILABLE)
                 .build())
-            .collect(Collectors.toList());
+            .toList();
         showtimeSeatRepository.saveAll(showtimeSeats);
     }
 

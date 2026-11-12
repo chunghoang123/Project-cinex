@@ -30,6 +30,17 @@ public class NvidiaAiService {
 
     private static final String CHAT_COMPLETIONS_URL =
         "https://integrate.api.nvidia.com/v1/chat/completions";
+    private static final String KEY_ROLE = "role";
+    private static final String KEY_CONTENT = "content";
+    private static final String KEY_MESSAGES = "messages";
+    private static final String KEY_MODEL = "model";
+    private static final String KEY_TEMPERATURE = "temperature";
+    private static final String KEY_MAX_TOKENS = "max_tokens";
+    private static final String KEY_STREAM = "stream";
+    private static final String KEY_TYPE = "type";
+    private static final String ROLE_USER = "user";
+    private static final String ROLE_ASSISTANT = "assistant";
+    private static final String ROLE_SYSTEM = "system";
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
@@ -59,7 +70,7 @@ public class NvidiaAiService {
     /** Hội thoại văn bản: system prompt + lịch sử gần nhất + câu hỏi mới. */
     public String chat(String systemPrompt, List<AiChatMessage> history, String message) {
         List<Map<String, Object>> messages = new ArrayList<>();
-        messages.add(Map.of("role", "system", "content", systemPrompt));
+        messages.add(Map.of(KEY_ROLE, ROLE_SYSTEM, KEY_CONTENT, systemPrompt));
 
         if (history != null) {
             List<AiChatMessage> recent = history.stream()
@@ -68,21 +79,21 @@ public class NvidiaAiService {
             int start = Math.max(0, recent.size() - 10);
             for (AiChatMessage item : recent.subList(start, recent.size())) {
                 messages.add(Map.of(
-                    "role", "assistant".equals(item.role()) ? "assistant" : "user",
-                    "content", item.content().trim()
+                    KEY_ROLE, ROLE_ASSISTANT.equals(item.role()) ? ROLE_ASSISTANT : ROLE_USER,
+                    KEY_CONTENT, item.content().trim()
                 ));
             }
         }
 
-        messages.add(Map.of("role", "user", "content", message.trim()));
+        messages.add(Map.of(KEY_ROLE, ROLE_USER, KEY_CONTENT, message.trim()));
 
         Map<String, Object> body = Map.of(
-            "model", model,
-            "messages", messages,
-            "temperature", 0.2,
+            KEY_MODEL, model,
+            KEY_MESSAGES, messages,
+            KEY_TEMPERATURE, 0.2,
             "top_p", 0.9,
-            "max_tokens", 1024,
-            "stream", false
+            KEY_MAX_TOKENS, 1024,
+            KEY_STREAM, false
         );
 
         return complete(body, "trợ lý AI");
@@ -91,17 +102,17 @@ public class NvidiaAiService {
     /** Mô tả ảnh bằng model vision của NVIDIA. */
     public String describeImage(String base64Image, String mimeType, String prompt) {
         List<Map<String, Object>> content = List.of(
-            Map.of("type", "text", "text", prompt),
-            Map.of("type", "image_url", "image_url",
+            Map.of(KEY_TYPE, "text", "text", prompt),
+            Map.of(KEY_TYPE, "image_url", "image_url",
                 Map.of("url", "data:" + mimeType + ";base64," + base64Image))
         );
 
         Map<String, Object> body = Map.of(
-            "model", visionModel,
-            "messages", List.of(Map.of("role", "user", "content", content)),
-            "temperature", 0.3,
-            "max_tokens", 700,
-            "stream", false
+            KEY_MODEL, visionModel,
+            KEY_MESSAGES, List.of(Map.of(KEY_ROLE, ROLE_USER, KEY_CONTENT, content)),
+            KEY_TEMPERATURE, 0.3,
+            KEY_MAX_TOKENS, 700,
+            KEY_STREAM, false
         );
 
         return complete(body, "phân tích hình ảnh");
@@ -162,7 +173,7 @@ public class NvidiaAiService {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
                 "NVIDIA trả về dữ liệu không hợp lệ, vui lòng thử lại");
         }
-        String content = choices.get(0).path("message").path("content").asText("");
+        String content = choices.get(0).path("message").path(KEY_CONTENT).asText("");
         if (content.isBlank()) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
                 "NVIDIA trả về câu trả lời trống, vui lòng thử lại");

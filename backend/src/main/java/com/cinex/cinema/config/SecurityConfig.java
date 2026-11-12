@@ -30,6 +30,8 @@ import java.util.List;
 @EnableMethodSecurity(securedEnabled = true, prePostEnabled = true)
 public class SecurityConfig {
 
+    private static final String ROLE_ADMIN = "ADMIN";
+
     private final UserRepository userRepository;
     private final JwtAuthFilter jwtAuthFilter;
 
@@ -65,6 +67,8 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
+            // CSRF tắt có chủ đích: API stateless (SessionCreationPolicy.STATELESS), xác thực bằng JWT
+            // trong header Authorization, không dùng cookie session nên không bị tấn công CSRF.
             .csrf(csrf -> csrf.disable())
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(session ->
@@ -83,9 +87,9 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/cinemas/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/showtimes/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/tmdb/**").permitAll()
-                .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                .requestMatchers("/api/youtube/**").hasRole("ADMIN")
-                .requestMatchers("/api/staff/**").hasAnyRole("STAFF", "ADMIN")
+                .requestMatchers("/api/admin/**").hasRole(ROLE_ADMIN)
+                .requestMatchers("/api/youtube/**").hasRole(ROLE_ADMIN)
+                .requestMatchers("/api/staff/**").hasAnyRole("STAFF", ROLE_ADMIN)
                 .anyRequest().authenticated()
             )
             // Trả 401 khi chưa đăng nhập/phiên hết hạn để frontend tự đăng xuất,

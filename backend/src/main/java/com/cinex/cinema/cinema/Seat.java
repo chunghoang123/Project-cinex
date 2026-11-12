@@ -7,6 +7,7 @@ import lombok.*;
 @Entity
 @Table(name = "seats")
 @Data
+@EqualsAndHashCode(callSuper = false)
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
@@ -30,5 +31,6 @@ public class Seat extends BaseEntity {
     private Auditorium auditorium;
 
     @Column(nullable = false)
+    @Builder.Default
     private boolean active = true;
 }

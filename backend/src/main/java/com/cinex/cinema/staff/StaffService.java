@@ -37,7 +37,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -271,7 +270,7 @@ public class StaffService {
                 .findByBookingCodeContainingIgnoreCaseOrCustomerPhoneContainingIgnoreCaseOrCustomerNameContainingIgnoreCase(
                     keyword, keyword, keyword);
         }
-        return bookings.stream().map(bookingMapper::toResponse).collect(Collectors.toList());
+        return bookings.stream().map(bookingMapper::toResponse).toList();
     }
 
     @Transactional(readOnly = true)
@@ -317,7 +316,7 @@ public class StaffService {
             .findByCreatedAtBetweenOrderByCreatedAtDesc(from, to).stream()
             .filter(booking -> booking.getChannel() == BookingChannel.COUNTER)
             .filter(booking -> booking.getStatus() == BookingStatus.CONFIRMED)
-            .collect(Collectors.toList());
+            .toList();
 
         BigDecimal totalRevenue = BigDecimal.ZERO;
         BigDecimal cashRevenue = BigDecimal.ZERO;
@@ -345,7 +344,7 @@ public class StaffService {
             .cashRevenue(cashRevenue)
             .cardRevenue(cardRevenue)
             .recentSales(counterBookings.stream().limit(10)
-                .map(bookingMapper::toResponse).collect(Collectors.toList()))
+                .map(bookingMapper::toResponse).toList())
             .build();
     }
 

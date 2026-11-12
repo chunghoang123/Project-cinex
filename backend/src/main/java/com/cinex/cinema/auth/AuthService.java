@@ -51,8 +51,8 @@ public class AuthService {
     @Value("${app.auth.otp-expire-minutes:5}")
     private int otpExpireMinutes;
 
-    /** Dev mode: trả mã OTP trong response để test khi chưa có SMTP. Production nên set false. */
-    @Value("${app.auth.expose-reset-token:true}")
+    /** Dev mode: trả mã OTP trong response để test khi chưa có SMTP. Mặc định false để bảo mật. */
+    @Value("${app.auth.expose-reset-token:false}")
     private boolean exposeResetToken;
 
     public AuthService(UserRepository userRepository, RoleRepository roleRepository,
@@ -298,6 +298,10 @@ public class AuthService {
         }
 
         User user = userRepository.findByEmail(email).orElseGet(() -> createUserFromGoogle(email, googleId, fullName));
+
+        if (!user.isActive()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Tài khoản của bạn đã bị khóa");
+        }
 
         if (user.getGoogleId() == null) {
             user.setGoogleId(googleId);

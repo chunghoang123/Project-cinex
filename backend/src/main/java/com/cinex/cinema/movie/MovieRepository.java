@@ -8,6 +8,8 @@ import java.util.Optional;
 
 @Repository
 public interface MovieRepository extends JpaRepository<Movie, Long> {
+    List<Movie> findByActiveTrue();
+
     List<Movie> findByStatusAndActiveTrue(MovieStatus status);
 
     Optional<Movie> findByTmdbId(Long tmdbId);

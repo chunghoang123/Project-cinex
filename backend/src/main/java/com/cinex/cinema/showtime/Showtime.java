@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "showtimes")
 @Data
+@EqualsAndHashCode(callSuper = false)
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
@@ -38,5 +39,6 @@ public class Showtime extends BaseEntity {
     private ShowtimeStatus status;
 
     @Column(nullable = false)
+    @Builder.Default
     private boolean active = true;
 }

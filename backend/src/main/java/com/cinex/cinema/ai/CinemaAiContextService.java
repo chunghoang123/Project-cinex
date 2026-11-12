@@ -43,10 +43,13 @@ public class CinemaAiContextService {
      * Chỉ can thiệp khi câu hỏi hoặc câu trả lời đang nói về suất chiếu,
      * tránh thay thế câu trả lời không liên quan (ví dụ giờ mở cửa).
      */
-    private static final Pattern SHOWTIME_TOPIC_PATTERN = Pattern.compile(
-        "(?i)(suất chiếu|suat chieu|giờ chiếu|gio chieu|lịch chiếu|lich chieu|"
-        + "buổi chiếu|buoi chieu|chiếu lúc|chieu luc)",
-        Pattern.UNICODE_CHARACTER_CLASS);
+    private static final List<String> SHOWTIME_TOPIC_KEYWORDS = List.of(
+        "suất chiếu", "suat chieu",
+        "giờ chiếu", "gio chieu",
+        "lịch chiếu", "lich chieu",
+        "buổi chiếu", "buoi chieu",
+        "chiếu lúc", "chieu luc"
+    );
 
     private static final String EMPTY_SHOWTIME_REPLY = """
         Hiện CineX chưa có suất chiếu nào trong 7 ngày tới nên mình chưa thể gợi ý giờ chiếu cụ thể.
@@ -74,51 +77,8 @@ public class CinemaAiContextService {
             .append(' ').append(now.format(DATE_FORMAT))
             .append(" (giờ Việt Nam). Chỉ các suất TRONG DANH SÁCH dưới đây mới còn bán vé.\n\n");
 
-        builder.append("PHIM ĐANG CHIẾU TẠI CINEX:\n");
-        if (movies.isEmpty()) {
-            builder.append("- Hiện chưa có phim nào đang chiếu trong hệ thống.\n");
-        } else {
-            for (Movie movie : movies) {
-                builder.append("- [id=").append(movie.getId()).append("] ")
-                    .append(movie.getTitle());
-                if (movie.getGenre() != null && !movie.getGenre().isBlank()) {
-                    builder.append(" | thể loại: ").append(movie.getGenre());
-                }
-                if (movie.getDurationMinutes() != null) {
-                    builder.append(" | ").append(movie.getDurationMinutes()).append(" phút");
-                }
-                if (movie.getAgeRating() != null) {
-                    builder.append(" | giới hạn ").append(movie.getAgeRating()).append("+");
-                }
-                if (movie.getPosterUrl() != null && !movie.getPosterUrl().isBlank()) {
-                    builder.append("\n  poster: ").append(movie.getPosterUrl());
-                }
-                if (movie.getDescription() != null && !movie.getDescription().isBlank()) {
-                    builder.append("\n  Nội dung: ").append(shorten(movie.getDescription()));
-                }
-                builder.append('\n');
-            }
-        }
-
-        builder.append("\nSUẤT CHIẾU CÒN BÁN VÉ (từ bây giờ đến 7 ngày tới):\n");
-        if (showtimes.isEmpty()) {
-            builder.append("- Không còn suất chiếu nào trong 7 ngày tới.\n");
-        } else {
-            showtimes.stream().limit(MAX_SHOWTIMES).forEach(showtime ->
-                builder.append("- ")
-                    .append(showtime.getStartTime().format(DATE_FORMAT))
-                    .append(' ').append(showtime.getStartTime().format(TIME_FORMAT))
-                    .append(" | ").append(showtime.getMovie().getTitle())
-                    .append(" | rạp ").append(showtime.getAuditorium().getCinema().getName())
-                    .append(" | phòng ").append(showtime.getAuditorium().getName())
-                    .append(" | giá ").append(formatPrice(showtime.getBasePrice()))
-                    .append('\n')
-            );
-            if (showtimes.size() > MAX_SHOWTIMES) {
-                builder.append("- (Còn ").append(showtimes.size() - MAX_SHOWTIMES)
-                    .append(" suất khác, khách xem đầy đủ ở trang Suất chiếu.)\n");
-            }
-        }
+        appendMoviesSection(builder, movies);
+        appendShowtimesSection(builder, showtimes);
 
         builder.append("""
  
@@ -129,6 +89,62 @@ public class CinemaAiContextService {
             """);
 
         return builder.toString();
+    }
+
+    private void appendMoviesSection(StringBuilder builder, List<Movie> movies) {
+        builder.append("PHIM ĐANG CHIẾU TẠI CINEX:\n");
+        if (movies.isEmpty()) {
+            builder.append("- Hiện chưa có phim nào đang chiếu trong hệ thống.\n");
+            return;
+        }
+        for (Movie movie : movies) {
+            appendMovieLine(builder, movie);
+        }
+    }
+
+    private void appendMovieLine(StringBuilder builder, Movie movie) {
+        builder.append("- [id=").append(movie.getId()).append("] ")
+            .append(movie.getTitle());
+        appendOptionalField(builder, " | thể loại: ", movie.getGenre());
+        if (movie.getDurationMinutes() != null) {
+            builder.append(" | ").append(movie.getDurationMinutes()).append(" phút");
+        }
+        if (movie.getAgeRating() != null) {
+            builder.append(" | giới hạn ").append(movie.getAgeRating()).append("+");
+        }
+        appendOptionalField(builder, "\n  poster: ", movie.getPosterUrl());
+        if (movie.getDescription() != null && !movie.getDescription().isBlank()) {
+            builder.append("\n  Nội dung: ").append(shorten(movie.getDescription()));
+        }
+        builder.append('\n');
+    }
+
+    private static void appendOptionalField(StringBuilder builder, String prefix, String value) {
+        if (value != null && !value.isBlank()) {
+            builder.append(prefix).append(value);
+        }
+    }
+
+    private void appendShowtimesSection(StringBuilder builder, List<Showtime> showtimes) {
+        builder.append("\nSUẤT CHIẾU CÒN BÁN VÉ (từ bây giờ đến 7 ngày tới):\n");
+        if (showtimes.isEmpty()) {
+            builder.append("- Không còn suất chiếu nào trong 7 ngày tới.\n");
+            return;
+        }
+        showtimes.stream().limit(MAX_SHOWTIMES).forEach(showtime ->
+            builder.append("- ")
+                .append(showtime.getStartTime().format(DATE_FORMAT))
+                .append(' ').append(showtime.getStartTime().format(TIME_FORMAT))
+                .append(" | ").append(showtime.getMovie().getTitle())
+                .append(" | rạp ").append(showtime.getAuditorium().getCinema().getName())
+                .append(" | phòng ").append(showtime.getAuditorium().getName())
+                .append(" | giá ").append(formatPrice(showtime.getBasePrice()))
+                .append('\n')
+        );
+        if (showtimes.size() > MAX_SHOWTIMES) {
+            builder.append("- (Còn ").append(showtimes.size() - MAX_SHOWTIMES)
+                .append(" suất khác, khách xem đầy đủ ở trang Suất chiếu.)\n");
+        }
     }
 
     /**
@@ -210,7 +226,11 @@ public class CinemaAiContextService {
     }
 
     private static boolean matchesShowtimeTopic(String text) {
-        return text != null && !text.isBlank() && SHOWTIME_TOPIC_PATTERN.matcher(text).find();
+        if (text == null || text.isBlank()) {
+            return false;
+        }
+        String lower = text.toLowerCase(Locale.ROOT);
+        return SHOWTIME_TOPIC_KEYWORDS.stream().anyMatch(lower::contains);
     }
 
     private static String buildShowtimeFallback(List<Showtime> upcoming) {

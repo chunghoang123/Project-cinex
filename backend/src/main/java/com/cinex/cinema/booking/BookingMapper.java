@@ -11,7 +11,6 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Component
 public class BookingMapper {
@@ -42,7 +41,7 @@ public class BookingMapper {
                 .seatType(item.getShowtimeSeat().getSeat().getSeatType())
                 .price(item.getPrice())
                 .build())
-            .collect(Collectors.toList());
+            .toList();
 
         Payment payment = paymentRepository.findByBookingId(booking.getId()).orElse(null);
         Ticket ticket = ticketRepository.findByBookingId(booking.getId()).orElse(null);

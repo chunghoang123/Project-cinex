@@ -8,7 +8,6 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -30,7 +29,7 @@ public class AuditoriumService {
         List<Auditorium> auditoriums = includeInactive
             ? auditoriumRepository.findByCinemaId(cinemaId)
             : auditoriumRepository.findByCinemaIdAndActiveTrue(cinemaId);
-        return auditoriums.stream().map(this::toResponse).collect(Collectors.toList());
+        return auditoriums.stream().map(this::toResponse).toList();
     }
 
     public AuditoriumResponse create(Long cinemaId, AuditoriumRequest request) {
@@ -84,7 +83,7 @@ public class AuditoriumService {
         return seatRepository.findByAuditoriumId(auditoriumId).stream()
             .sorted(Comparator.comparing(Seat::getRowNumber).thenComparing(Seat::getColumnNumber))
             .map(this::toSeatResponse)
-            .collect(Collectors.toList());
+            .toList();
     }
 
     public List<SeatResponse> generateSeats(Long auditoriumId) {

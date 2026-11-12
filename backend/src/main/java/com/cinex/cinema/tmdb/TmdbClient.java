@@ -63,7 +63,7 @@ public class TmdbClient {
             .build().encode().toUri();
         TmdbPage<TmdbVideo> page = execute(uri, new ParameterizedTypeReference<>() {
         });
-        return page.results() == null ? List.of() : page.results();
+        return page == null || page.results() == null ? List.of() : page.results();
     }
 
     /** Danh sách thể loại phim (ám xá tên thể loại theo language cấu hình). */
@@ -71,7 +71,7 @@ public class TmdbClient {
         URI uri = buildUri("/genre/movie/list").build().encode().toUri();
         TmdbGenreResponse response = execute(uri, new ParameterizedTypeReference<>() {
         });
-        return response.genres() == null ? List.of() : response.genres();
+        return response == null || response.genres() == null ? List.of() : response.genres();
     }
 
     /** URL đầy đủ của poster, null nếu TMDB không có ảnh. */

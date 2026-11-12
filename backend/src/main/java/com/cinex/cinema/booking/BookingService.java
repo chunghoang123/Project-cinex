@@ -26,11 +26,12 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
 public class BookingService {
+
+    private static final String PAYMENT_METHOD_PAYOS = "PAYOS";
 
     private final BookingRepository bookingRepository;
     private final BookingSeatRepository bookingSeatRepository;
@@ -169,7 +170,7 @@ public class BookingService {
             withBookingCode(payosReturnUrl, booking.getBookingCode()),
             withBookingCode(payosCancelUrl, booking.getBookingCode())
         );
-        paymentService.recordProcessing(booking, "PAYOS", booking.getTotalAmount(), link.paymentLinkId);
+        paymentService.recordProcessing(booking, PAYMENT_METHOD_PAYOS, booking.getTotalAmount(), link.paymentLinkId);
         return toPayosResponse(booking, link);
     }
 
@@ -241,7 +242,7 @@ public class BookingService {
             return;
         }
         if (booking.getStatus() == BookingStatus.CONFIRMED) {
-            paymentService.markSuccess(booking, "PAYOS", paymentLinkId);
+            paymentService.markSuccess(booking, PAYMENT_METHOD_PAYOS, paymentLinkId);
             return;
         }
         if (booking.getStatus() != BookingStatus.PENDING && booking.getStatus() != BookingStatus.EXPIRED) {
@@ -265,7 +266,7 @@ public class BookingService {
                     && booking.getBookingCode().equals(seat.getHoldByBookingId())));
         if (!seatsAvailable) {
             // Đã nhận tiền nhưng ghế không còn trống: huỷ đơn, cần hoàn tiền thủ công
-            paymentService.markSuccess(booking, "PAYOS", paymentLinkId);
+            paymentService.markSuccess(booking, PAYMENT_METHOD_PAYOS, paymentLinkId);
             booking.setStatus(BookingStatus.CANCELLED);
             booking.setExpiresAt(null);
             bookingRepository.save(booking);
@@ -283,7 +284,7 @@ public class BookingService {
         booking.setExpiresAt(null);
         bookingRepository.save(booking);
 
-        paymentService.markSuccess(booking, "PAYOS", paymentLinkId);
+        paymentService.markSuccess(booking, PAYMENT_METHOD_PAYOS, paymentLinkId);
         ticketService.issue(booking);
     }
 
@@ -340,7 +341,7 @@ public class BookingService {
         LocalDateTime now = LocalDateTime.now();
         List<ShowtimeSeat> seats = bookingSeatRepository.findByBookingId(booking.getId()).stream()
             .map(BookingSeat::getShowtimeSeat)
-            .collect(Collectors.toList());
+            .toList();
         for (ShowtimeSeat seat : seats) {
             boolean takenByOther = seat.getStatus() == SeatStatus.BOOKED
                 || (seat.getStatus() == SeatStatus.HELD

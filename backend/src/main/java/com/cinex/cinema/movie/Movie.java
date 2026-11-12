@@ -9,6 +9,7 @@ import java.time.LocalDate;
 @Entity
 @Table(name = "movies")
 @Data
+@EqualsAndHashCode(callSuper = false)
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
@@ -46,5 +47,6 @@ public class Movie extends BaseEntity {
     private MovieStatus status;
 
     @Column(nullable = false)
+    @Builder.Default
     private boolean active = true;
 }

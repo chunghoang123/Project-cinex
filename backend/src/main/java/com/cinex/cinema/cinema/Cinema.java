@@ -7,6 +7,7 @@ import lombok.*;
 @Entity
 @Table(name = "cinemas")
 @Data
+@EqualsAndHashCode(callSuper = false)
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
@@ -21,5 +22,6 @@ public class Cinema extends BaseEntity {
     private String phone;
 
     @Column(nullable = false)
+    @Builder.Default
     private boolean active = true;
 }
