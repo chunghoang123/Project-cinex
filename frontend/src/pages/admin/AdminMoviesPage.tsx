@@ -127,7 +127,8 @@ export function AdminMoviesPage() {
   }
 
   const save = async () => {
-    if (!form.title.trim()) {
+    const cleanTitle = form.title.trim().replace(/\s+/g, ' ')
+    if (!cleanTitle) {
       setFormError('Vui lòng nhập tên phim')
       return
     }
@@ -225,7 +226,6 @@ export function AdminMoviesPage() {
                 <th>Thời lượng</th>
                 <th>Độ tuổi</th>
                 <th>Trạng thái</th>
-                <th>Hiển thị</th>
                 <th className="num">Thao tác</th>
               </tr>
             </thead>
@@ -270,11 +270,9 @@ export function AdminMoviesPage() {
                       <button type="button" className="btn btn-ghost btn-sm" onClick={() => openEdit(movie)}>
                         <Icon name="edit" size={14} /> Sửa
                       </button>
-                      {movie.active && (
-                        <button type="button" className="btn btn-danger btn-sm" onClick={() => hideMovie(movie)}>
-                          <Icon name="trash" size={14} /> Ẩn
-                        </button>
-                      )}
+                      <button type="button" className="btn btn-danger btn-sm" onClick={() => deleteMovie(movie)}>
+                        <Icon name="trash" size={14} /> Xóa
+                      </button>
                     </div>
                   </td>
                 </tr>

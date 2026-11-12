@@ -1496,27 +1496,6 @@
 }
 
 /* ---------- Admin AI Copilot ---------- */
-.console-ai-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 8px 13px;
-  border-radius: 9px;
-  background: linear-gradient(135deg, rgba(34, 211, 238, 0.16), rgba(37, 99, 235, 0.22));
-  border: 1px solid rgba(34, 211, 238, 0.38);
-  color: var(--accent);
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
-}
-
-.console-ai-btn:hover {
-  border-color: var(--accent);
-  background: linear-gradient(135deg, rgba(34, 211, 238, 0.24), rgba(37, 99, 235, 0.3));
-  transform: translateY(-1px);
-}
-
 .admin-ai-fab {
   position: fixed;
   right: 24px;

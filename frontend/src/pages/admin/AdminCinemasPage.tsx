@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { ConsolePageHeader } from '../../components/console/ConsolePageHeader'
-import { openAdminAi } from '../../components/console/AdminAiWidget'
 import { Modal } from '../../components/console/Modal'
 import { Icon } from '../../components/ui/Icon'
 import { adminService } from '../../services/adminService'
