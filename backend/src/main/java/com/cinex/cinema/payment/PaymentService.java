@@ -47,7 +47,7 @@ public class PaymentService {
         if (payment == null) {
             return;
         }
-        // Chỉ đánh dấu hoàn tiền khi thực sự đã thu được tiền;
+        // Chỉ đánh dấu hoàn tiền khi thực sự đã thu được tiền,
         // đơn chưa thanh toán bị huỷ thì coi giao dịch là thất bại.
         payment.setStatus(payment.getStatus() == PaymentStatus.SUCCESS
             ? PaymentStatus.REFUNDED

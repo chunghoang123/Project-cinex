@@ -243,7 +243,7 @@ public class AuthService {
             }
             return sb.toString();
         } catch (Exception e) {
-            throw new RuntimeException("Không hash được token đặt lại mật khẩu", e);
+            throw new IllegalStateException("Không hash được token đặt lại mật khẩu", e);
         }
     }
 

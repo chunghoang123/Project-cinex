@@ -157,7 +157,7 @@ public class ShowtimeService {
 
     public ShowtimeResponse update(Long id, ShowtimeRequest request) {
         Showtime showtime = findById(id);
-        // Chỉ chặn khi suất chiếu còn đơn "sống" (chờ thanh toán hoặc đã bán vé);
+        // Chỉ chặn khi suất chiếu còn đơn "sống" (chờ thanh toán hoặc đã bán vé),
         // đơn đã hết hạn / đã hủy không cản trở việc chỉnh sửa.
         if (bookingRepository.existsByShowtimeIdAndStatusIn(
                 id, List.of(BookingStatus.PENDING, BookingStatus.CONFIRMED))) {

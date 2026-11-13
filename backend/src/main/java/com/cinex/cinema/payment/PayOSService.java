@@ -86,7 +86,7 @@ public class PayOSService {
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
         Map<String, Object> resp = restTemplate.postForObject(baseUrl + "/v2/payment-requests", entity, Map.class);
         if (resp == null || !"00".equals(resp.get("code"))) {
-            throw new RuntimeException("PayOS tạo link thất bại: " + (resp == null ? "null" : resp.get("desc")));
+            throw new IllegalStateException("PayOS tạo link thất bại: " + (resp == null ? "null" : resp.get("desc")));
         }
         Map<String, Object> dataObj = (Map<String, Object>) resp.get("data");
         return new PayOSLink(
@@ -191,7 +191,7 @@ public class PayOSService {
             for (byte b : raw) sb.append(String.format("%02x", b));
             return sb.toString();
         } catch (Exception e) {
-            throw new RuntimeException("Lỗi HMAC-SHA256", e);
+            throw new IllegalStateException("Lỗi HMAC-SHA256", e);
         }
     }
 
