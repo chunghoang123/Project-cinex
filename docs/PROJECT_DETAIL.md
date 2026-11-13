@@ -567,6 +567,8 @@ project-Cinex/
 
 ## 17. Phân công công việc (3 tuần)
 
+> ⚠️ **Phần này giữ làm tham khảo lịch theo tuần.** Bản phân công hiện hành chia **theo module, không theo thời gian, chia đều 60 đầu việc cho 3 người** — xem `docs/WORK_PLAN.md`.
+
 ### 17.1 Tổng quan
 
 | Tuần | Mục tiêu chính |
