@@ -90,7 +90,7 @@ public class NvidiaAiService {
         Map<String, Object> body = Map.of(
             KEY_MODEL, model,
             KEY_MESSAGES, messages,
-            KEY_TEMPERATURE, 0.2,
+            KEY_TEMPERATURE, 0.55,
             "top_p", 0.9,
             KEY_MAX_TOKENS, 1024,
             KEY_STREAM, false

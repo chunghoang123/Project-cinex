@@ -94,29 +94,6 @@ export function TicketView() {
     }
   }
 
-  const handleDownload = () => {
-    const text = [
-      'CINEX E-TICKET',
-      `Mã vé: ${code}`,
-      `Mã đơn: ${booking.bookingCode}`,
-      `Phim: ${showtime.movieTitle}`,
-      `Rạp: ${showtime.cinemaName}`,
-      `Phòng: ${showtime.auditoriumName}`,
-      `Ngày: ${formatDateLong(showtime.startTime)}`,
-      `Suất chiếu: ${formatTime(showtime.startTime)}`,
-      `Ghế: ${seats.join(', ')}`,
-      `Tổng tiền: ${formatVnd(total)}`,
-      `Trạng thái: ${statusLabel}`,
-    ].join('\n')
-    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `${code}.txt`
-    link.click()
-    URL.revokeObjectURL(url)
-  }
-
   return (
     <div className="container">
       <PageBar title="Vé của tôi" backTo="/history" />
@@ -218,10 +195,6 @@ export function TicketView() {
             )}
 
             <div className="stack gap-10" style={{ marginTop: 14 }}>
-              <button type="button" className="btn btn-primary btn-block" onClick={handleDownload}>
-                <Icon name="download" size={16} />
-                Tải vé
-              </button>
               <button type="button" className="btn btn-ghost btn-block" onClick={() => void handleShare()}>
                 <Icon name="share" size={16} />
                 Chia sẻ

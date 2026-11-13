@@ -75,7 +75,8 @@ public class CinemaAiContextService {
     public String buildContext() {
         LocalDateTime now = LocalDateTime.now(CINEMA_ZONE);
         List<Cinema> cinemas = cinemaRepository.findByActiveTrue();
-        List<Movie> movies = movieRepository.findByStatusAndActiveTrue(MovieStatus.NOW_SHOWING);
+        List<Movie> nowShowing = movieRepository.findByStatusAndActiveTrue(MovieStatus.NOW_SHOWING);
+        List<Movie> comingSoon = movieRepository.findByStatusAndActiveTrue(MovieStatus.COMING_SOON);
         List<Showtime> showtimes = loadUpcomingShowtimes(now);
 
         StringBuilder builder = new StringBuilder(4096);
@@ -84,15 +85,25 @@ public class CinemaAiContextService {
             .append(" (giờ Việt Nam). Chỉ các suất TRONG DANH SÁCH dưới đây mới còn bán vé.\n\n");
 
         appendCinemasSection(builder, cinemas);
-        appendMoviesSection(builder, movies);
+        appendMoviesSection(builder, "PHIM ĐANG CHIẾU TẠI CINEX:\n", nowShowing,
+            "- Hiện chưa có phim nào đang chiếu trong hệ thống.\n");
+        appendMoviesSection(builder, "\nPHIM SẮP CHIẾU TẠI CINEX:\n", comingSoon,
+            "- Hiện chưa có phim sắp chiếu nào được công bố.\n");
         appendShowtimesSection(builder, showtimes);
 
         builder.append("""
- 
-            QUY ĐỊNH CINEX:
-            - Thanh toán trực tuyến chỉ qua PayOS; khách không tự huỷ vé sau khi đã thanh toán.
-            - Ghế chỉ được giữ sau khi thanh toán thành công.
-            - Khách soát vé bằng mã QR tại rạp.
+
+            GIÁ GHẾ, BẮP NƯỚC & HƯỚNG DẪN SỬ DỤNG CINEX:
+            - Hạng ghế & phụ thu: Ghế STANDARD = giá gốc suất chiếu; Ghế VIP = giá gốc + 30.000đ/ghế; Ghế COUPLE (ghế đôi) = 2 × giá gốc suất chiếu.
+            - Bắp nước / Combo (chọn thêm ở bước xác nhận đơn hoặc mua tại quầy):
+              * Duo Combo (1 bắp lớn + 2 nước ngọt): 165.000đ
+              * Bắp rang bơ (cỡ lớn): 75.000đ
+              * Coca-Cola (ly lớn 32oz): 45.000đ
+            - Quy trình đặt vé online: Xem phim tại /movies hoặc lịch theo rạp tại /showtimes → Chọn suất & chọn ghế → Chọn thêm bắp nước ở bước Xác nhận → Thanh toán qua PayOS (VietQR/ngân hàng).
+            - Thời gian giữ ghế: Ghế được giữ tạm tối đa 10 phút trong lúc chờ thanh toán PayOS; quá 10 phút chưa thanh toán thì ghế tự động được nhả.
+            - Vé điện tử & Soát vé: Thanh toán xong vé sẽ hiển thị mã QR ở trang Lịch sử đặt vé / Vé của tôi; khách đưa mã QR cho nhân viên quét khi vào rạp.
+            - Mua vé tại quầy & Chính sách huỷ vé: Có thể mua trực tiếp tại quầy (tiền mặt hoặc QR PayOS). Khách không tự huỷ vé online sau khi đã thanh toán thành công; nếu cần hỗ trợ, liên hệ nhân viên quầy hoặc hotline rạp.
+            - Tài khoản: Hỗ trợ đăng ký/đăng nhập thường, đăng nhập bằng Google, và quên mật khẩu bằng mã OTP gửi về email.
             """);
 
         return builder.toString();
@@ -113,10 +124,10 @@ public class CinemaAiContextService {
         builder.append('\n');
     }
 
-    private void appendMoviesSection(StringBuilder builder, List<Movie> movies) {
-        builder.append("PHIM ĐANG CHIẾU TẠI CINEX:\n");
+    private void appendMoviesSection(StringBuilder builder, String heading, List<Movie> movies, String emptyMessage) {
+        builder.append(heading);
         if (movies.isEmpty()) {
-            builder.append("- Hiện chưa có phim nào đang chiếu trong hệ thống.\n");
+            builder.append(emptyMessage);
             return;
         }
         for (Movie movie : movies) {
@@ -133,6 +144,9 @@ public class CinemaAiContextService {
         }
         if (movie.getAgeRating() != null) {
             builder.append(" | giới hạn ").append(movie.getAgeRating()).append("+");
+        }
+        if (movie.getReleaseDate() != null) {
+            builder.append(" | khởi chiếu: ").append(movie.getReleaseDate().format(DATE_FORMAT));
         }
         appendOptionalField(builder, "\n  poster: ", movie.getPosterUrl());
         if (movie.getDescription() != null && !movie.getDescription().isBlank()) {
@@ -214,7 +228,7 @@ public class CinemaAiContextService {
             return List.of();
         }
         String lower = reply.toLowerCase(Locale.ROOT);
-        List<Movie> movies = movieRepository.findByStatusAndActiveTrue(MovieStatus.NOW_SHOWING);
+        List<Movie> movies = movieRepository.findByActiveTrue();
         return movies.stream()
             .filter(movie -> movie.getTitle() != null
                 && !movie.getTitle().isBlank()

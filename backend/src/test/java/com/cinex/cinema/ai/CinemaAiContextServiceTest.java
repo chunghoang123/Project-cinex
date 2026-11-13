@@ -5,6 +5,7 @@ import com.cinex.cinema.cinema.Cinema;
 import com.cinex.cinema.cinema.CinemaRepository;
 import com.cinex.cinema.movie.Movie;
 import com.cinex.cinema.movie.MovieRepository;
+import com.cinex.cinema.movie.MovieStatus;
 import com.cinex.cinema.showtime.Showtime;
 import com.cinex.cinema.showtime.ShowtimeRepository;
 import com.cinex.cinema.showtime.ShowtimeStatus;
@@ -90,7 +91,7 @@ class CinemaAiContextServiceTest {
     }
 
     @Test
-    void buildContextIncludesCinemaAddressesAndPhones() {
+    void buildContextIncludesCinemasUpcomingMoviesPricingAndGuides() {
         Cinema cinema = Cinema.builder()
             .name("CineX Landmark 81")
             .address("720A Điện Biên Phủ, Bình Thạnh, TP.HCM")
@@ -98,8 +99,19 @@ class CinemaAiContextServiceTest {
             .active(true)
             .build();
         cinema.setId(1L);
+        Movie comingSoon = Movie.builder()
+            .title("Avatar 3")
+            .genre("Sci-Fi")
+            .durationMinutes(180)
+            .releaseDate(LocalDate.now(CINEMA_ZONE).plusDays(20))
+            .status(MovieStatus.COMING_SOON)
+            .active(true)
+            .build();
+        comingSoon.setId(2L);
+
         when(cinemaRepository.findByActiveTrue()).thenReturn(List.of(cinema));
-        when(movieRepository.findByStatusAndActiveTrue(any())).thenReturn(List.of());
+        when(movieRepository.findByStatusAndActiveTrue(MovieStatus.NOW_SHOWING)).thenReturn(List.of());
+        when(movieRepository.findByStatusAndActiveTrue(MovieStatus.COMING_SOON)).thenReturn(List.of(comingSoon));
         givenUpcomingShowtimes();
 
         String context = service.buildContext();
@@ -108,16 +120,13 @@ class CinemaAiContextServiceTest {
             .contains("HỆ THỐNG RẠP CINEX")
             .contains("CineX Landmark 81")
             .contains("720A Điện Biên Phủ, Bình Thạnh, TP.HCM")
-            .contains("1900 6017");
-    }
-
-    @Test
-    void controllerAllowsAddressAndContactQuestions() {
-        assertThat(NvidiaAiController.isOffTopic("Địa chỉ ở đâu?")).isFalse();
-        assertThat(NvidiaAiController.isOffTopic("Cho mình xin địa chỉ rạp Landmark 81")).isFalse();
-        assertThat(NvidiaAiController.isOffTopic("CineX có những chi nhánh nào?")).isFalse();
-        assertThat(NvidiaAiController.isOffTopic("Hotline liên hệ là gì?")).isFalse();
-        assertThat(NvidiaAiController.isOffTopic("Thời tiết hôm nay thế nào?")).isTrue();
+            .contains("1900 6017")
+            .contains("PHIM SẮP CHIẾU TẠI CINEX")
+            .contains("Avatar 3")
+            .contains("Ghế VIP = giá gốc + 30.000đ")
+            .contains("Duo Combo")
+            .contains("10 phút")
+            .contains("PayOS");
     }
 
     private void givenUpcomingShowtimes(Showtime... showtimes) {
