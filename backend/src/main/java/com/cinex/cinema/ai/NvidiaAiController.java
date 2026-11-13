@@ -14,10 +14,10 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Base64;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.regex.Pattern;
 
 @RestController
 @RequestMapping("/api/ai")
@@ -27,21 +27,25 @@ public class NvidiaAiController {
     private static final Set<String> ALLOWED_IMAGE_TYPES =
         Set.of("image/jpeg", "image/png", "image/webp", "image/gif");
 
-    private static final Pattern CINEMA_PATTERN = Pattern.compile(
-        "(?i)(phim|suất chiếu|suất|rạp|phòng chiếu|ghế|đặt vé|dat ve|thanh toán|thanh toan|payos|"
-        + "giá vé|gia ve|vé|ve|vé online|vé tại quầy|bắp|combo|khuyến mãi|khuyen mai|trailer|đạo diễn|"
-        + "dao dien|diễn viên|dien vien|thể loại|the loai|nội dung|noi dung|phần chiếu|buổi chiếu|"
-        + "thời lượng|thoi luong|giới hạn tuổi|gioi han tuoi|điểm|diem|rating|đăng nhập|dang nhap|"
-        + "quên mật khẩu|quen mat khau|tài khoản|tai khoan|lịch sử|lich su|vé của tôi|vé điện tử|"
-        + "ve dien tu|soát vé|soat ve|qr|xem|chiếu|phát hành|phat hanh)",
-        Pattern.UNICODE_CHARACTER_CLASS
+    /** Từ khoá cho biết câu hỏi thuộc chủ đề phim/rạp/đặt vé/địa chỉ (so khớp chuỗi con, không dùng regex). */
+    private static final List<String> CINEMA_KEYWORDS = List.of(
+        "phim", "suất chiếu", "suất", "rạp", "phòng chiếu", "ghế", "đặt vé", "dat ve", "thanh toán", "thanh toan",
+        "payos", "giá vé", "gia ve", "vé", "ve", "vé online", "vé tại quầy", "bắp", "combo", "khuyến mãi",
+        "khuyen mai", "trailer", "đạo diễn", "dao dien", "diễn viên", "dien vien", "thể loại", "the loai",
+        "nội dung", "noi dung", "phần chiếu", "buổi chiếu", "thời lượng", "thoi luong", "giới hạn tuổi",
+        "gioi han tuoi", "điểm", "diem", "rating", "đăng nhập", "dang nhap", "quên mật khẩu", "quen mat khau",
+        "tài khoản", "tai khoan", "lịch sử", "lich su", "vé của tôi", "vé điện tử", "ve dien tu", "soát vé",
+        "soat ve", "qr", "xem", "chiếu", "phát hành", "phat hanh",
+        "địa chỉ", "dia chi", "ở đâu", "o dau", "chỉ đường", "chi duong", "vị trí", "vi tri",
+        "chi nhánh", "chi nhanh", "cơ sở", "co so", "hotline", "số điện thoại", "so dien thoai",
+        "liên hệ", "lien he", "cinex", "landmark", "galaxy", "aeon", "mở cửa", "mo cua"
     );
 
-    private static final Pattern GREETING_PATTERN = Pattern.compile(
-        "(?i)^\\s*(xin chào|hello|hi|hey|alo|chào|chao|chào bạn|chao ban|chào cinex|chao cinex|"
-        + "hi cinex|tạm biệt|tam biet|bye|cảm ơn|cam on|thank|good morning|good afternoon|good evening)"
-        + "\\s*[!.\\s]*$",
-        Pattern.UNICODE_CHARACTER_CLASS
+    /** Lời chào/cảm ơn/tạm biệt ngắn (cho phép dấu "!" "." ở cuối). */
+    private static final Set<String> GREETINGS = Set.of(
+        "xin chào", "hello", "hi", "hey", "alo", "chào", "chao", "chào bạn", "chao ban", "chào cinex",
+        "chao cinex", "hi cinex", "tạm biệt", "tam biet", "bye", "cảm ơn", "cam on", "thank",
+        "good morning", "good afternoon", "good evening"
     );
 
     private static final String OFF_TOPIC_REPLY = """
@@ -62,8 +66,8 @@ public class NvidiaAiController {
         Hãy trả lời bằng tiếng Việt tự nhiên, thân thiện, ngắn gọn (tối đa khoảng 200 từ).
 
         PHẠM VI BẮT BUỘC:
-        - Chỉ trả lời câu hỏi liên quan trực tiếp đến phim, rạp chiếu, suất chiếu, ghế,
-          đặt vé, mua bắp/nước, thanh toán PayOS, tra cứu vé/giá vé/giờ chiếu tại CineX
+        - Chỉ trả lời câu hỏi liên quan trực tiếp đến phim, rạp chiếu (tên rạp, địa chỉ, số điện thoại liên hệ),
+          suất chiếu, ghế, đặt vé, mua bắp/nước, thanh toán PayOS, tra cứu vé/giá vé/giờ chiếu tại CineX
           hoặc kiến thức điện ảnh cơ bản (nội dung, đạo diễn, diễn viên, thể loại, trailer).
         - Câu hỏi ngoài phạm vi (thể thao, thời tiết, tin tức, chính trị, bài tập, code,
           chuyện đời thường) thì từ chối ngắn gọn, lịch sự và gợi ý lại đúng các chủ đề trên.
@@ -81,7 +85,8 @@ public class NvidiaAiController {
         - Nếu danh sách trống, nói "hiện không còn suất chiếu nào trong 7 ngày tới" và gợi ý xem Lịch chiếu.
 
         QUY TẮC DỮ LIỆU:
-        - Chỉ dùng dữ liệu trong phần DỮ LIỆU CINEX bên dưới khi nói về phim, suất chiếu, rạp, phòng chiếu, giá vé.
+        - Chỉ dùng dữ liệu trong phần DỮ LIỆU CINEX bên dưới khi nói về phim, suất chiếu, rạp (bao gồm địa chỉ và điện thoại ở mục HỆ THỐNG RẠP CINEX), phòng chiếu, giá vé.
+        - Khi khách hỏi địa chỉ hoặc thông tin liên hệ rạp, liệt kê đầy đủ tên rạp, địa chỉ và số điện thoại từ mục HỆ THỐNG RẠP CINEX.
         - Không được bịa tên phim, giờ chiếu, giá vé, khuyến mãi hay tình trạng ghế không có trong dữ liệu.
         - KHÔNG tự nhận đã đặt vé, giữ ghế hay thanh toán thành công. Khi khách muốn đặt vé,
           hãy hướng dẫn từng bước (chọn suất chiếu, ghế, rồi thanh toán PayOS) và dẫn họ sang trang
@@ -157,15 +162,27 @@ public class NvidiaAiController {
         }
     }
 
-    private static boolean isOffTopic(String message) {
+    static boolean isOffTopic(String message) {
         if (message == null || message.isBlank()) {
             return true;
         }
         String normalized = message.trim().toLowerCase(Locale.ROOT);
-        if (GREETING_PATTERN.matcher(normalized).matches()) {
+        if (GREETINGS.contains(stripTrailingPunctuation(normalized))) {
             return false;
         }
-        return !CINEMA_PATTERN.matcher(normalized).find();
+        return CINEMA_KEYWORDS.stream().noneMatch(normalized::contains);
+    }
+
+    private static String stripTrailingPunctuation(String text) {
+        int end = text.length();
+        while (end > 0) {
+            char c = text.charAt(end - 1);
+            if (c != '!' && c != '.' && !Character.isWhitespace(c)) {
+                break;
+            }
+            end--;
+        }
+        return text.substring(0, end).replaceAll("\\s+", " ");
     }
 
     private static String resolveImageType(MultipartFile file) {

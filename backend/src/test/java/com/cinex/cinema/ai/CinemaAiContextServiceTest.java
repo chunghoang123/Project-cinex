@@ -2,6 +2,7 @@ package com.cinex.cinema.ai;
 
 import com.cinex.cinema.cinema.Auditorium;
 import com.cinex.cinema.cinema.Cinema;
+import com.cinex.cinema.cinema.CinemaRepository;
 import com.cinex.cinema.movie.Movie;
 import com.cinex.cinema.movie.MovieRepository;
 import com.cinex.cinema.showtime.Showtime;
@@ -28,10 +29,11 @@ class CinemaAiContextServiceTest {
 
     private static final ZoneId CINEMA_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
 
+    private final CinemaRepository cinemaRepository = mock(CinemaRepository.class);
     private final MovieRepository movieRepository = mock(MovieRepository.class);
     private final ShowtimeRepository showtimeRepository = mock(ShowtimeRepository.class);
     private final CinemaAiContextService service =
-        new CinemaAiContextService(movieRepository, showtimeRepository);
+        new CinemaAiContextService(cinemaRepository, movieRepository, showtimeRepository);
 
     @Test
     void keepsReplyWhenItDoesNotMentionAnyClockTime() {
@@ -85,6 +87,37 @@ class CinemaAiContextServiceTest {
         String reply = "CineX mở cửa lúc 8:00 mỗi ngày, bạn ghé sớm nhé.";
 
         assertThat(service.sanitizeReply("Rạp mở cửa lúc mấy giờ?", reply)).isEqualTo(reply);
+    }
+
+    @Test
+    void buildContextIncludesCinemaAddressesAndPhones() {
+        Cinema cinema = Cinema.builder()
+            .name("CineX Landmark 81")
+            .address("720A Điện Biên Phủ, Bình Thạnh, TP.HCM")
+            .phone("1900 6017")
+            .active(true)
+            .build();
+        cinema.setId(1L);
+        when(cinemaRepository.findByActiveTrue()).thenReturn(List.of(cinema));
+        when(movieRepository.findByStatusAndActiveTrue(any())).thenReturn(List.of());
+        givenUpcomingShowtimes();
+
+        String context = service.buildContext();
+
+        assertThat(context)
+            .contains("HỆ THỐNG RẠP CINEX")
+            .contains("CineX Landmark 81")
+            .contains("720A Điện Biên Phủ, Bình Thạnh, TP.HCM")
+            .contains("1900 6017");
+    }
+
+    @Test
+    void controllerAllowsAddressAndContactQuestions() {
+        assertThat(NvidiaAiController.isOffTopic("Địa chỉ ở đâu?")).isFalse();
+        assertThat(NvidiaAiController.isOffTopic("Cho mình xin địa chỉ rạp Landmark 81")).isFalse();
+        assertThat(NvidiaAiController.isOffTopic("CineX có những chi nhánh nào?")).isFalse();
+        assertThat(NvidiaAiController.isOffTopic("Hotline liên hệ là gì?")).isFalse();
+        assertThat(NvidiaAiController.isOffTopic("Thời tiết hôm nay thế nào?")).isTrue();
     }
 
     private void givenUpcomingShowtimes(Showtime... showtimes) {

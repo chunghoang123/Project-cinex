@@ -1,5 +1,7 @@
 package com.cinex.cinema.ai;
 
+import com.cinex.cinema.cinema.Cinema;
+import com.cinex.cinema.cinema.CinemaRepository;
 import com.cinex.cinema.movie.Movie;
 import com.cinex.cinema.movie.MovieRepository;
 import com.cinex.cinema.movie.MovieStatus;
@@ -57,11 +59,14 @@ public class CinemaAiContextService {
         Bạn vui lòng xem trang **Lịch chiếu** sau khi rạp cập nhật suất mới nhé.
         """.strip();
 
+    private final CinemaRepository cinemaRepository;
     private final MovieRepository movieRepository;
     private final ShowtimeRepository showtimeRepository;
 
-    public CinemaAiContextService(MovieRepository movieRepository,
+    public CinemaAiContextService(CinemaRepository cinemaRepository,
+                                  MovieRepository movieRepository,
                                   ShowtimeRepository showtimeRepository) {
+        this.cinemaRepository = cinemaRepository;
         this.movieRepository = movieRepository;
         this.showtimeRepository = showtimeRepository;
     }
@@ -69,6 +74,7 @@ public class CinemaAiContextService {
     @Transactional(readOnly = true)
     public String buildContext() {
         LocalDateTime now = LocalDateTime.now(CINEMA_ZONE);
+        List<Cinema> cinemas = cinemaRepository.findByActiveTrue();
         List<Movie> movies = movieRepository.findByStatusAndActiveTrue(MovieStatus.NOW_SHOWING);
         List<Showtime> showtimes = loadUpcomingShowtimes(now);
 
@@ -77,6 +83,7 @@ public class CinemaAiContextService {
             .append(' ').append(now.format(DATE_FORMAT))
             .append(" (giờ Việt Nam). Chỉ các suất TRONG DANH SÁCH dưới đây mới còn bán vé.\n\n");
 
+        appendCinemasSection(builder, cinemas);
         appendMoviesSection(builder, movies);
         appendShowtimesSection(builder, showtimes);
 
@@ -89,6 +96,21 @@ public class CinemaAiContextService {
             """);
 
         return builder.toString();
+    }
+
+    private void appendCinemasSection(StringBuilder builder, List<Cinema> cinemas) {
+        builder.append("HỆ THỐNG RẠP CINEX (địa chỉ & liên hệ):\n");
+        if (cinemas.isEmpty()) {
+            builder.append("- Hiện chưa có rạp nào đang hoạt động trong hệ thống.\n\n");
+            return;
+        }
+        for (Cinema cinema : cinemas) {
+            builder.append("- [id=").append(cinema.getId()).append("] ").append(cinema.getName());
+            appendOptionalField(builder, " | địa chỉ: ", cinema.getAddress());
+            appendOptionalField(builder, " | điện thoại: ", cinema.getPhone());
+            builder.append('\n');
+        }
+        builder.append('\n');
     }
 
     private void appendMoviesSection(StringBuilder builder, List<Movie> movies) {
