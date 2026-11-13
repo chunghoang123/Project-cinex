@@ -25,7 +25,7 @@ public class YoutubeEmbedUrlNormalizer {
         Pattern.compile("[a-zA-Z0-9_-]{11}");
 
     private static final Pattern WATCH_PATTERN =
-        Pattern.compile("(?:youtube\\.com/(?:watch\\?[^#]*v=|shorts/|embed/|live/|v/))([a-zA-Z0-9_-]{11})");
+        Pattern.compile("youtube\\.com/(?:watch\\?[^#]*v=|shorts/|embed/|live/|v/)([a-zA-Z0-9_-]{11})");
     private static final Pattern SHORT_PATTERN =
         Pattern.compile("youtu\\.be/([a-zA-Z0-9_-]{11})");
 

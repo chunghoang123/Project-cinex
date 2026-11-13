@@ -24,7 +24,9 @@ public class TicketValidator {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Ticket validateTicket(String ticketCode) {
-        Ticket ticket = findByTicketCode(ticketCode);
+        Ticket ticket = ticketRepository.findByTicketCode(normalizeCode(ticketCode))
+            .orElseThrow(() -> new ResponseStatusException(
+                HttpStatus.NOT_FOUND, "Vé không tồn tại"));
 
         if (ticket.getStatus() == TicketStatus.SCANNED) {
             throw new ResponseStatusException(

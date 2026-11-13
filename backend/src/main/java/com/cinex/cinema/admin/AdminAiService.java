@@ -372,12 +372,8 @@ public class AdminAiService {
         if (text == null || text.isEmpty()) {
             return blocks;
         }
-        int searchFrom = 0;
-        while (searchFrom < text.length()) {
-            int open = text.indexOf(CODE_FENCE, searchFrom);
-            if (open < 0) {
-                break;
-            }
+        int open = text.indexOf(CODE_FENCE);
+        while (open >= 0) {
             int close = text.indexOf(CODE_FENCE, open + CODE_FENCE.length());
             if (close < 0) {
                 break;
@@ -389,7 +385,7 @@ public class AdminAiService {
             if (content.startsWith("{") && content.endsWith("}")) {
                 blocks.add(new FencedBlock(open, close + CODE_FENCE.length(), content));
             }
-            searchFrom = close + CODE_FENCE.length();
+            open = text.indexOf(CODE_FENCE, close + CODE_FENCE.length());
         }
         return blocks;
     }
@@ -518,8 +514,8 @@ public class AdminAiService {
         if (roomName.isBlank()) {
             roomName = defaultRoomName(cinema.getId());
         }
-        int rows = Math.max(1, Math.min(30, node.path("totalRows").asInt(8)));
-        int cols = Math.max(1, Math.min(30, node.path("columnsPerRow").asInt(12)));
+        int rows = Math.clamp(node.path("totalRows").asInt(8), 1, 30);
+        int cols = Math.clamp(node.path("columnsPerRow").asInt(12), 1, 30);
 
         AuditoriumRequest req = new AuditoriumRequest();
         req.setName(roomName);
@@ -884,8 +880,8 @@ public class AdminAiService {
         }
         AuditoriumRequest req = new AuditoriumRequest();
         req.setName(extractRoomNameFromText(message, cinema.getId()));
-        req.setTotalRows(Math.max(1, Math.min(30, rows)));
-        req.setColumnsPerRow(Math.max(1, Math.min(30, cols)));
+        req.setTotalRows(Math.clamp(rows, 1, 30));
+        req.setColumnsPerRow(Math.clamp(cols, 1, 30));
         AuditoriumResponse created = auditoriumService.create(cinema.getId(), req);
         return List.of(new AdminAiActionResult(
             ACTION_CREATE_AUDITORIUM,
@@ -1066,9 +1062,13 @@ public class AdminAiService {
         if ("screen".equals(normCurrent)) {
             return nextRaw.isBlank() ? "" : SCREEN_PREFIX + nextRaw;
         }
-        if (!"phong".equals(normCurrent)) {
-            return "";
+        if ("phong".equals(normCurrent)) {
+            return resolveAfterPhongToken(tokens, index, nextRaw);
         }
+        return "";
+    }
+
+    private static String resolveAfterPhongToken(String[] tokens, int index, String nextRaw) {
         String normNext = normalizeNonNull(nextRaw);
         if ("screen".equals(normNext)) {
             String afterScreen = index + 2 < tokens.length ? cleanRoomToken(tokens[index + 2]) : "";

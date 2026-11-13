@@ -202,13 +202,11 @@ public class ShowtimeService {
                                  LocalDateTime endTime, Long excludeShowtimeId) {
         List<Showtime> existingList = showtimeRepository.findByAuditoriumIdAndActiveTrue(auditorium.getId());
         for (Showtime existing : existingList) {
-            if (excludeShowtimeId != null && excludeShowtimeId.equals(existing.getId())) {
-                continue;
-            }
-            if (existing.getStatus() == ShowtimeStatus.CANCELLED) {
-                continue;
-            }
-            if (existing.getStartTime().isBefore(endTime) && existing.getEndTime().isAfter(startTime)) {
+            boolean isExcluded = excludeShowtimeId != null && excludeShowtimeId.equals(existing.getId());
+            if (!isExcluded
+                    && existing.getStatus() != ShowtimeStatus.CANCELLED
+                    && existing.getStartTime().isBefore(endTime)
+                    && existing.getEndTime().isAfter(startTime)) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT,
                     String.format("Phòng %s (%s) đã có suất chiếu \"%s\" từ %s đến %s",
                         auditorium.getName(),
@@ -240,7 +238,7 @@ public class ShowtimeService {
      * Bỏ qua các khung giờ đã qua hoặc đã có suất chiếu trùng trong cùng phòng.
      */
     public AutoScheduleResult autoGenerateShowtimes(int daysAhead) {
-        int safeDays = Math.max(1, Math.min(30, daysAhead <= 0 ? 10 : daysAhead));
+        int safeDays = Math.clamp(daysAhead <= 0 ? 10 : daysAhead, 1, 30);
         int completed = completeFinishedShowtimes();
 
         LocalDate today = LocalDate.now();
@@ -295,22 +293,20 @@ public class ShowtimeService {
             int duration = movie.getDurationMinutes() == null ? 120 : movie.getDurationMinutes();
             LocalDateTime endTime = startTime.plusMinutes(duration);
 
-            if (hasActiveOverlap(existingInAud, startTime, endTime)) {
-                continue;
+            if (!hasActiveOverlap(existingInAud, startTime, endTime)) {
+                Showtime showtime = showtimeRepository.save(Showtime.builder()
+                    .movie(movie)
+                    .auditorium(auditorium)
+                    .startTime(startTime)
+                    .endTime(endTime)
+                    .basePrice(resolveSlotPrice(slotTime))
+                    .status(ShowtimeStatus.ACTIVE)
+                    .active(true)
+                    .build());
+                generateShowtimeSeats(showtime, auditorium);
+                existingInAud.add(showtime);
+                created++;
             }
-
-            Showtime showtime = showtimeRepository.save(Showtime.builder()
-                .movie(movie)
-                .auditorium(auditorium)
-                .startTime(startTime)
-                .endTime(endTime)
-                .basePrice(resolveSlotPrice(slotTime))
-                .status(ShowtimeStatus.ACTIVE)
-                .active(true)
-                .build());
-            generateShowtimeSeats(showtime, auditorium);
-            existingInAud.add(showtime);
-            created++;
         }
         return created;
     }

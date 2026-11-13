@@ -163,37 +163,38 @@ public class YoutubeClient {
     }
 
     private String pickThumbnail(SearchItem item) {
-        try {
-            var thumbnails = item.snippet().thumbnails();
-            if (thumbnails.high() != null && thumbnails.high().url() != null) {
-                return thumbnails.high().url();
-            }
-            if (thumbnails.medium() != null && thumbnails.medium().url() != null) {
-                return thumbnails.medium().url();
-            }
-            if (thumbnails.default_() != null && thumbnails.default_().url() != null) {
-                return thumbnails.default_().url();
-            }
-        } catch (Exception ignored) {
+        String url = item != null && item.snippet() != null
+            ? extractThumbnailUrl(item.snippet().thumbnails())
+            : null;
+        if (url != null) {
+            return url;
         }
-        return "https://i" + (Math.abs(videoIdHash(item))) + ".ytimg.com/vi/" + item.id().videoId() + "/hqdefault.jpg";
+        String videoId = item != null && item.id() != null ? item.id().videoId() : "";
+        return "https://i" + Math.abs(videoIdHash(item)) + ".ytimg.com/vi/" + videoId + "/hqdefault.jpg";
     }
 
     private String pickThumbnailVideo(VideoItem item) {
-        try {
-            var thumbnails = item.snippet().thumbnails();
-            if (thumbnails.high() != null && thumbnails.high().url() != null) {
-                return thumbnails.high().url();
-            }
-            if (thumbnails.medium() != null && thumbnails.medium().url() != null) {
-                return thumbnails.medium().url();
-            }
-            if (thumbnails.default_() != null && thumbnails.default_().url() != null) {
-                return thumbnails.default_().url();
-            }
-        } catch (Exception ignored) {
+        String url = item != null && item.snippet() != null
+            ? extractThumbnailUrl(item.snippet().thumbnails())
+            : null;
+        if (url != null) {
+            return url;
         }
-        return "https://i" + (Math.abs(videoIdHash(item))) + ".ytimg.com/vi/" + item.id() + "/hqdefault.jpg";
+        String videoId = item != null && item.id() != null ? item.id() : "";
+        return "https://i" + Math.abs(videoIdHash(item)) + ".ytimg.com/vi/" + videoId + "/hqdefault.jpg";
+    }
+
+    private static String extractThumbnailUrl(YoutubeDtos.Thumbnails thumbnails) {
+        if (thumbnails == null) {
+            return null;
+        }
+        if (thumbnails.high() != null && thumbnails.high().url() != null) {
+            return thumbnails.high().url();
+        }
+        if (thumbnails.medium() != null && thumbnails.medium().url() != null) {
+            return thumbnails.medium().url();
+        }
+        return thumbnails.default_() != null ? thumbnails.default_().url() : null;
     }
 
     private int videoIdHash(Object item) {
